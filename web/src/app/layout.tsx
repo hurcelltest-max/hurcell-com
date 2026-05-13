@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/site/navbar";
 import { Toaster } from "@/components/ui/sonner";
+import { WhatsAppButton } from "@/components/site/whatsapp-button";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HurCELL | Futuristic Tech Store",
-  description: "Minimalist, sleek, and luxury technology store.",
+  title: "HurCELL | Teknoloji Mağazası",
+  description: "Minimalist, şık ve lüks teknoloji mağazası.",
 };
 
 export default function RootLayout({
@@ -25,11 +26,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="tr" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background`}>
         <Navbar />
         {children}
         <Toaster />
+        <WhatsAppButton />
       </body>
     </html>
   );

@@ -9,17 +9,17 @@ export default function Home() {
       <section className="py-32 container px-4 relative">
         <div className="flex items-center justify-between mb-16">
           <div>
-            <h2 className="text-4xl font-black tracking-tighter text-white mb-2">CURATED HARDWARE</h2>
-            <p className="text-blue-400/60 font-mono text-sm uppercase tracking-widest">Phase 01 // Essential Components</p>
+            <h2 className="text-4xl font-black tracking-tighter text-white mb-2">ÖZEL SEÇKİ DONANIMLAR</h2>
+            <p className="text-blue-400/60 font-mono text-sm uppercase tracking-widest">FAZ 01 // TEMEL BİLEŞENLER</p>
           </div>
           <div className="hidden md:block h-px flex-1 mx-12 bg-gradient-to-r from-blue-500/50 to-transparent" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {[
-            { name: "NEURAL LINK V.1", price: "2,499", desc: "Advanced cerebral interface with zero-latency sync." },
-            { name: "CORE PULSE X", price: "1,850", desc: "High-density energy cell for long-duration mobility." },
-            { name: "OPTIC SENSE 360", price: "3,200", desc: "Augmented reality visual processing unit." }
+            { name: "NÖRAL LİNK V.1", price: "2.499", desc: "Sıfır gecikmeli senkronizasyon ile gelişmiş beyin arayüzü." },
+            { name: "CORE PULSE X", price: "1.850", desc: "Uzun süreli mobilite için yüksek yoğunluklu enerji hücresi." },
+            { name: "OPTİK SENSE 360", price: "3.200", desc: "Artırılmış gerçeklik görsel işleme ünitesi." }
           ].map((product, i) => (
             <div 
               key={i} 
@@ -37,14 +37,13 @@ export default function Home() {
 
                 <div>
                   <div className="mb-6 aspect-square w-full bg-gradient-to-t from-white/5 to-transparent flex items-center justify-center overflow-hidden">
-                     {/* Image placeholder */}
                      <div className="w-3/4 h-3/4 border border-white/5 bg-white/5 rotate-45 group-hover:rotate-90 transition-transform duration-700 ease-in-out" />
                   </div>
                   <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">{product.name}</h3>
                   <p className="text-white/40 text-sm mb-6 line-clamp-2 font-light">{product.desc}</p>
                   <div className="flex items-center justify-between">
                     <p className="text-blue-400 font-mono font-bold text-xl">${product.price}.00</p>
-                    <span className="text-[10px] font-mono text-white/20 uppercase tracking-widest">Available Now</span>
+                    <span className="text-[10px] font-mono text-white/20 uppercase tracking-widest">ŞİMDİ ALINABİLİR</span>
                   </div>
                 </div>
               </div>
@@ -53,7 +52,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Luxury Brand Footer Section */}
       <section className="py-20 border-t border-white/5 bg-[#050507]">
         <div className="container px-4 text-center">
           <p className="text-white/10 font-mono text-[80px] md:text-[150px] font-black tracking-[0.2em] leading-none select-none">

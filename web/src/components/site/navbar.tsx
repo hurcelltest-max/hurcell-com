@@ -11,28 +11,28 @@ export const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           <div className="flex items-center">
-            <Link href="/" className="text-2xl font-bold tracking-tighter text-foreground neon-glow">
-              HUR<span className="text-primary">CELL</span>
+            <Link href="/" className="text-2xl font-bold tracking-tighter text-white">
+              HUR<span className="text-blue-500">CELL</span>
             </Link>
           </div>
 
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/shop" className="text-sm font-medium hover:text-primary transition-colors">SHOP</Link>
-            <Link href="/collections" className="text-sm font-medium hover:text-primary transition-colors">COLLECTIONS</Link>
-            <Link href="/about" className="text-sm font-medium hover:text-primary transition-colors">ABOUT</Link>
+            <Link href="/shop" className="text-xs font-mono tracking-widest hover:text-blue-400 transition-colors">MAĞAZA</Link>
+            <Link href="/collections" className="text-xs font-mono tracking-widest hover:text-blue-400 transition-colors">KOLEKSİYONLAR</Link>
+            <Link href="/about" className="text-xs font-mono tracking-widest hover:text-blue-400 transition-colors">HAKKIMIZDA</Link>
           </div>
 
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-white/60 hover:text-white">
               <Search className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-white/60 hover:text-white">
               <ShoppingCart className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-white/60 hover:text-white">
               <User className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon" className="md:hidden">
+            <Button variant="ghost" size="icon" className="md:hidden text-white/60 hover:text-white">
               <Menu className="w-5 h-5" />
             </Button>
           </div>

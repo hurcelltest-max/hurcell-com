@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Hurcell",
+    "slug": "hurcell",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hurcell.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#020203"
+      },
+      "package": "com.hurcell.app"
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#020203"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}

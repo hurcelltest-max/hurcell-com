@@ -25,23 +25,45 @@ export default function BulkUploadPage() {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
-        const products = results.data.map((item: any) => ({
-          // Map CSV columns to Supabase columns
-          // Assuming CSV has: id, name, description, price, stock, category, image_url
-          id: item.id || undefined, // undefined for auto-gen, or provide for update
-          name: item.name,
-          description: item.description,
-          price: parseFloat(item.price),
-          stock: parseInt(item.stock),
-          category: item.category,
-          image_url: item.image_url,
-          updated_at: new Date().toISOString(),
-        }))
+        const products = results.data.map((item: any) => {
+          // Handle both English and Turkish keys (from catalog)
+          const name = item["Ürün Adı"] || item.name;
+          const brand = item["Marka"] || item.brand;
+          const sku = item["SKU"] || item.sku;
+          const priceRaw = item["Fiyat"] || item.price;
+          
+          // Parse price: "1.320,00 TL" -> 1320.00
+          let price = 0;
+          if (typeof priceRaw === 'string') {
+            const cleanPrice = priceRaw.replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.');
+            price = parseFloat(cleanPrice);
+          } else {
+            price = parseFloat(priceRaw);
+          }
+
+          const stockRaw = item["Stok"] || item.stock;
+          const stock = typeof stockRaw === 'string'
+            ? parseInt(stockRaw.replace(/[^0-9]/g, '')) || 0
+            : parseInt(stockRaw) || 0;
+          
+          const category = item["Kategori"] || item.category;
+
+          return {
+            id: crypto.randomUUID(), // Ensure id is not null for new rows
+            name,
+            brand,
+            sku,
+            price: isNaN(price) ? 0 : price,
+            stock: isNaN(stock) ? 0 : stock,
+            category,
+            updated_at: new Date().toISOString(),
+          };
+        })
 
         try {
           const { error } = await supabase
             .from('products')
-            .upsert(products, { onConflict: 'id' })
+            .upsert(products, { onConflict: 'sku' })
 
           if (error) throw error
 

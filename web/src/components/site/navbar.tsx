@@ -18,7 +18,7 @@ export const Navbar = () => {
 
           <div className="hidden md:flex items-center space-x-8">
             <Link href="/shop" className="text-xs font-mono tracking-widest hover:text-blue-400 transition-colors">MAĞAZA</Link>
-            <Link href="/collections" className="text-xs font-mono tracking-widest hover:text-blue-400 transition-colors">KOLEKSİYONLAR</Link>
+            <Link href="/shop" className="text-xs font-mono tracking-widest hover:text-blue-400 transition-colors">KOLEKSİYONLAR</Link>
             <Link href="/about" className="text-xs font-mono tracking-widest hover:text-blue-400 transition-colors">HAKKIMIZDA</Link>
           </div>
 

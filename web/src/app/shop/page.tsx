@@ -18,12 +18,17 @@ type Product = {
   image_url: string | null;
 }
 
-// Helpers
 const formatRetailPrice = (price: number) => {
   if (!price || isNaN(price) || price === 0) return "0,00 TL";
   const ceilPrice = Math.ceil(price);
   const retailPrice = Math.floor(ceilPrice / 10) * 10 + 9;
-  return `${retailPrice.toLocaleString('tr-TR')},99 TL`;
+  
+  const formatter = new Intl.NumberFormat('tr-TR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  
+  return `${formatter.format(retailPrice)} TL`;
 };
 
 const getCategoryIcon = (category: string | null) => {
@@ -176,7 +181,7 @@ export default function ShopPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-6">
             {filteredProducts.map((product) => (
               <Card 
                 key={product.id} 

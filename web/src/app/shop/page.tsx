@@ -16,6 +16,13 @@ type Product = {
   image_url: string | null;
 }
 
+const formatRetailPrice = (price: number) => {
+  if (!price || isNaN(price) || price === 0) return "0,00 TL";
+  const ceilPrice = Math.ceil(price);
+  const retailPrice = Math.floor(ceilPrice / 10) * 10 + 9;
+  return `${retailPrice.toLocaleString('tr-TR')},99 TL`;
+};
+
 export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -92,7 +99,7 @@ export default function ShopPage() {
                 
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
                   <p className="text-lg font-black text-white">
-                    {product.price.toLocaleString('tr-TR')} ₺
+                    {formatRetailPrice(product.price)}
                   </p>
                   <button className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-blue-500 transition-colors text-white">
                     <ShoppingCart size={14} />

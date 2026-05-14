@@ -50,7 +50,7 @@ const getOSIcon = (name: string) => {
   const lowerName = name.toLowerCase();
   if (lowerName.includes('iphone') || lowerName.includes('ipad') || lowerName.includes('macbook') || lowerName.includes('apple')) {
     return <Apple className="w-3 h-3 text-white/40" />;
-  } else if (lowerName.includes('samsung') || lowerName.includes('xiaomi') || lowerName.includes('android')) {
+  } else if (lowerName.includes('samsung') || lowerName.includes('xiaomi') || lowerName.includes('android') || lowerName.includes('redmi') || lowerName.includes('poco') || lowerName.includes('huawei')) {
     return <Smartphone className="w-3 h-3 text-white/40" />;
   }
   return null;
@@ -231,9 +231,13 @@ export default function ShopPage() {
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-20 border border-white/5 rounded-2xl glass bg-slate-900/30">
-            <p className="text-white/40 font-mono text-xs tracking-widest uppercase">
-              Kriterlere uygun ürün bulunamadı.
+          <div className="text-center py-20 border border-white/5 rounded-2xl glass bg-slate-900/30 flex flex-col items-center justify-center min-h-[300px]">
+            <Zap className="w-12 h-12 text-white/10 mb-4" />
+            <h3 className="text-white/60 font-mono text-sm tracking-widest uppercase mb-2">
+              STOKLAR GÜNCELLENİYOR
+            </h3>
+            <p className="text-white/30 text-xs max-w-sm">
+              Cihaz stoklarımız şu an güncellenmektedir. Çok kısa süre içinde en yeni modellerle buradayız. Takipte kalın!
             </p>
           </div>
         ) : (

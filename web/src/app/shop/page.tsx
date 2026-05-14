@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, ShoppingCart, Zap, Apple, Smartphone, Edit3, ChevronDown, Plus, Home, Search, User, Sparkles, Headphones, Laptop } from 'lucide-react'
+import { Loader2, ShoppingCart, Apple, Smartphone, Edit3, ChevronDown, Plus, Home, Search, User, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -35,18 +35,6 @@ const formatRetailPrice = (price: number) => {
   return `${formatter.format(retailPrice)} TL`;
 };
 
-const getStockImage = (category: string | null) => {
-  if (!category) return "https://images.unsplash.com/photo-1531297172868-9f140ec02882?w=400&q=80";
-  const cat = category.toLowerCase();
-  if (cat.includes('telefon')) return "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&q=80";
-  if (cat.includes('tablet')) return "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400&q=80";
-  if (cat.includes('mac') || cat.includes('laptop') || cat.includes('bilgisayar')) return "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&q=80";
-  if (cat.includes('kulaklık') || cat.includes('ses')) return "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80";
-  if (cat.includes('şarj') || cat.includes('powerbank')) return "https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?w=400&q=80";
-  if (cat.includes('kablo') || cat.includes('bağlantı')) return "https://images.unsplash.com/photo-1616423640778-28d1b53229bd?w=400&q=80";
-  return "https://images.unsplash.com/photo-1531297172868-9f140ec02882?w=400&q=80"; // Tech placeholder
-}
-
 const isDeviceCategory = (cat: string | null) => {
   if (!cat) return false;
   const c = cat.toLowerCase();
@@ -56,9 +44,9 @@ const isDeviceCategory = (cat: string | null) => {
 const getOSIcon = (name: string) => {
   const lowerName = name.toLowerCase();
   if (lowerName.includes('iphone') || lowerName.includes('ipad') || lowerName.includes('macbook') || lowerName.includes('apple')) {
-    return <Apple className="w-3.5 h-3.5 text-slate-100 drop-shadow-md" />;
+    return <Apple className="w-3.5 h-3.5 text-slate-100" />;
   } else if (lowerName.includes('samsung') || lowerName.includes('xiaomi') || lowerName.includes('android') || lowerName.includes('redmi') || lowerName.includes('poco') || lowerName.includes('huawei')) {
-    return <Smartphone className="w-3.5 h-3.5 text-slate-100 drop-shadow-md" />;
+    return <Smartphone className="w-3.5 h-3.5 text-slate-100" />;
   }
   return null;
 }
@@ -165,90 +153,82 @@ export default function ShopPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-20 md:pb-0 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 md:pb-0 relative overflow-x-hidden">
       <style>{`
-        @keyframes custom-marquee {
-          0% { transform: translateX(100vw); }
-          100% { transform: translateX(-100%); }
-        }
-        .animate-custom-marquee {
-          display: inline-block;
-          white-space: nowrap;
-          animation: custom-marquee 25s linear infinite;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        .font-inter { font-family: 'Inter', sans-serif; }
       `}</style>
 
-      {/* Radiant Glow Background Elements */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[300px] bg-blue-600/20 blur-[150px] rounded-full pointer-events-none z-0"></div>
-
-      {/* Hero Campaign Slider (Işıltılı) */}
-      <div className="w-full bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-700 text-white overflow-hidden py-2 relative flex items-center z-50">
-        <div className="animate-custom-marquee flex gap-12 items-center w-full">
-          <span className="text-xs md:text-sm font-semibold tracking-wide flex items-center gap-2">
-            <Sparkles size={14} className="text-yellow-300" /> CİHAZLARDA DEV İNDİRİMLER BAŞLADI
-          </span>
-          <span className="text-xs md:text-sm font-semibold tracking-wide flex items-center gap-2">
-            <Zap size={14} className="text-yellow-300" /> MCDODO ŞARJ KABLOLARINDA 2 AL 1 ÖDE
-          </span>
-          <span className="text-xs md:text-sm font-semibold tracking-wide flex items-center gap-2">
-            <Headphones size={14} className="text-yellow-300" /> PREMIUM SES DENEYİMİ İÇİN TIKLAYIN
-          </span>
-          <span className="text-xs md:text-sm font-semibold tracking-wide flex items-center gap-2">
-            <Sparkles size={14} className="text-yellow-300" /> CİHAZLARDA DEV İNDİRİMLER BAŞLADI
-          </span>
-        </div>
-      </div>
-
-      <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8 pt-8 md:pt-12 flex flex-col md:flex-row gap-8">
+      {/* Set entire app to Inter */}
+      <div className="font-inter">
         
-        {/* Main Content Area */}
-        <div className="flex-1 min-w-0 flex flex-col w-full">
+        {/* Apple-Style Static Hero Section */}
+        <div className="w-full bg-[#0a0a0a] border-b border-slate-900 pt-28 pb-16 flex flex-col items-center justify-center text-center px-4 relative overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-blue-600/10 blur-[100px] pointer-events-none rounded-full"></div>
           
-          {/* Main Hero Group Buttons */}
-          <div className="grid grid-cols-2 gap-4 mb-10 max-w-2xl mx-auto w-full">
-            <button 
-              onClick={() => setMainTab('CİHAZLAR')}
-              className={cn(
-                "relative overflow-hidden flex flex-col items-center justify-center p-6 md:p-8 rounded-2xl transition-all duration-300 border",
-                mainTab === 'CİHAZLAR' 
-                  ? "bg-gradient-to-br from-blue-600 to-indigo-800 border-blue-400 shadow-[0_0_30px_rgba(37,99,235,0.3)] text-white scale-[1.02]" 
-                  : "bg-slate-900/80 border-slate-800 text-slate-400 hover:bg-slate-800 hover:border-slate-700 hover:text-white"
-              )}
-            >
-              <Smartphone size={32} className="mb-3" />
-              <span className="font-bold tracking-widest text-sm md:text-base">CİHAZLAR</span>
-              {mainTab === 'CİHAZLAR' && <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity"></div>}
+          <h1 className="text-3xl md:text-5xl font-semibold text-white tracking-tight mb-4 z-10">
+            Premium Deneyim. <br className="md:hidden" />
+            <span className="text-slate-400">Şimdi Sizinle.</span>
+          </h1>
+          <p className="text-slate-400 text-sm md:text-base font-light max-w-lg mb-8 z-10">
+            En yeni akıllı cihazlar ve HurCELL kalitesine sahip orijinal aksesuarları keşfedin.
+          </p>
+          <div className="flex gap-4 z-10">
+            <button className="bg-white text-black px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-slate-200 transition-colors">
+              Hemen Al
             </button>
-            <button 
-              onClick={() => setMainTab('AKSESUARLAR')}
-              className={cn(
-                "relative overflow-hidden flex flex-col items-center justify-center p-6 md:p-8 rounded-2xl transition-all duration-300 border",
-                mainTab === 'AKSESUARLAR' 
-                  ? "bg-gradient-to-br from-indigo-600 to-purple-800 border-purple-400 shadow-[0_0_30px_rgba(79,70,229,0.3)] text-white scale-[1.02]" 
-                  : "bg-slate-900/80 border-slate-800 text-slate-400 hover:bg-slate-800 hover:border-slate-700 hover:text-white"
-              )}
-            >
-              <Headphones size={32} className="mb-3" />
-              <span className="font-bold tracking-widest text-sm md:text-base">AKSESUARLAR</span>
-              {mainTab === 'AKSESUARLAR' && <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity"></div>}
+            <button className="text-blue-500 text-sm font-medium hover:underline flex items-center gap-1">
+              Daha Fazla Bilgi <ChevronRight size={16} />
             </button>
+          </div>
+        </div>
+
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 pt-8 md:pt-12 flex flex-col gap-8">
+          
+          {/* Main Division Tabs (Cihazlar / Aksesuarlar) */}
+          <div className="flex justify-center border-b border-slate-800 pb-px mb-8">
+            <div className="flex gap-12">
+              <button
+                onClick={() => setMainTab('CİHAZLAR')}
+                className={cn(
+                  "pb-4 text-sm md:text-base font-semibold tracking-wide transition-all relative",
+                  mainTab === 'CİHAZLAR' ? "text-white" : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                CİHAZLAR
+                {mainTab === 'CİHAZLAR' && (
+                  <span className="absolute bottom-0 left-0 w-full h-[2px] bg-white"></span>
+                )}
+              </button>
+              <button
+                onClick={() => setMainTab('AKSESUARLAR')}
+                className={cn(
+                  "pb-4 text-sm md:text-base font-semibold tracking-wide transition-all relative",
+                  mainTab === 'AKSESUARLAR' ? "text-white" : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                AKSESUARLAR
+                {mainTab === 'AKSESUARLAR' && (
+                  <span className="absolute bottom-0 left-0 w-full h-[2px] bg-white"></span>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Filters Bar */}
-          <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-between bg-slate-900/50 p-4 rounded-xl border border-slate-800 backdrop-blur-md">
+          <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-between">
             
             <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-              <span className="text-slate-500 text-xs font-bold uppercase tracking-widest mr-2 flex-shrink-0">KATEGORİ:</span>
               <div className="flex gap-2">
                 {categories.map(category => (
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
                     className={cn(
-                      "px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
+                      "px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap border",
                       selectedCategory === category
-                        ? "bg-blue-500 text-white shadow-[0_4px_12px_rgba(59,130,246,0.3)]"
-                        : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                        ? "bg-white text-black border-white"
+                        : "bg-transparent text-slate-300 border-slate-700 hover:border-slate-500"
                     )}
                   >
                     {category}
@@ -260,14 +240,14 @@ export default function ShopPage() {
             <div className="relative z-20 w-full md:w-48 mt-2 md:mt-0">
                <button 
                   onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-                  className="w-full flex items-center justify-between gap-4 px-4 py-2.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 transition-colors text-xs font-bold text-slate-200"
+                  className="w-full flex items-center justify-between gap-4 px-4 py-2 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-800 transition-colors text-xs font-medium text-slate-300"
                >
-                 <span>MARKA: <span className="text-blue-400 ml-1">{selectedBrand}</span></span>
-                 <ChevronDown size={14} className={cn("transition-transform text-slate-400", categoryDropdownOpen ? "rotate-180" : "")} />
+                 <span>Marka: <span className="text-white ml-1">{selectedBrand}</span></span>
+                 <ChevronDown size={14} className={cn("transition-transform text-slate-500", categoryDropdownOpen ? "rotate-180" : "")} />
                </button>
 
                {categoryDropdownOpen && (
-                 <div className="absolute top-full right-0 mt-2 w-full border border-slate-700 rounded-lg bg-slate-800 shadow-2xl overflow-hidden z-50 max-h-60 overflow-y-auto">
+                 <div className="absolute top-full right-0 mt-2 w-full border border-slate-800 rounded-xl bg-slate-900 shadow-2xl overflow-hidden z-50 max-h-60 overflow-y-auto">
                     {brands.map(brand => (
                       <button
                         key={brand}
@@ -276,10 +256,10 @@ export default function ShopPage() {
                           setCategoryDropdownOpen(false);
                         }}
                         className={cn(
-                          "w-full text-left px-4 py-3 text-xs font-semibold transition-colors border-b border-slate-700/50 last:border-0",
+                          "w-full text-left px-4 py-3 text-xs font-medium transition-colors border-b border-slate-800 last:border-0",
                           selectedBrand === brand
-                            ? "bg-slate-700 text-blue-400"
-                            : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                            ? "bg-slate-800 text-white"
+                            : "text-slate-400 hover:bg-slate-800 hover:text-white"
                         )}
                       >
                         {brand}
@@ -293,28 +273,29 @@ export default function ShopPage() {
           {/* Product Grid */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
           ) : filteredProducts.length === 0 ? (
-             <div className="flex flex-col items-center justify-center py-20 min-h-[300px] border border-slate-800 rounded-2xl bg-slate-900/50">
-               <span className="text-slate-400 text-sm font-semibold uppercase tracking-widest text-center">
-                 Bu filtrede ürün bulunamadı.
+             <div className="flex flex-col items-center justify-center py-20 min-h-[300px]">
+               <span className="text-slate-500 text-sm font-light text-center">
+                 Bu alanda henüz ürün bulunmuyor.
                </span>
              </div>
           ) : (
             <div className="flex-1 flex flex-col">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {/* Native App 2-column mobile grid, 4-column desktop */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
                 {currentProducts.map((product) => (
                   <Card 
                     key={product.id} 
-                    className="group flex flex-col bg-slate-900 border-slate-800 hover:border-slate-600 rounded-2xl overflow-hidden transition-all duration-300 shadow-lg hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)]"
+                    className="group flex flex-col bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl overflow-hidden transition-all duration-300 shadow-none hover:shadow-xl"
                   >
-                    {/* Visual Area with Real Image or Stock */}
-                    <div className="aspect-[4/5] relative bg-slate-800 overflow-hidden">
+                    {/* Visual Area strictly relying on real image or brand-text placeholder */}
+                    <div className="aspect-square relative bg-[#0a0a0a] flex items-center justify-center overflow-hidden border-b border-slate-800/50">
                       {/* Edit Button */}
                       <button 
                         onClick={(e) => handleEditPrice(e, product)}
-                        className="absolute top-2 left-2 z-30 text-white/50 hover:text-white bg-black/40 p-1.5 rounded-full backdrop-blur-md transition-colors opacity-0 group-hover:opacity-100"
+                        className="absolute top-2 left-2 z-30 text-white/40 hover:text-white bg-slate-900/80 p-1.5 rounded-full backdrop-blur-md transition-colors opacity-0 group-hover:opacity-100"
                         title="Fiyatı Düzenle"
                       >
                         <Edit3 size={14} />
@@ -325,49 +306,57 @@ export default function ShopPage() {
                         {isDeviceCategory(product.category) && getOSIcon(product.name)}
                       </div>
 
-                      {/* Image */}
-                      <img 
-                        src={product.image_url || getStockImage(product.category)} 
-                        alt={product.name}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
-                      
-                      {/* Gradient Overlay for better text readability if we put text, or just aesthetic */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-80"></div>
+                      {product.image_url ? (
+                        <img 
+                          src={product.image_url} 
+                          alt={product.name}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
+                      ) : (
+                        // Sleek Minimalist Placeholder when no real image exists
+                        <div className="flex flex-col items-center justify-center p-4 text-center opacity-40">
+                          <span className="text-3xl font-light tracking-widest uppercase mb-1">
+                            {product.brand ? product.brand.charAt(0) : 'H'}
+                          </span>
+                          <span className="text-[10px] font-medium tracking-[0.2em] uppercase">
+                            {product.brand || 'HURCELL'}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Dynamic Discount Badge */}
                       {product.discount_rate && product.discount_rate > 0 && (
-                        <div className="absolute bottom-3 left-3 z-30 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
-                          <Zap size={12} fill="currentColor" /> -%{product.discount_rate}
+                        <div className="absolute bottom-2 left-2 z-30 bg-white text-black text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-sm flex items-center gap-1">
+                          -%{product.discount_rate}
                         </div>
                       )}
                     </div>
 
                     {/* Content Area */}
-                    <CardContent className="p-4 flex flex-col flex-1">
-                      <div className="mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <CardContent className="p-3 md:p-4 flex flex-col flex-1">
+                      <div className="mb-1 text-[9px] font-semibold text-slate-500 uppercase tracking-widest">
                         {product.brand || 'PREMIUM'}
                       </div>
                       
-                      <h3 className="font-semibold text-slate-100 text-sm mb-4 line-clamp-2 leading-snug flex-1">
+                      <h3 className="font-medium text-slate-200 text-xs md:text-sm mb-4 line-clamp-2 leading-snug flex-1">
                         {product.name}
                       </h3>
                       
-                      <div className="flex flex-col mb-4">
-                        {product.old_price && (
-                          <span className="text-xs text-slate-500 line-through mb-0.5 font-medium">
-                            {formatRetailPrice(product.old_price)}
+                      <div className="flex items-end justify-between mt-auto">
+                        <div className="flex flex-col">
+                          {product.old_price && (
+                            <span className="text-[10px] text-slate-600 line-through mb-0.5 font-light">
+                              {formatRetailPrice(product.old_price)}
+                            </span>
+                          )}
+                          <span className="text-sm md:text-base font-semibold text-white tracking-tight">
+                            {formatRetailPrice(product.price)}
                           </span>
-                        )}
-                        <span className="text-lg font-bold text-blue-400 tracking-tight">
-                          {formatRetailPrice(product.price)}
-                        </span>
+                        </div>
+                        <button className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-white hover:bg-white hover:text-black transition-colors">
+                          <ShoppingCart size={14} />
+                        </button>
                       </div>
-
-                      {/* Big App-Like Add to Cart Button */}
-                      <button className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors active:scale-[0.98] shadow-[0_4px_14px_rgba(37,99,235,0.4)]">
-                        <ShoppingCart size={18} /> SEPETE EKLE
-                      </button>
                     </CardContent>
                   </Card>
                 ))}
@@ -378,10 +367,10 @@ export default function ShopPage() {
                 <div className="mt-12 mb-8 flex justify-center items-center">
                   <button
                     onClick={() => setVisibleCount(prev => prev + 12)}
-                    className="group flex items-center gap-2 px-8 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 text-white text-sm font-bold rounded-xl transition-all duration-300 shadow-md"
+                    className="group flex items-center gap-2 px-6 py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-full transition-all duration-300"
                   >
-                    Daha Fazla Göster
-                    <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" />
+                    Daha Fazla
+                    <Plus size={14} className="group-hover:rotate-90 transition-transform duration-300" />
                   </button>
                 </div>
               )}
@@ -391,23 +380,22 @@ export default function ShopPage() {
       </div>
 
       {/* Mobile App Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 w-full bg-slate-950/90 backdrop-blur-xl border-t border-slate-800 flex justify-around items-center h-16 md:hidden z-50 pb-safe">
-         <button className="flex flex-col items-center gap-1 text-blue-500 w-full py-2">
-            <Home size={22} className="stroke-[2.5px]" /> 
-            <span className="text-[10px] font-bold">Mağaza</span>
+      <div className="fixed bottom-0 left-0 w-full bg-slate-950/80 backdrop-blur-2xl border-t border-slate-900 flex justify-around items-center h-[68px] md:hidden z-50 pb-safe">
+         <button className="flex flex-col items-center gap-1 text-white w-full py-2">
+            <Home size={22} className="stroke-[1.5px]" /> 
+            <span className="text-[10px] font-medium">Mağaza</span>
          </button>
          <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 w-full py-2 transition-colors">
-            <Search size={22} /> 
-            <span className="text-[10px] font-semibold">Keşfet</span>
+            <Search size={22} className="stroke-[1.5px]" /> 
+            <span className="text-[10px] font-medium">Keşfet</span>
          </button>
          <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 w-full py-2 transition-colors relative">
-            <ShoppingCart size={22} /> 
-            <span className="text-[10px] font-semibold">Sepet</span>
-            <span className="absolute top-1 right-[25%] bg-blue-600 text-white rounded-full w-4 h-4 text-[9px] font-bold flex items-center justify-center border-2 border-slate-950">0</span>
+            <ShoppingCart size={22} className="stroke-[1.5px]" /> 
+            <span className="text-[10px] font-medium">Sepet</span>
          </button>
          <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 w-full py-2 transition-colors">
-            <User size={22} /> 
-            <span className="text-[10px] font-semibold">Profil</span>
+            <User size={22} className="stroke-[1.5px]" /> 
+            <span className="text-[10px] font-medium">Profil</span>
          </button>
       </div>
     </div>

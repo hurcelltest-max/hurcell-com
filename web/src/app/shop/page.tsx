@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, ShoppingCart, Apple, Smartphone, Edit3, Plus, Home, Search, User, ChevronRight } from 'lucide-react'
+import { Loader2, ShoppingCart, Apple, Smartphone, Edit3, Plus, Home, Search, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -45,9 +45,9 @@ const isDeviceCategory = (cat: string | null) => {
 const getOSIcon = (name: string) => {
   const lowerName = name.toLowerCase();
   if (lowerName.includes('iphone') || lowerName.includes('ipad') || lowerName.includes('macbook') || lowerName.includes('apple')) {
-    return <Apple className="w-3 h-3 text-slate-100" />;
+    return <Apple className="w-3 h-3 text-slate-400" />;
   } else if (lowerName.includes('samsung') || lowerName.includes('xiaomi') || lowerName.includes('android') || lowerName.includes('redmi') || lowerName.includes('poco') || lowerName.includes('huawei')) {
-    return <Smartphone className="w-3 h-3 text-slate-100" />;
+    return <Smartphone className="w-3 h-3 text-slate-400" />;
   }
   return null;
 }
@@ -58,7 +58,6 @@ export default function ShopPage() {
   
   // App Architecture State
   const [mainTab, setMainTab] = useState<'CİHAZLAR' | 'AKSESUARLAR'>('CİHAZLAR')
-  
   const [selectedCategory, setSelectedCategory] = useState<string>('Tümü')
 
   // Load More Pagination State
@@ -154,50 +153,35 @@ export default function ShopPage() {
         }
       `}</style>
 
-      <div className="font-inter">
+      <div className="font-inter pt-24">
         
-        {/* Premium Business Blue Hero Section */}
-        <div className="w-full bg-[#050B14] border-b border-blue-900/30 pt-28 pb-12 flex flex-col items-center justify-center text-center px-4 relative overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-600/10 blur-[120px] pointer-events-none rounded-full"></div>
+        <div className="max-w-[1600px] mx-auto px-4 md:px-8 flex flex-col gap-6">
           
-          <h1 className="text-3xl md:text-5xl font-semibold text-white tracking-tight mb-3 z-10">
-            Premium Deneyim.
-          </h1>
-          <p className="text-blue-200/60 text-sm md:text-base font-light max-w-lg mb-6 z-10">
-            HurCELL vizyonuyla en yeni akıllı cihazlar ve orijinal aksesuarları keşfedin.
-          </p>
-          <button className="z-10 text-blue-500 text-sm font-medium hover:underline flex items-center gap-1">
-            Kampanyaları İncele <ChevronRight size={16} />
-          </button>
-        </div>
-
-        <div className="max-w-[1600px] mx-auto px-4 md:px-8 pt-8 flex flex-col gap-6">
-          
-          {/* Main Division Tabs (Cihazlar / Aksesuarlar) */}
-          <div className="flex justify-center border-b border-slate-800/80 mb-2">
+          {/* Main Division Tabs (Cihazlar / Aksesuarlar) - Apple Store Thin Line Style */}
+          <div className="flex justify-center border-b border-slate-800 mb-2">
             <div className="flex gap-12">
               <button
                 onClick={() => setMainTab('CİHAZLAR')}
                 className={cn(
-                  "pb-4 text-sm md:text-base font-semibold tracking-wide transition-all relative",
+                  "pb-3 text-sm md:text-base font-medium tracking-wide transition-all relative",
                   mainTab === 'CİHAZLAR' ? "text-white" : "text-slate-500 hover:text-slate-300"
                 )}
               >
-                CİHAZLAR
+                Cihazlar
                 {mainTab === 'CİHAZLAR' && (
-                  <span className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]"></span>
+                  <span className="absolute bottom-0 left-0 w-full h-[1px] bg-white"></span>
                 )}
               </button>
               <button
                 onClick={() => setMainTab('AKSESUARLAR')}
                 className={cn(
-                  "pb-4 text-sm md:text-base font-semibold tracking-wide transition-all relative",
+                  "pb-3 text-sm md:text-base font-medium tracking-wide transition-all relative",
                   mainTab === 'AKSESUARLAR' ? "text-white" : "text-slate-500 hover:text-slate-300"
                 )}
               >
-                AKSESUARLAR
+                Aksesuarlar
                 {mainTab === 'AKSESUARLAR' && (
-                  <span className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]"></span>
+                  <span className="absolute bottom-0 left-0 w-full h-[1px] bg-white"></span>
                 )}
               </button>
             </div>
@@ -211,9 +195,9 @@ export default function ShopPage() {
                   key={category}
                   onClick={() => setSelectedCategory(category)}
                   className={cn(
-                    "px-5 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap transition-all border",
+                    "px-4 py-1.5 rounded-full text-[11px] font-medium tracking-wider whitespace-nowrap transition-all border",
                     selectedCategory === category
-                      ? "bg-blue-900/40 text-blue-400 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                      ? "bg-white text-slate-900 border-white"
                       : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600 hover:text-slate-200"
                   )}
                 >
@@ -226,7 +210,7 @@ export default function ShopPage() {
           {/* Product Grid */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
             </div>
           ) : filteredProducts.length === 0 ? (
              <div className="flex flex-col items-center justify-center py-20 min-h-[300px]">
@@ -237,18 +221,18 @@ export default function ShopPage() {
           ) : (
             <div className="flex-1 flex flex-col">
               {/* Native App 2-column mobile grid, 6-column desktop grid for compactness */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
                 {currentProducts.map((product) => (
                   <Card 
                     key={product.id} 
-                    className="group flex flex-col bg-slate-900/60 border border-slate-800/80 hover:bg-slate-900 rounded-2xl overflow-hidden transition-all duration-500 hover:border-blue-500/30 hover:shadow-[0_0_25px_rgba(37,99,235,0.15)]"
+                    className="group flex flex-col bg-slate-950 border border-slate-800 hover:border-slate-600 rounded-xl overflow-hidden transition-all duration-300 shadow-none"
                   >
                     {/* Visual Area strictly relying on real image or brand-text placeholder */}
-                    <div className="aspect-square relative bg-[#0B101A] flex items-center justify-center overflow-hidden border-b border-slate-800/50 p-4">
+                    <div className="aspect-square relative bg-slate-900 flex items-center justify-center overflow-hidden border-b border-slate-800/50">
                       {/* Edit Button */}
                       <button 
                         onClick={(e) => handleEditPrice(e, product)}
-                        className="absolute top-2 left-2 z-30 text-white/40 hover:text-white bg-slate-900/80 p-1.5 rounded-full backdrop-blur-md transition-colors opacity-0 group-hover:opacity-100"
+                        className="absolute top-2 left-2 z-30 text-white/40 hover:text-white bg-slate-950/80 p-1.5 rounded-full backdrop-blur-md transition-colors opacity-0 group-hover:opacity-100"
                         title="Fiyatı Düzenle"
                       >
                         <Edit3 size={14} />
@@ -263,15 +247,12 @@ export default function ShopPage() {
                         <img 
                           src={product.image_url} 
                           alt={product.name}
-                          className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105"
+                          className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
                         />
                       ) : (
                         // Sleek Minimalist Placeholder when no real image exists
-                        <div className="flex flex-col items-center justify-center p-4 text-center opacity-30 group-hover:opacity-60 transition-opacity duration-500">
-                          <span className="text-4xl font-light tracking-widest uppercase mb-1">
-                            {product.brand ? product.brand.charAt(0) : 'H'}
-                          </span>
-                          <span className="text-[9px] font-medium tracking-[0.2em] uppercase">
+                        <div className="flex w-full h-full bg-slate-900 items-center justify-center p-4">
+                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest text-center opacity-60">
                             {product.brand || 'HURCELL'}
                           </span>
                         </div>
@@ -279,16 +260,16 @@ export default function ShopPage() {
 
                       {/* Dynamic Discount Badge */}
                       {product.discount_rate && product.discount_rate > 0 && (
-                        <div className="absolute bottom-2 left-2 z-30 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm flex items-center gap-1">
+                        <div className="absolute bottom-2 left-2 z-30 bg-white text-black text-[10px] font-bold px-1.5 py-0.5 rounded-md shadow-sm">
                           -%{product.discount_rate}
                         </div>
                       )}
                     </div>
 
                     {/* Content Area */}
-                    <CardContent className="p-3 md:p-4 flex flex-col flex-1">
-                      <div className="mb-1 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                        {product.brand || 'PREMIUM'}
+                    <CardContent className="p-3 flex flex-col flex-1">
+                      <div className="mb-1 text-[9px] font-medium text-slate-500 uppercase tracking-widest">
+                        {product.brand || 'HURCELL'}
                       </div>
                       
                       <h3 className="font-medium text-slate-200 text-xs mb-3 line-clamp-2 leading-snug flex-1">
@@ -301,14 +282,14 @@ export default function ShopPage() {
                             {formatRetailPrice(product.old_price)}
                           </span>
                         )}
-                        <span className="text-sm font-bold text-blue-400 tracking-tight">
+                        <span className="text-sm font-semibold text-white tracking-tight">
                           {formatRetailPrice(product.price)}
                         </span>
                       </div>
 
                       {/* Prominent Add to Cart Button */}
-                      <button className="w-full bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white border border-blue-600/30 hover:border-transparent py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300">
-                        <ShoppingCart size={14} /> Sepete Ekle
+                      <button className="w-full bg-slate-800 hover:bg-white text-slate-300 hover:text-black border border-slate-700 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300">
+                        <ShoppingCart size={12} /> Sepete Ekle
                       </button>
                     </CardContent>
                   </Card>
@@ -320,9 +301,9 @@ export default function ShopPage() {
                 <div className="mt-12 mb-8 flex justify-center items-center">
                   <button
                     onClick={() => setVisibleCount(prev => prev + 18)}
-                    className="group flex items-center gap-2 px-6 py-2.5 bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-300 text-xs font-semibold rounded-full transition-all duration-300 shadow-sm hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                    className="group flex items-center gap-2 px-6 py-2 bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-300 text-xs font-medium rounded-full transition-all duration-300 shadow-sm"
                   >
-                    Daha Fazla Yükle
+                    Daha Fazla Göster
                     <Plus size={14} className="group-hover:rotate-90 transition-transform duration-300" />
                   </button>
                 </div>
@@ -333,22 +314,22 @@ export default function ShopPage() {
       </div>
 
       {/* Mobile App Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 w-full bg-[#050B14]/90 backdrop-blur-xl border-t border-slate-800/80 flex justify-around items-center h-[68px] md:hidden z-50 pb-safe">
-         <button className="flex flex-col items-center gap-1 text-blue-500 w-full py-2">
-            <Home size={20} className="stroke-[2px]" /> 
-            <span className="text-[9px] font-semibold uppercase tracking-wider">Mağaza</span>
+      <div className="fixed bottom-0 left-0 w-full bg-slate-950/90 backdrop-blur-xl border-t border-slate-900 flex justify-around items-center h-[68px] md:hidden z-50 pb-safe">
+         <button className="flex flex-col items-center gap-1 text-white w-full py-2">
+            <Home size={20} className="stroke-[1.5px]" /> 
+            <span className="text-[9px] font-medium tracking-wide">Mağaza</span>
          </button>
          <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 w-full py-2 transition-colors">
-            <Search size={20} className="stroke-[2px]" /> 
-            <span className="text-[9px] font-semibold uppercase tracking-wider">Keşfet</span>
+            <Search size={20} className="stroke-[1.5px]" /> 
+            <span className="text-[9px] font-medium tracking-wide">Keşfet</span>
          </button>
          <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 w-full py-2 transition-colors relative">
-            <ShoppingCart size={20} className="stroke-[2px]" /> 
-            <span className="text-[9px] font-semibold uppercase tracking-wider">Sepet</span>
+            <ShoppingCart size={20} className="stroke-[1.5px]" /> 
+            <span className="text-[9px] font-medium tracking-wide">Sepet</span>
          </button>
          <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 w-full py-2 transition-colors">
-            <User size={20} className="stroke-[2px]" /> 
-            <span className="text-[9px] font-semibold uppercase tracking-wider">Profil</span>
+            <User size={20} className="stroke-[1.5px]" /> 
+            <span className="text-[9px] font-medium tracking-wide">Profil</span>
          </button>
       </div>
     </div>

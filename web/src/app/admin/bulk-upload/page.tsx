@@ -14,75 +14,104 @@ export default function BulkUploadPage() {
   const [results, setResults] = useState<{ success: number; errors: string[] } | null>(null)
   const supabase = createClient()
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (!file) return
+  const processData = async (data: any[]) => {
+    const products = data.map((item: any) => {
+      // Robust header matching (case-insensitive and trimmed)
+      const findValue = (keys: string[]) => {
+        const foundKey = Object.keys(item).find(k => 
+          keys.some(key => k.trim().toLowerCase() === key.toLowerCase())
+        );
+        return foundKey ? item[foundKey] : null;
+      };
 
-    setLoading(true)
-    setResults(null)
+      const name = findValue(["Ürün Adı", "name", "product_name", "productName"]);
+      const brand = findValue(["Marka", "brand"]);
+      const sku = findValue(["SKU", "barkod", "barcode"]);
+      const priceRaw = findValue(["Fiyat", "price"]);
+      const stockRaw = findValue(["Stok", "stock", "quantity"]);
+      const category = findValue(["Kategori", "category"]);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        const products = results.data.map((item: any) => {
-          // Handle both English and Turkish keys (from catalog)
-          const name = item["Ürün Adı"] || item.name;
-          const brand = item["Marka"] || item.brand;
-          const sku = item["SKU"] || item.sku;
-          const priceRaw = item["Fiyat"] || item.price;
-          
-          // Parse price: "1.320,00 TL" -> 1320.00
-          let price = 0;
-          if (typeof priceRaw === 'string') {
-            const cleanPrice = priceRaw.replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.');
-            price = parseFloat(cleanPrice);
-          } else {
-            price = parseFloat(priceRaw);
-          }
-
-          const stockRaw = item["Stok"] || item.stock;
-          const stock = typeof stockRaw === 'string'
-            ? parseInt(stockRaw.replace(/[^0-9]/g, '')) || 0
-            : parseInt(stockRaw) || 0;
-          
-          const category = item["Kategori"] || item.category;
-
-          return {
-            id: crypto.randomUUID(), // Ensure id is not null for new rows
-            name,
-            brand,
-            sku,
-            price: isNaN(price) ? 0 : price,
-            stock: isNaN(stock) ? 0 : stock,
-            category,
-            updated_at: new Date().toISOString(),
-          };
-        })
-
-        try {
-          const { error } = await supabase
-            .from('products')
-            .upsert(products, { onConflict: 'sku' })
-
-          if (error) throw error
-
-          setResults({ success: products.length, errors: [] })
-          toast.success(`Successfully upserted ${products.length} products.`)
-        } catch (err: any) {
-          console.error(err)
-          setResults({ success: 0, errors: [err.message] })
-          toast.error('Failed to upload products.')
-        } finally {
-          setLoading(false)
-        }
-      },
-      error: (err) => {
-        console.error(err)
-        setLoading(false)
-        toast.error('CSV Parsing failed.')
+      // Parse price
+      let price = 0;
+      if (typeof priceRaw === 'string') {
+        const cleanPrice = priceRaw.replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.');
+        price = parseFloat(cleanPrice);
+      } else {
+        price = parseFloat(priceRaw);
       }
-    })
+
+      // Parse stock
+      const stock = typeof stockRaw === 'string'
+        ? parseInt(stockRaw.replace(/[^0-9]/g, '')) || 0
+        : parseInt(stockRaw) || 0;
+
+      return {
+        id: crypto.randomUUID(),
+        name: name || "Adsız Ürün", // Fallback to avoid NOT NULL constraint
+        brand,
+        sku,
+        price: isNaN(price) ? 0 : price,
+        stock: isNaN(stock) ? 0 : stock,
+        category,
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .upsert(products, { onConflict: 'sku' });
+
+      if (error) throw error;
+
+      setResults({ success: products.length, errors: [] });
+      toast.success(`Successfully processed ${products.length} products.`);
+    } catch (err: any) {
+      console.error(err);
+      setResults({ success: 0, errors: [err.message] });
+      toast.error('Failed to upload products.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+
+    setLoading(true);
+    setResults(null);
+
+    const isJson = file.name.endsWith('.json');
+
+    if (isJson) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const content = e.target?.result as string;
+          const data = JSON.parse(content);
+          await processData(Array.isArray(data) ? data : [data]);
+        } catch (err: any) {
+          console.error(err);
+          setResults({ success: 0, errors: ["Invalid JSON format"] });
+          setLoading(false);
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          await processData(results.data);
+        },
+        error: (err) => {
+          console.error(err);
+          setLoading(false);
+          toast.error('CSV Parsing failed.');
+        }
+      });
+    }
   }, [supabase])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

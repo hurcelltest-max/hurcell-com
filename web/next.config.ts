@@ -6,11 +6,8 @@ const nextConfig: NextConfig = {
     // your project has type errors.
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
-  },
+  // LİNKLERİN 404 VERMESİNİ ENGELLEYEN SİHİRLİ AYAR
+  trailingSlash: true,
   // Ensure iyzipay is treated as a server-side external package to avoid Turbopack bundling issues
   serverExternalPackages: ['iyzipay'],
 };

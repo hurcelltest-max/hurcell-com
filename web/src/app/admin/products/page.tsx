@@ -72,6 +72,21 @@ export default function ProductsPage() {
               </div>
             </DialogContent>
           </Dialog>
+          <Button
+            variant="ghost"
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/admin/add-test-product', { method: 'POST' })
+                const json = await res.json()
+                if (json.ok) alert(json.message || 'Inserted')
+                else alert('Error: ' + (json.error || 'unknown'))
+              } catch (e) {
+                alert('Network error')
+              }
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Insert Test Product
+          </Button>
         </div>
       </div>
 

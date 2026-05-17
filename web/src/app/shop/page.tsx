@@ -1,337 +1,390 @@
 'use client'
 
-import React, { useEffect, useState, useMemo } from 'react'
-import { createClient } from '@/lib/supabase'
-import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, ShoppingCart, Apple, Smartphone, Edit3, Plus, Home, Search, User } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { ChevronRight, ShoppingBag } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 
-// Types
+// Product Type
 type Product = {
   id: string;
   name: string;
-  brand: string | null;
-  sku: string | null;
+  model: string;
+  brand: string;
+  category: string;
   price: number;
-  old_price?: number | null;
-  discount_rate?: number | null;
-  stock: number;
-  category: string | null;
-  image_url: string | null;
+  sku: string;
+  image_url: string;
 }
 
-// Helpers
-const formatRetailPrice = (price: number) => {
-  if (!price || isNaN(price) || price === 0) return "0,00 TL";
-  const ceilPrice = Math.ceil(price);
-  const retailBase = Math.floor(ceilPrice / 10) * 10 + 9;
-  const retailPrice = retailBase + 0.99; // Explicitly ensure ,99
-  
-  const formatter = new Intl.NumberFormat('tr-TR', {
+// Format price to Turkish locale
+const formatPrice = (price: number) => {
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
-  
-  return `${formatter.format(retailPrice)} TL`;
+  }).format(price);
 };
 
-const isDeviceCategory = (cat: string | null) => {
-  if (!cat) return false;
-  const c = cat.toLowerCase();
-  return c.includes('telefon') || c.includes('tablet') || c.includes('sıfır') || c.includes('yenilenmiş') || c.includes('teşhir') || c.includes('cihaz') || c.includes('macbook');
-}
+// All Products from PDF
+const PRODUCTS: Product[] = [
+  // Apple Elite Series
+  {
+    id: '194253337331',
+    name: 'Apple 35W Dual Power Adaptör',
+    model: 'A2676',
+    brand: 'Apple',
+    category: 'Şarj Adaptörü',
+    price: 2999,
+    sku: '194253337331',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '195949121272',
+    name: 'Apple 20W Adaptör',
+    model: 'A2347',
+    brand: 'Apple',
+    category: 'Şarj Adaptörü',
+    price: 869,
+    sku: '195949121272',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '190199351332',
+    name: 'Apple 96W Adaptör',
+    model: 'A2166',
+    brand: 'Apple',
+    category: 'Şarj Adaptörü',
+    price: 4499,
+    sku: '190199351332',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '194252025062',
+    name: 'Apple 12W Adaptör',
+    model: 'A2167',
+    brand: 'Apple',
+    category: 'Şarj Adaptörü',
+    price: 599,
+    sku: '194252025062',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '885909627349',
+    name: 'Apple 5W Adaptör',
+    model: 'A1400',
+    brand: 'Apple',
+    category: 'Şarj Adaptörü',
+    price: 549,
+    sku: '885909627349',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '195949085611',
+    name: 'Apple USB-C Lightning Kablo 1m',
+    model: 'a2561',
+    brand: 'Apple',
+    category: 'Kablo',
+    price: 749,
+    sku: '195949085611',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '194253494850',
+    name: 'Apple USB-C to USB-C 1m',
+    model: 'A2795',
+    brand: 'Apple',
+    category: 'Kablo',
+    price: 849,
+    sku: '194253494850',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '195949093432',
+    name: 'Apple Type-C Kablo 2m',
+    model: 'A2794',
+    brand: 'Apple',
+    category: 'Kablo',
+    price: 1599,
+    sku: '195949093432',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '190198496201',
+    name: 'Apple Lightning Kablo 2m',
+    model: 'A2441',
+    brand: 'Apple',
+    category: 'Kablo',
+    price: 1379,
+    sku: '190198496201',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: 'SMX63TWMY06',
+    name: 'Apple Type-C Kulaklık',
+    model: 'A3046',
+    brand: 'Apple',
+    category: 'Kulaklık',
+    price: 899,
+    sku: 'SMX63TWMY06',
+    image_url: '/images/placeholder.png',
+  },
 
-const getOSIcon = (name: string) => {
-  const lowerName = name.toLowerCase();
-  if (lowerName.includes('iphone') || lowerName.includes('ipad') || lowerName.includes('macbook') || lowerName.includes('apple')) {
-    return <Apple className="w-3 h-3 text-slate-400" />;
-  } else if (lowerName.includes('samsung') || lowerName.includes('xiaomi') || lowerName.includes('android') || lowerName.includes('redmi') || lowerName.includes('poco') || lowerName.includes('huawei')) {
-    return <Smartphone className="w-3 h-3 text-slate-400" />;
-  }
-  return null;
+  // Samsung Power Group
+  {
+    id: '8801643979379',
+    name: 'Samsung 25W Kablolu Şarj',
+    model: 'EP-TA 800X',
+    brand: 'Samsung',
+    category: 'Şarj Adaptörü',
+    price: 849,
+    sku: '8801643979379',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '8806090986185',
+    name: 'Samsung 45W Şarj Adaptörü',
+    model: 'EP-TA845X',
+    brand: 'Samsung',
+    category: 'Şarj Adaptörü',
+    price: 999,
+    sku: '8806090986185',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '8806095471761',
+    name: 'Samsung 45W Kablolu Adaptör',
+    model: 'EP-T4511',
+    brand: 'Samsung',
+    category: 'Şarj Adaptörü',
+    price: 1999,
+    sku: '8806095471761',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '8806090958960',
+    name: 'Samsung 25W Adaptör',
+    model: 'EP-TA800',
+    brand: 'Samsung',
+    category: 'Şarj Adaptörü',
+    price: 749,
+    sku: '8806090958960',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '8806090270031',
+    name: 'Samsung AKG Kablolu Kulaklık',
+    model: 'E0-IC100',
+    brand: 'Samsung',
+    category: 'Kulaklık',
+    price: 899,
+    sku: '8806090270031',
+    image_url: '/images/placeholder.png',
+  },
+
+  // McDodo & Momax Professional Solutions
+  {
+    id: '6921002681032',
+    name: 'McDodo GaN 100W 3 Port Adaptör',
+    model: 'CH-810',
+    brand: 'McDodo',
+    category: 'Şarj Adaptörü',
+    price: 2999,
+    sku: '6921002681032',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: 'TEL-002',
+    name: 'McDodo 33W 4 Port Adaptör',
+    model: 'CH-2250',
+    brand: 'McDodo',
+    category: 'Şarj Adaptörü',
+    price: 999,
+    sku: 'TEL-002',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '6921002640206',
+    name: 'McDodo 20W Adaptör',
+    model: 'CH-402',
+    brand: 'McDodo',
+    category: 'Şarj Adaptörü',
+    price: 499,
+    sku: '6921002640206',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '6921002641005',
+    name: 'McDodo 2in1 Adaptör',
+    model: 'CH-410',
+    brand: 'McDodo',
+    category: 'Şarj Adaptörü',
+    price: 1999,
+    sku: '6921002641005',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '4894222074972',
+    name: 'Momax 100W Magnetic Kablo',
+    model: 'DC35L',
+    brand: 'Momax',
+    category: 'Kablo',
+    price: 699,
+    sku: '4894222074972',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: '6921002614306',
+    name: 'Momax USB-C Hub 5 in 1',
+    model: 'HU-143',
+    brand: 'Momax',
+    category: 'HUB',
+    price: 899,
+    sku: '6921002614306',
+    image_url: '/images/placeholder.png',
+  },
+];
+
+// Group products by brand
+const groupedProducts = {
+  apple: PRODUCTS.filter(p => p.brand === 'Apple'),
+  samsung: PRODUCTS.filter(p => p.brand === 'Samsung'),
+  professional: PRODUCTS.filter(p => p.brand === 'McDodo' || p.brand === 'Momax'),
+};
+
+// Product Band Component
+function ProductBand({ title, subtitle, products, bgGradient }: { title: string; subtitle: string; products: Product[]; bgGradient: string }) {
+  return (
+    <section className={cn('py-16 md:py-20', bgGradient)}>
+      <div className="max-w-[1600px] mx-auto px-4 md:px-8">
+        <div className="mb-12">
+          <h2 className="text-4xl md:text-5xl font-light text-slate-900 tracking-tight mb-2">
+            {title}
+          </h2>
+          <p className="text-lg text-slate-600 font-light">{subtitle}</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 md:gap-8">
+          {products.map((product) => (
+            <div key={product.id} className="group flex flex-col h-full">
+              {/* Product Card - Completely Transparent */}
+              <div className="flex-1 flex flex-col bg-transparent rounded-3xl overflow-hidden transition-all duration-500">
+                {/* Image Container */}
+                <div className="aspect-[4/5] relative overflow-hidden bg-transparent rounded-3xl mb-6">
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-110"
+                  />
+                  {/* Soft gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
+
+                {/* Content - Completely Transparent Background */}
+                <div className="flex flex-col flex-1">
+                  {/* Category Badge */}
+                  <div className="mb-3 text-[10px] uppercase tracking-[0.2em] font-light text-slate-500">
+                    {product.category}
+                  </div>
+
+                  {/* Product Name */}
+                  <h3 className="text-base md:text-lg font-light text-slate-900 mb-1 line-clamp-2 leading-snug">
+                    {product.name}
+                  </h3>
+
+                  {/* Model */}
+                  <p className="text-xs text-slate-500 font-light mb-4">
+                    Model: {product.model}
+                  </p>
+
+                  {/* Price */}
+                  <div className="mt-auto mb-6">
+                    <p className="text-2xl md:text-3xl font-light text-slate-900 tracking-tight">
+                      {formatPrice(product.price)}
+                    </p>
+                  </div>
+
+                  {/* Action Buttons - Apple Style */}
+                  <div className="flex flex-col gap-3">
+                    <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-light text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg">
+                      <ShoppingBag size={16} />
+                      Satın Al
+                    </button>
+                    <button className="w-full py-2 text-blue-600 hover:text-blue-700 font-light text-sm transition-colors duration-300 flex items-center justify-center gap-1 hover:underline">
+                      Daha fazla bilgi
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default function ShopPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  
-  // App Architecture State
-  const [mainTab, setMainTab] = useState<'CİHAZLAR' | 'AKSESUARLAR'>('CİHAZLAR')
-  const [selectedCategory, setSelectedCategory] = useState<string>('Tümü')
-
-  // Load More Pagination State
-  const [visibleCount, setVisibleCount] = useState(18); // 6-col grid, start with 3 rows
-
-  const supabase = createClient()
-
-  const fetchProducts = async () => {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error("Error fetching products:", error)
-      } else if (data) {
-        setProducts(data)
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    fetchProducts()
-  }, [])
+    setMounted(true);
+  }, []);
 
-  // 1. Filter by Main Tab
-  const tabProducts = useMemo(() => {
-    return products.filter(p => mainTab === 'CİHAZLAR' ? isDeviceCategory(p.category) : !isDeviceCategory(p.category));
-  }, [products, mainTab]);
-
-  // Derived Categories for Horizontal Pill Nav
-  const categories = useMemo(() => {
-    const cats = new Set(tabProducts.map(p => p.category).filter(Boolean) as string[]);
-    return ['Tümü', ...Array.from(cats)];
-  }, [tabProducts]);
-
-  // 2. Filter by Sub-category
-  const filteredProducts = useMemo(() => {
-    return tabProducts.filter(p => {
-      return selectedCategory === 'Tümü' || p.category === selectedCategory;
-    });
-  }, [tabProducts, selectedCategory]);
-
-  // Reset page and sub-filters on main tab change
-  useEffect(() => {
-    setVisibleCount(18);
-    setSelectedCategory('Tümü');
-  }, [mainTab]);
-
-  const currentProducts = filteredProducts.slice(0, visibleCount);
-
-  const handleEditPrice = async (e: React.MouseEvent, product: Product) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const newPriceStr = prompt(`${product.name} için yeni fiyat girin (eski fiyat: ${product.price}):`, product.price.toString());
-    if (newPriceStr) {
-      const newPrice = parseFloat(newPriceStr);
-      if (!isNaN(newPrice)) {
-        const { error } = await supabase
-          .from('products')
-          .update({ price: newPrice })
-          .eq('id', product.id);
-        
-        if (error) {
-          toast.error("Fiyat güncellenemedi.");
-        } else {
-          toast.success("Fiyat başarıyla güncellendi.");
-          fetchProducts();
-        }
-      }
-    }
-  };
+  if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 md:pb-8 relative overflow-x-hidden">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        .font-inter { font-family: 'Inter', sans-serif; }
-        
-        /* Hide scrollbar for category pills */
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-      `}</style>
-
-      <div className="font-inter pt-24">
-        
-        <div className="max-w-[1600px] mx-auto px-4 md:px-8 flex flex-col gap-6">
-          
-          {/* Main Division Tabs (Cihazlar / Aksesuarlar) - Apple Store Thin Line Style */}
-          <div className="flex justify-center border-b border-slate-800 mb-2">
-            <div className="flex gap-12">
-              <button
-                onClick={() => setMainTab('CİHAZLAR')}
-                className={cn(
-                  "pb-3 text-sm md:text-base font-medium tracking-wide transition-all relative",
-                  mainTab === 'CİHAZLAR' ? "text-white" : "text-slate-500 hover:text-slate-300"
-                )}
-              >
-                Cihazlar
-                {mainTab === 'CİHAZLAR' && (
-                  <span className="absolute bottom-0 left-0 w-full h-[1px] bg-white"></span>
-                )}
-              </button>
-              <button
-                onClick={() => setMainTab('AKSESUARLAR')}
-                className={cn(
-                  "pb-3 text-sm md:text-base font-medium tracking-wide transition-all relative",
-                  mainTab === 'AKSESUARLAR' ? "text-white" : "text-slate-500 hover:text-slate-300"
-                )}
-              >
-                Aksesuarlar
-                {mainTab === 'AKSESUARLAR' && (
-                  <span className="absolute bottom-0 left-0 w-full h-[1px] bg-white"></span>
-                )}
-              </button>
-            </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100 text-slate-900">
+      {/* Hero Section */}
+      <section className="py-20 md:py-32 bg-gradient-to-br from-white via-blue-50 to-slate-100">
+        <div className="max-w-[1600px] mx-auto px-4 md:px-8">
+          <div className="text-center max-w-3xl mx-auto">
+            <span className="text-[12px] uppercase tracking-[0.35em] font-light text-slate-600 mb-4 block">
+              Premium Aksesuar Koleksiyonu
+            </span>
+            <h1 className="text-5xl md:text-7xl font-light text-slate-900 tracking-tight mb-4">
+              Seçkin Koleksiyon
+            </h1>
+            <p className="text-lg md:text-xl text-slate-600 font-light leading-relaxed">
+              Apple, Samsung, Xiaomi ve diğer tüm seçkin Android telefonların en kaliteli, profesyonel teknoloji çözümlerini keşfedin.
+            </p>
           </div>
-
-          {/* Horizontal Pill Categories */}
-          <div className="flex items-center w-full overflow-x-auto pb-4 scrollbar-hide">
-            <div className="flex gap-3">
-              {categories.map(category => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={cn(
-                    "px-4 py-1.5 rounded-full text-[11px] font-medium tracking-wider whitespace-nowrap transition-all border",
-                    selectedCategory === category
-                      ? "bg-white text-slate-900 border-white"
-                      : "bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600 hover:text-slate-200"
-                  )}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Product Grid */}
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
-            </div>
-          ) : filteredProducts.length === 0 ? (
-             <div className="flex flex-col items-center justify-center py-20 min-h-[300px]">
-               <span className="text-slate-500 text-sm font-light text-center">
-                 Bu alanda henüz ürün bulunmuyor.
-               </span>
-             </div>
-          ) : (
-            <div className="flex-1 flex flex-col">
-              {/* Native App 2-column mobile grid, 6-column desktop grid for compactness */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
-                {currentProducts.map((product) => (
-                  <Card 
-                    key={product.id} 
-                    className="group flex flex-col bg-slate-950 border border-slate-800 hover:border-slate-600 rounded-xl overflow-hidden transition-all duration-300 shadow-none"
-                  >
-                    {/* Visual Area strictly relying on real image or brand-text placeholder */}
-                    <div className="aspect-square relative bg-slate-900 flex items-center justify-center overflow-hidden border-b border-slate-800/50">
-                      {/* Edit Button */}
-                      <button 
-                        onClick={(e) => handleEditPrice(e, product)}
-                        className="absolute top-2 left-2 z-30 text-white/40 hover:text-white bg-slate-950/80 p-1.5 rounded-full backdrop-blur-md transition-colors opacity-0 group-hover:opacity-100"
-                        title="Fiyatı Düzenle"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-
-                      {/* Top Bar for OS Icon */}
-                      <div className="absolute top-2 right-2 z-20">
-                        {isDeviceCategory(product.category) && getOSIcon(product.name)}
-                      </div>
-
-                      {product.image_url ? (
-                        <img 
-                          src={product.image_url} 
-                          alt={product.name}
-                          className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        // Sleek Minimalist Placeholder when no real image exists
-                        <div className="flex w-full h-full bg-slate-900 items-center justify-center p-4">
-                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest text-center opacity-60">
-                            {product.brand || 'HURCELL'}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Dynamic Discount Badge */}
-                      {product.discount_rate && product.discount_rate > 0 && (
-                        <div className="absolute bottom-2 left-2 z-30 bg-white text-black text-[10px] font-bold px-1.5 py-0.5 rounded-md shadow-sm">
-                          -%{product.discount_rate}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content Area */}
-                    <CardContent className="p-3 flex flex-col flex-1">
-                      <div className="mb-1 text-[9px] font-medium text-slate-500 uppercase tracking-widest">
-                        {product.brand || 'HURCELL'}
-                      </div>
-                      
-                      <h3 className="font-medium text-slate-200 text-xs mb-3 line-clamp-2 leading-snug flex-1">
-                        {product.name}
-                      </h3>
-                      
-                      <div className="flex flex-col mt-auto mb-3">
-                        {product.old_price && (
-                          <span className="text-[10px] text-slate-600 line-through mb-0.5 font-light">
-                            {formatRetailPrice(product.old_price)}
-                          </span>
-                        )}
-                        <span className="text-sm font-semibold text-white tracking-tight">
-                          {formatRetailPrice(product.price)}
-                        </span>
-                      </div>
-
-                      {/* Prominent Add to Cart Button */}
-                      <button className="w-full bg-slate-800 hover:bg-white text-slate-300 hover:text-black border border-slate-700 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300">
-                        <ShoppingCart size={12} /> Sepete Ekle
-                      </button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Load More Button */}
-              {visibleCount < filteredProducts.length && (
-                <div className="mt-12 mb-8 flex justify-center items-center">
-                  <button
-                    onClick={() => setVisibleCount(prev => prev + 18)}
-                    className="group flex items-center gap-2 px-6 py-2 bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-300 text-xs font-medium rounded-full transition-all duration-300 shadow-sm"
-                  >
-                    Daha Fazla Göster
-                    <Plus size={14} className="group-hover:rotate-90 transition-transform duration-300" />
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
-      </div>
+      </section>
 
-      {/* Mobile App Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 w-full bg-slate-950/90 backdrop-blur-xl border-t border-slate-900 flex justify-around items-center h-[68px] md:hidden z-50 pb-safe">
-         <button className="flex flex-col items-center gap-1 text-white w-full py-2">
-            <Home size={20} className="stroke-[1.5px]" /> 
-            <span className="text-[9px] font-medium tracking-wide">Mağaza</span>
-         </button>
-         <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 w-full py-2 transition-colors">
-            <Search size={20} className="stroke-[1.5px]" /> 
-            <span className="text-[9px] font-medium tracking-wide">Keşfet</span>
-         </button>
-         <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 w-full py-2 transition-colors relative">
-            <ShoppingCart size={20} className="stroke-[1.5px]" /> 
-            <span className="text-[9px] font-medium tracking-wide">Sepet</span>
-         </button>
-         <button className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 w-full py-2 transition-colors">
-            <User size={20} className="stroke-[1.5px]" /> 
-            <span className="text-[9px] font-medium tracking-wide">Profil</span>
-         </button>
-      </div>
+      {/* Apple Elite Series */}
+      <ProductBand
+        title="Apple Elite Serisi"
+        subtitle="Premium adaptörler, kablolar ve kulaklıklar"
+        products={groupedProducts.apple}
+        bgGradient="bg-gradient-to-b from-slate-50 to-blue-50"
+      />
+
+      {/* Samsung Power Group */}
+      <ProductBand
+        title="Samsung Güç Grubu"
+        subtitle="Yüksek verimli şarj çözümleri"
+        products={groupedProducts.samsung}
+        bgGradient="bg-gradient-to-b from-blue-50 to-slate-100"
+      />
+
+      {/* McDodo & Momax Professional Solutions */}
+      <ProductBand
+        title="McDodo & Momax Profesyonel Çözümler"
+        subtitle="Güçlü, esnek ve yenilikçi ürünler"
+        products={groupedProducts.professional}
+        bgGradient="bg-gradient-to-b from-slate-100 to-slate-50"
+      />
+
+      {/* Footer */}
+      <footer className="py-12 bg-white border-t border-slate-200">
+        <div className="max-w-[1600px] mx-auto px-4 md:px-8 text-center">
+          <p className="text-sm text-slate-600 font-light">
+            © 2026 HurCELL. Tüm hakları saklıdır.
+          </p>
+        </div>
+      </footer>
     </div>
-  )
+  );
 }

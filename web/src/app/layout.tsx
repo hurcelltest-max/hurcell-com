@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/site/navbar";
 import { Toaster } from "@/components/ui/sonner";
 import { WhatsAppButton } from "@/components/site/whatsapp-button";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
@@ -27,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-background font-sans`}>
         <Navbar />
         {children}
         <Toaster />

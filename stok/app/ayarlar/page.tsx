@@ -1,0 +1,468 @@
+"use client";
+
+import { useState } from "react";
+import * as XLSX from "xlsx";
+import { createProduct, findProductByBarcode, updateProduct, fetchProducts, Product } from "@/lib/productService";
+import { supabase } from "@/lib/supabaseClient";
+
+type ImportReport = {
+  added: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{ row: number; reason: string }>;
+};
+
+const headerMap: Record<string, string> = {
+  barcode: "barcode",
+  barkod: "barcode",
+  name: "name",
+  "ürün adı": "name",
+  "urun adi": "name",
+  "ürünadi": "name",
+  kategori: "category",
+  category: "category",
+  stock: "stock",
+  stok: "stock",
+  buy_price: "buy_price",
+  "alış fiyatı": "buy_price",
+  "alis fiyati": "buy_price",
+  sell_price: "sell_price",
+  "satış fiyatı": "sell_price",
+  "satis fiyati": "sell_price",
+  min_stock: "min_stock",
+  "minimum stok": "min_stock",
+  location: "location",
+  konum: "location",
+  raf: "location",
+  description: "description",
+  "açıklama": "description",
+  aciklama: "description",
+  image_url: "image_url",
+  "fotoğraf url": "image_url",
+  "fotograf url": "image_url",
+  görsel: "image_url",
+  gorsel: "image_url",
+  is_web_visible: "is_web_visible",
+  "webde göster": "is_web_visible",
+  "webde goster": "is_web_visible",
+  "webde görünür": "is_web_visible",
+  "webde gorunur": "is_web_visible",
+};
+
+function normalizeHeader(h: string) {
+  return h
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[^a-z0-9ğüşöıçİĞÜŞÖÇ ]/gi, "")
+    .replace(/\s/g, " ");
+}
+
+function buildPrintableHtml(products: Product[], title: string) {
+  const now = new Date();
+  const rows = products
+    .map((p) => {
+      return `<tr>
+        <td>${(p.barcode || "").toString()}</td>
+        <td>${(p.name || "").toString()}</td>
+        <td>${(p.category || "").toString()}</td>
+        <td style="text-align:right">${(p.stock ?? 0).toString()}</td>
+        <td style="text-align:right">${Number(p.buy_price ?? 0).toFixed(2)}</td>
+        <td style="text-align:right">${Number(p.sell_price ?? 0).toFixed(2)}</td>
+        <td style="text-align:right">${(p.min_stock ?? 0).toString()}</td>
+        <td>${(p.location || "").toString()}</td>
+      </tr>`;
+    })
+    .join("\n");
+
+  return `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>${title}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; padding: 20px; color: #0f172a }
+        h1 { margin: 0 0 8px 0 }
+        .meta { color: #475569; margin-bottom: 12px }
+        table { width: 100%; border-collapse: collapse; font-size: 12px }
+        th, td { border: 1px solid #e2e8f0; padding: 6px 8px }
+        th { background: #f8fafc; text-align: left }
+        @media print { th { background: #fff } }
+      </style>
+    </head>
+    <body>
+      <h1>${title}</h1>
+      <div class="meta">Oluşturulma: ${now.toLocaleString()}</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Barkod</th>
+            <th>Ürün Adı</th>
+            <th>Kategori</th>
+            <th>Stok</th>
+            <th>Alış Fiyatı</th>
+            <th>Satış Fiyatı</th>
+            <th>Minimum Stok</th>
+            <th>Raf / Konum</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+      <div style="margin-top:16px; color:#64748b; font-size:12px">HurCELL</div>
+    </body>
+  </html>`;
+}
+
+export default function AyarlarPage() {
+  const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<ImportReport | null>(null);
+  const [errorsPreview, setErrorsPreview] = useState<string | null>(null);
+
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    setBusy(true);
+    setReport(null);
+    setErrorsPreview(null);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[firstSheetName];
+      const raw = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: null });
+
+      let added = 0;
+      let updated = 0;
+      let skipped = 0;
+      const errors: Array<{ row: number; reason: string }> = [];
+
+      // normalize headers from first row keys map
+      const rows = raw;
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2; // considering header is row 1
+
+        // map columns to canonical keys
+        const mapped: Record<string, any> = {};
+        for (const key of Object.keys(row)) {
+          const norm = normalizeHeader(key);
+          const canonical = headerMap[norm] || null;
+          if (canonical) mapped[canonical] = row[key];
+        }
+
+        const barcode = mapped["barcode"] ? String(mapped["barcode"]).trim() : "";
+        const name = mapped["name"] ? String(mapped["name"]).trim() : "";
+        if (!barcode && !name) {
+          skipped++;
+          continue;
+        }
+
+        const parsed = {
+          barcode: barcode || null,
+          name: name || "",
+          category: mapped["category"] ? String(mapped["category"]).trim() : null,
+          stock: mapped["stock"] !== null && mapped["stock"] !== undefined ? Number(mapped["stock"]) : 0,
+          buy_price: mapped["buy_price"] !== null && mapped["buy_price"] !== undefined ? Number(mapped["buy_price"]) : 0,
+          sell_price: mapped["sell_price"] !== null && mapped["sell_price"] !== undefined ? Number(mapped["sell_price"]) : 0,
+          min_stock: mapped["min_stock"] !== null && mapped["min_stock"] !== undefined ? Number(mapped["min_stock"]) : 0,
+          location: mapped["location"] ? String(mapped["location"]).trim() : null,
+          description: mapped["description"] ? String(mapped["description"]).trim() : null,
+          image_url: mapped["image_url"] ? String(mapped["image_url"]).trim() : null,
+          is_web_visible: mapped["is_web_visible"] !== null && mapped["is_web_visible"] !== undefined
+            ? (String(mapped["is_web_visible"]).toLowerCase().trim() === "evet" ||
+               String(mapped["is_web_visible"]).toLowerCase().trim() === "true" ||
+               mapped["is_web_visible"] === 1 ||
+               mapped["is_web_visible"] === true)
+            : false,
+        };
+
+        try {
+          if (parsed.barcode) {
+            const existing = await findProductByBarcode(parsed.barcode);
+            if (existing.error) {
+              errors.push({ row: rowNum, reason: "Barkod sorgulama hatası" });
+              continue;
+            }
+
+            if (existing.data) {
+              // update existing
+              const productId = existing.data.id;
+              const oldStock = existing.data.stock ?? 0;
+
+              const { data, error } = await updateProduct(productId, {
+                barcode: parsed.barcode,
+                name: parsed.name,
+                category: parsed.category,
+                stock: parsed.stock || 0,
+                buy_price: parsed.buy_price || 0,
+                sell_price: parsed.sell_price || 0,
+                min_stock: parsed.min_stock || 0,
+                location: parsed.location,
+                description: parsed.description,
+                image_url: parsed.image_url,
+                is_web_visible: parsed.is_web_visible,
+              });
+
+              if (error) {
+                errors.push({ row: rowNum, reason: "Güncelleme hatası" });
+                continue;
+              }
+
+              // insert ADJUSTMENT movement
+              const diff = (parsed.stock || 0) - (oldStock || 0);
+              const mv = await supabase?.from("stock_movements").insert([
+                ({
+                  product_id: productId,
+                  movement_type: "ADJUSTMENT",
+                  quantity: diff,
+                  note: "Excel import",
+                } as unknown as never),
+              ]).select();
+
+              if (mv && mv.error) {
+                // log but continue
+                errors.push({ row: rowNum, reason: "Hareket kaydı hatası" });
+              }
+
+              updated++;
+            } else {
+              // create new
+              const { data, error } = await createProduct({
+                barcode: parsed.barcode,
+                name: parsed.name,
+                category: parsed.category,
+                stock: parsed.stock || 0,
+                buy_price: parsed.buy_price || 0,
+                sell_price: parsed.sell_price || 0,
+                min_stock: parsed.min_stock || 0,
+                location: parsed.location,
+                description: parsed.description,
+                image_url: parsed.image_url,
+                is_web_visible: parsed.is_web_visible,
+              } as any);
+
+              if (error || !data) {
+                errors.push({ row: rowNum, reason: "Oluşturma hatası" });
+                continue;
+              }
+
+              // log ADJUSTMENT for initial stock
+              const mv = await supabase?.from("stock_movements").insert([
+                ({
+                  product_id: data.id,
+                  movement_type: "ADJUSTMENT",
+                  quantity: parsed.stock || 0,
+                  note: "Excel import (new)",
+                } as unknown as never),
+              ]).select();
+
+              if (mv && mv.error) {
+                errors.push({ row: rowNum, reason: "Hareket kaydı hatası" });
+              }
+
+              added++;
+            }
+          } else {
+            // no barcode but has name -> create new
+            const { data, error } = await createProduct({
+              barcode: null,
+              name: parsed.name,
+              category: parsed.category,
+              stock: parsed.stock || 0,
+              buy_price: parsed.buy_price || 0,
+              sell_price: parsed.sell_price || 0,
+              min_stock: parsed.min_stock || 0,
+              location: parsed.location,
+              description: parsed.description,
+              image_url: parsed.image_url,
+              is_web_visible: parsed.is_web_visible,
+            } as any);
+
+            if (error || !data) {
+              errors.push({ row: rowNum, reason: "Oluşturma hatası" });
+              continue;
+            }
+
+            const mv = await supabase?.from("stock_movements").insert([
+              ({
+                product_id: data.id,
+                movement_type: "ADJUSTMENT",
+                quantity: parsed.stock || 0,
+                note: "Excel import (new)",
+              } as unknown as never),
+            ]).select();
+
+            if (mv && mv.error) {
+              errors.push({ row: rowNum, reason: "Hareket kaydı hatası" });
+            }
+
+            added++;
+          }
+        } catch (err: any) {
+          errors.push({ row: rowNum, reason: String(err?.message || err) });
+        }
+      }
+
+      setReport({ added, updated, skipped, errors });
+      if (errors.length > 0) setErrorsPreview(JSON.stringify(errors.slice(0, 10), null, 2));
+    } catch (err: any) {
+      setErrorsPreview(String(err?.message || err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="space-y-6">
+      <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Ayarlar</p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-900">Uygulama ayarları</h2>
+        <p className="text-sm leading-6 text-slate-600">
+          Buradan uygulama ayarlarını ve veri importlarını yönetebilirsiniz.
+        </p>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Excel'den Stok Aktar</p>
+        <p className="mt-2 text-sm text-slate-600">Desteklenen format: .xlsx, .xls — ilk sheet okunur.</p>
+
+        <div className="mt-4 grid gap-3">
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={(e) => handleFile(e.target.files ? e.target.files[0] : null)}
+            disabled={busy}
+          />
+
+          {busy ? <div className="text-sm text-slate-500">İşleniyor...</div> : null}
+
+          {report ? (
+            <div className="mt-4 rounded-lg border p-4 text-sm">
+              <div>Eklenen: {report.added}</div>
+              <div>Güncellenen: {report.updated}</div>
+              <div>Atlanan: {report.skipped}</div>
+              <div>Hatalı satırlar: {report.errors.length}</div>
+              {errorsPreview ? (
+                <pre className="mt-2 overflow-auto text-xs bg-slate-100 p-2">{errorsPreview}</pre>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Rapor Dışa Aktar</p>
+        <p className="mt-2 text-sm text-slate-600">Ürün listesini Excel veya PDF olarak dışa aktarabilirsiniz.</p>
+
+        <div className="mt-4 grid gap-3">
+          <button
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const { data, error } = await fetchProducts();
+                if (error) {
+                  setErrorsPreview(String(error));
+                  return;
+                }
+                const products = data || [];
+                // map to export rows
+                const rows = products.map((p: Product) => ({
+                  Barkod: p.barcode || "",
+                  "Ürün Adı": p.name,
+                  Kategori: p.category || "",
+                  Stok: p.stock,
+                  "Alış Fiyatı": Number(p.buy_price || 0),
+                  "Satış Fiyatı": Number(p.sell_price || 0),
+                  "Minimum Stok": p.min_stock,
+                  "Raf / Konum": p.location || "",
+                  Açıklama: p.description || "",
+                  "Fotoğraf URL": p.image_url || "",
+                  "Webde Görünür": p.is_web_visible ? "Evet" : "Hayır",
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Products");
+                const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+                const blob = new Blob([wbout], { type: "application/octet-stream" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `hurcell-stok-${new Date().toISOString()}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={busy}
+          >
+            Excel Olarak Dışa Aktar
+          </button>
+
+          <button
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const { data, error } = await fetchProducts();
+                if (error) {
+                  setErrorsPreview(String(error));
+                  return;
+                }
+                const products = data || [];
+                const html = buildPrintableHtml(products, "HurCELL Stok Raporu");
+                const w = window.open("", "hurcell-stok-report", "noopener,noreferrer");
+                if (!w) return;
+                w.document.write(html);
+                w.document.close();
+                // try to auto-open print dialog
+                w.focus();
+                setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={busy}
+          >
+            PDF Olarak Dışa Aktar (Tüm Ürünler)
+          </button>
+
+          <button
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const { data, error } = await fetchProducts();
+                if (error) {
+                  setErrorsPreview(String(error));
+                  return;
+                }
+                const products = (data || []).filter((p: Product) => (p.stock ?? 0) <= (p.min_stock ?? 0));
+                const html = buildPrintableHtml(products, "HurCELL Düşük Stok Raporu");
+                const w = window.open("", "hurcell-lowstock-report", "noopener,noreferrer");
+                if (!w) return;
+                w.document.write(html);
+                w.document.close();
+                w.focus();
+                setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="inline-flex items-center justify-center rounded-2xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={busy}
+          >
+            PDF Olarak Dışa Aktar (Düşük Stok)
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}

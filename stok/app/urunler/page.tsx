@@ -420,6 +420,62 @@ const buildProductName = (
   return parts.join(" ");
 };
 
+const getCleanedLaptopTitle = (
+  name: string,
+  brand?: string | null,
+  model?: string | null,
+  ram?: string | null,
+  storage?: string | null,
+  processor?: string | null,
+  screen_size?: string | null,
+  color?: string | null
+) => {
+  let cleanName = name || "";
+  
+  if (!cleanName.trim()) {
+    const parts = [];
+    const brandTrim = brand ? brand.trim() : "";
+    const modelTrim = model ? model.trim() : "";
+    if (brandTrim && modelTrim) {
+      if (modelTrim.toLowerCase().startsWith(brandTrim.toLowerCase())) {
+        parts.push(modelTrim);
+      } else {
+        parts.push(brandTrim, modelTrim);
+      }
+    } else if (modelTrim) {
+      parts.push(modelTrim);
+    } else if (brandTrim) {
+      parts.push(brandTrim);
+    }
+    return parts.join(" ") || "İsimsiz Ürün";
+  }
+
+  if (color && color.trim()) {
+    const c = color.trim();
+    cleanName = cleanName.replace(new RegExp(`\\s*\\(?${c}\\)?`, 'gi'), '');
+  }
+  if (ram && ram.trim()) {
+    const r = ram.trim();
+    cleanName = cleanName.replace(new RegExp(`\\s*${r}\\s*(RAM)?`, 'gi'), '');
+  }
+  if (storage && storage.trim()) {
+    const s = storage.trim();
+    cleanName = cleanName.replace(new RegExp(`\\s*${s}`, 'gi'), '');
+  }
+  if (processor && processor.trim()) {
+    const p = processor.trim();
+    cleanName = cleanName.replace(new RegExp(`\\s*${p}`, 'gi'), '');
+  }
+  if (screen_size && screen_size.trim()) {
+    const sc = screen_size.trim();
+    cleanName = cleanName.replace(new RegExp(`\\s*${sc}\\s*(inç|inch)?`, 'gi'), '');
+  }
+  
+  cleanName = cleanName.replace(/\s+/g, ' ').trim();
+  
+  return cleanName || "İsimsiz Ürün";
+};
+
 export default function UrunlerPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1509,16 +1565,30 @@ export default function UrunlerPage() {
               <div className="flex flex-wrap items-center gap-2 mb-0.5">
                 <h4 className="text-sm font-bold text-slate-900 leading-snug">
                   {(() => {
+                    const colorVal = selColor === "_other" ? customColor : (selColor || form.color);
+                    const isL = form.category.trim().toLowerCase() === "bilgisayar";
+                    if (isL) {
+                      return getCleanedLaptopTitle(
+                        form.name.trim(),
+                        form.brand,
+                        form.model,
+                        form.ram,
+                        form.storage,
+                        form.processor,
+                        form.screen_size,
+                        colorVal
+                      );
+                    }
                     const computedName = buildProductName(
                       form.brand,
                       form.model,
-                      selColor === "_other" ? customColor : (selColor || form.color),
+                      colorVal,
                       form.category.trim().toLowerCase() === "bilgisayar" ? null : (selMemory === "_other" ? customMemory : (selMemory || form.memory)),
                       form.ram,
                       form.storage,
                       form.processor,
                       form.screen_size,
-                      form.category.trim().toLowerCase() === "bilgisayar"
+                      false
                     );
                     return form.name.trim() || computedName || "Yeni Ürün Adı";
                   })()}
@@ -1904,7 +1974,12 @@ export default function UrunlerPage() {
                         <div className="flex-1 min-w-0">
                           {/* Başlık satırı */}
                           <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                            <h4 className="text-sm font-bold text-slate-900 leading-snug">{product.name}</h4>
+                            <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                              {product.category?.toLowerCase() === 'bilgisayar' 
+                                ? getCleanedLaptopTitle(product.name, product.brand, product.model, product.ram, product.storage, product.processor, product.screen_size, product.color) 
+                                : product.name
+                              }
+                            </h4>
                             {product.is_web_visible ? (
                               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">✓ Webde</span>
                             ) : (

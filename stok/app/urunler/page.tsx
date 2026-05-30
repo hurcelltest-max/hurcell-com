@@ -664,6 +664,17 @@ export default function UrunlerPage() {
     showStatus("success", "Stok başarıyla güncellendi.");
   };
 
+  const isPhone = form.category.trim().toLowerCase() === "telefon";
+  const isAccessory = form.category.trim().toLowerCase() === "aksesuar";
+
+  const selectedModelEntry = phoneCatalog.find(
+    (p) =>
+      p.brand.toLowerCase() === selBrand.toLowerCase() &&
+      p.model.toLowerCase() === selModel.toLowerCase()
+  );
+  const modelColors = selectedModelEntry ? selectedModelEntry.colors : [];
+  const modelMemories = selectedModelEntry ? selectedModelEntry.memories : [];
+
   return (
     <section className="space-y-6">
       <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
@@ -901,7 +912,7 @@ export default function UrunlerPage() {
             {/* 5. Renk */}
             <div className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Renk</span>
-              {form.category.trim().toLowerCase() === "telefon" ? (
+              {isPhone ? (
                 <>
                   <select
                     value={selColor}
@@ -914,13 +925,11 @@ export default function UrunlerPage() {
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 cursor-pointer"
                   >
                     <option value="">Renk Seçin...</option>
-                    {phoneCatalog
-                      .find((p) => p.brand === selBrand && p.model === selModel)
-                      ?.colors.map((color) => (
-                        <option key={color} value={color}>
-                          {color}
-                        </option>
-                      )) || null}
+                    {modelColors.map((color) => (
+                      <option key={color} value={color}>
+                        {color}
+                      </option>
+                    ))}
                     <option value="_other">Diğer...</option>
                   </select>
                   {selColor === "_other" && (
@@ -937,7 +946,7 @@ export default function UrunlerPage() {
                     />
                   )}
                 </>
-              ) : form.category.trim().toLowerCase() === "aksesuar" ? (
+              ) : isAccessory ? (
                 <>
                   <select
                     value={selColor}
@@ -983,10 +992,10 @@ export default function UrunlerPage() {
             </div>
 
             {/* 6. Hafıza */}
-            {form.category.trim().toLowerCase() !== "aksesuar" && (
+            {!isAccessory && !(isPhone && selModel && modelMemories.length === 0) && (
               <div className="grid gap-2 text-sm text-slate-700">
                 <span className="font-medium">Hafıza (Opsiyonel)</span>
-                {form.category.trim().toLowerCase() === "telefon" ? (
+                {isPhone ? (
                   <>
                     <select
                       value={selMemory}
@@ -999,13 +1008,11 @@ export default function UrunlerPage() {
                       className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 cursor-pointer"
                     >
                       <option value="">Hafıza Seçin...</option>
-                      {phoneCatalog
-                        .find((p) => p.brand === selBrand && p.model === selModel)
-                        ?.memories.map((mem) => (
-                          <option key={mem} value={mem}>
-                            {mem}
-                          </option>
-                        )) || null}
+                      {modelMemories.map((mem) => (
+                        <option key={mem} value={mem}>
+                          {mem}
+                        </option>
+                      ))}
                       <option value="_other">Diğer...</option>
                     </select>
                     {selMemory === "_other" && (

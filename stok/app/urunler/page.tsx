@@ -11,6 +11,11 @@ import {
   updateProduct,
 } from "@/lib/productService";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  phoneCatalog,
+  accessoryBrands,
+  accessoryColors
+} from "@/lib/productCatalog";
 
 // İstemci tarafında görsel optimizasyonu yapan yardımcı fonksiyon (Maks 1600px, 0.85 JPEG sıkıştırma)
 const optimizeImage = async (file: File): Promise<Blob> => {
@@ -385,6 +390,30 @@ export default function UrunlerPage() {
   const [editBuyPriceFocused, setEditBuyPriceFocused] = useState(false);
   const [editSellPriceFocused, setEditSellPriceFocused] = useState(false);
 
+  // Akıllı açılır liste (dropdown) ve "Diğer" seçeneği için local stateler
+  const [selBrand, setSelBrand] = useState("");
+  const [customBrand, setCustomBrand] = useState("");
+
+  const [selModel, setSelModel] = useState("");
+  const [customModel, setCustomModel] = useState("");
+
+  const [selColor, setSelColor] = useState("");
+  const [customColor, setCustomColor] = useState("");
+
+  const [selMemory, setSelMemory] = useState("");
+  const [customMemory, setCustomMemory] = useState("");
+
+  const resetCatalogSelections = () => {
+    setSelBrand("");
+    setCustomBrand("");
+    setSelModel("");
+    setCustomModel("");
+    setSelColor("");
+    setCustomColor("");
+    setSelMemory("");
+    setCustomMemory("");
+  };
+
   useEffect(() => {
     loadProducts();
   }, []);
@@ -413,6 +442,9 @@ export default function UrunlerPage() {
     value: any
   ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    if (key === "category") {
+      resetCatalogSelections();
+    }
   };
 
   const handleFormInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -432,7 +464,10 @@ export default function UrunlerPage() {
     setEditForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const resetForm = () => setForm(initialFormState);
+  const resetForm = () => {
+    setForm(initialFormState);
+    resetCatalogSelections();
+  };
 
   const handleAddProduct = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -684,7 +719,7 @@ export default function UrunlerPage() {
             </label>
 
             {/* 2. Kategori */}
-            <label className="grid gap-2 text-sm text-slate-700">
+            <div className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Kategori</span>
               <input
                 type="text"
@@ -693,61 +728,313 @@ export default function UrunlerPage() {
                 value={form.category}
                 onChange={(e) => handleFormChange("category", e.target.value)}
                 className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                placeholder="Örn: Telefon, Aksesuar"
               />
-            </label>
+              <div className="flex gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => handleFormChange("category", "Telefon")}
+                  className={`px-3 py-1 text-xs font-semibold rounded-full border transition cursor-pointer ${
+                    form.category.trim().toLowerCase() === "telefon"
+                      ? "bg-sky-500 text-white border-sky-500"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  📱 Telefon
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFormChange("category", "Aksesuar")}
+                  className={`px-3 py-1 text-xs font-semibold rounded-full border transition cursor-pointer ${
+                    form.category.trim().toLowerCase() === "aksesuar"
+                      ? "bg-sky-500 text-white border-sky-500"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  🎧 Aksesuar
+                </button>
+              </div>
+            </div>
 
             {/* 3. Marka */}
-            <label className="grid gap-2 text-sm text-slate-700">
+            <div className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Marka</span>
-              <input
-                type="text"
-                name="brand"
-                id="product-brand"
-                value={form.brand}
-                onChange={(e) => handleFormChange("brand", e.target.value)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
+              {form.category.trim().toLowerCase() === "telefon" ? (
+                <>
+                  <select
+                    value={selBrand}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelBrand(val);
+                      setSelModel("");
+                      setSelColor("");
+                      setSelMemory("");
+                      handleFormChange("brand", val === "_other" ? customBrand : val);
+                      handleFormChange("model", "");
+                      handleFormChange("color", "");
+                      handleFormChange("memory", "");
+                    }}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                  >
+                    <option value="">Marka Seçin...</option>
+                    {Array.from(new Set(phoneCatalog.map((p) => p.brand))).map((brand) => (
+                      <option key={brand} value={brand}>
+                        {brand}
+                      </option>
+                    ))}
+                    <option value="_other">Diğer...</option>
+                  </select>
+                  {selBrand === "_other" && (
+                    <input
+                      type="text"
+                      placeholder="Lütfen marka girin..."
+                      value={customBrand}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomBrand(val);
+                        handleFormChange("brand", val);
+                      }}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  )}
+                </>
+              ) : form.category.trim().toLowerCase() === "aksesuar" ? (
+                <>
+                  <select
+                    value={selBrand}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelBrand(val);
+                      handleFormChange("brand", val === "_other" ? customBrand : val);
+                    }}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                  >
+                    <option value="">Marka Seçin...</option>
+                    {accessoryBrands.map((brand) => (
+                      <option key={brand} value={brand}>
+                        {brand}
+                      </option>
+                    ))}
+                    <option value="_other">Diğer...</option>
+                  </select>
+                  {selBrand === "_other" && (
+                    <input
+                      type="text"
+                      placeholder="Lütfen marka girin..."
+                      value={customBrand}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomBrand(val);
+                        handleFormChange("brand", val);
+                      }}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  )}
+                </>
+              ) : (
+                <input
+                  type="text"
+                  name="brand"
+                  id="product-brand"
+                  value={form.brand}
+                  onChange={(e) => handleFormChange("brand", e.target.value)}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                />
+              )}
+            </div>
 
             {/* 4. Model */}
-            <label className="grid gap-2 text-sm text-slate-700">
+            <div className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Model</span>
-              <input
-                type="text"
-                name="model"
-                id="product-model"
-                value={form.model}
-                onChange={(e) => handleFormChange("model", e.target.value)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
+              {form.category.trim().toLowerCase() === "telefon" ? (
+                <>
+                  <select
+                    value={selModel}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelModel(val);
+                      setSelColor("");
+                      setSelMemory("");
+                      handleFormChange("model", val === "_other" ? customModel : val);
+                      handleFormChange("color", "");
+                      handleFormChange("memory", "");
+                    }}
+                    disabled={!selBrand}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 cursor-pointer"
+                  >
+                    <option value="">Model Seçin...</option>
+                    {phoneCatalog
+                      .filter((p) => p.brand === selBrand)
+                      .map((p) => (
+                        <option key={p.model} value={p.model}>
+                          {p.model}
+                        </option>
+                      ))}
+                    <option value="_other">Diğer...</option>
+                  </select>
+                  {selModel === "_other" && (
+                    <input
+                      type="text"
+                      placeholder="Lütfen model girin..."
+                      value={customModel}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomModel(val);
+                        handleFormChange("model", val);
+                      }}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  )}
+                </>
+              ) : (
+                <input
+                  type="text"
+                  name="model"
+                  id="product-model"
+                  value={form.model}
+                  onChange={(e) => handleFormChange("model", e.target.value)}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                />
+              )}
+            </div>
 
             {/* 5. Renk */}
-            <label className="grid gap-2 text-sm text-slate-700">
+            <div className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Renk</span>
-              <input
-                type="text"
-                name="color"
-                id="product-color"
-                value={form.color}
-                onChange={(e) => handleFormChange("color", e.target.value)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
+              {form.category.trim().toLowerCase() === "telefon" ? (
+                <>
+                  <select
+                    value={selColor}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelColor(val);
+                      handleFormChange("color", val === "_other" ? customColor : val);
+                    }}
+                    disabled={!selModel}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 cursor-pointer"
+                  >
+                    <option value="">Renk Seçin...</option>
+                    {phoneCatalog
+                      .find((p) => p.brand === selBrand && p.model === selModel)
+                      ?.colors.map((color) => (
+                        <option key={color} value={color}>
+                          {color}
+                        </option>
+                      )) || null}
+                    <option value="_other">Diğer...</option>
+                  </select>
+                  {selColor === "_other" && (
+                    <input
+                      type="text"
+                      placeholder="Lütfen renk girin..."
+                      value={customColor}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomColor(val);
+                        handleFormChange("color", val);
+                      }}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  )}
+                </>
+              ) : form.category.trim().toLowerCase() === "aksesuar" ? (
+                <>
+                  <select
+                    value={selColor}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelColor(val);
+                      handleFormChange("color", val === "_other" ? customColor : val);
+                    }}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                  >
+                    <option value="">Renk Seçin...</option>
+                    {accessoryColors.map((color) => (
+                      <option key={color} value={color}>
+                        {color}
+                      </option>
+                    ))}
+                    <option value="_other">Diğer...</option>
+                  </select>
+                  {selColor === "_other" && (
+                    <input
+                      type="text"
+                      placeholder="Lütfen renk girin..."
+                      value={customColor}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomColor(val);
+                        handleFormChange("color", val);
+                      }}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  )}
+                </>
+              ) : (
+                <input
+                  type="text"
+                  name="color"
+                  id="product-color"
+                  value={form.color}
+                  onChange={(e) => handleFormChange("color", e.target.value)}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                />
+              )}
+            </div>
 
             {/* 6. Hafıza */}
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">Hafıza (Opsiyonel)</span>
-              <input
-                type="text"
-                name="memory"
-                id="product-memory"
-                value={form.memory}
-                onChange={(e) => handleFormChange("memory", e.target.value)}
-                placeholder="Örn: 256 GB, 8 GB (Boş bırakılabilir)"
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
+            {form.category.trim().toLowerCase() !== "aksesuar" && (
+              <div className="grid gap-2 text-sm text-slate-700">
+                <span className="font-medium">Hafıza (Opsiyonel)</span>
+                {form.category.trim().toLowerCase() === "telefon" ? (
+                  <>
+                    <select
+                      value={selMemory}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelMemory(val);
+                        handleFormChange("memory", val === "_other" ? customMemory : val);
+                      }}
+                      disabled={!selModel}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 cursor-pointer"
+                    >
+                      <option value="">Hafıza Seçin...</option>
+                      {phoneCatalog
+                        .find((p) => p.brand === selBrand && p.model === selModel)
+                        ?.memories.map((mem) => (
+                          <option key={mem} value={mem}>
+                            {mem}
+                          </option>
+                        )) || null}
+                      <option value="_other">Diğer...</option>
+                    </select>
+                    {selMemory === "_other" && (
+                      <input
+                        type="text"
+                        placeholder="Lütfen hafıza girin..."
+                        value={customMemory}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomMemory(val);
+                          handleFormChange("memory", val);
+                        }}
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                      />
+                    )}
+                  </>
+                ) : (
+                  <input
+                    type="text"
+                    name="memory"
+                    id="product-memory"
+                    value={form.memory}
+                    onChange={(e) => handleFormChange("memory", e.target.value)}
+                    placeholder="Örn: 256 GB, 8 GB (Boş bırakılabilir)"
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                )}
+              </div>
+            )}
 
             {/* 7. Ürün Adı */}
             <label className="grid gap-2 text-sm text-slate-700">

@@ -742,8 +742,17 @@ export default function UrunlerPage() {
       p.model.toLowerCase() === selModel.toLowerCase()
   );
 
-  const modelColors = selectedPhoneEntry?.colors ?? selectedTabletEntry?.colors ?? selectedWatchEntry?.colors ?? selectedLaptopEntry?.colors ?? [];
-  const modelMemories = selectedPhoneEntry?.memories ?? selectedTabletEntry?.memories ?? selectedWatchEntry?.memories ?? [];
+  const modelColors = isPhone ? (selectedPhoneEntry?.colors ?? [])
+    : isTablet ? (selectedTabletEntry?.colors ?? [])
+    : isSmartwatch ? (selectedWatchEntry?.colors ?? [])
+    : isLaptop ? (selectedLaptopEntry?.colors ?? [])
+    : [];
+
+  const modelMemories = isPhone ? (selectedPhoneEntry?.memories ?? [])
+    : isTablet ? (selectedTabletEntry?.memories ?? [])
+    : isSmartwatch ? (selectedWatchEntry?.memories ?? [])
+    : [];
+
   const laptopRamOptions = selectedLaptopEntry?.ramOptions ?? [];
   const laptopStorageOptions = selectedLaptopEntry?.storageOptions ?? [];
 
@@ -759,7 +768,7 @@ export default function UrunlerPage() {
     ? Array.from(new Set(activeCatalog.map((p) => p.brand)))
     : null;
   const activeModelsForBrand = activeCatalog
-    ? activeCatalog.filter((p) => p.brand === selBrand)
+    ? activeCatalog.filter((p) => p.brand.toLowerCase() === selBrand.toLowerCase())
     : [];
 
   return (
@@ -822,11 +831,11 @@ export default function UrunlerPage() {
               {/* Kategori chip'leri */}
               <div className="flex flex-wrap gap-1.5">
                 {([
-                  { label: "\ud83d\udcf1 Telefon", value: "Telefon" },
-                  { label: "\ud83d\udcdf Tablet", value: "Tablet" },
-                  { label: "\ud83d\udcbb Bilgisayar", value: "Bilgisayar" },
-                  { label: "\ud83c\udfa7 Aksesuar", value: "Aksesuar" },
-                  { label: "\u231a Ak\u0131ll\u0131 Saat", value: "Ak\u0131ll\u0131 Saat" },
+                  { label: "📱 Telefon", value: "Telefon" },
+                  { label: "📟 Tablet", value: "Tablet" },
+                  { label: "💻 Bilgisayar", value: "Bilgisayar" },
+                  { label: "🎧 Aksesuar", value: "Aksesuar" },
+                  { label: "⌚ Akıllı Saat", value: "Akıllı Saat" },
                 ] as const).map(({ label, value }) => (
                   <button
                     key={value}
@@ -842,7 +851,7 @@ export default function UrunlerPage() {
                   </button>
                 ))}
               </div>
-              {/* Kategori text: readonly iken dolu, yoksa "Di\u011fer" link ile a\u00e7ıl\u0131r */}
+              {/* Kategori text: readonly iken dolu, yoksa "Diğer" link ile açılır */}
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -850,11 +859,11 @@ export default function UrunlerPage() {
                   id="product-category"
                   value={form.category}
                   readOnly={[
-                    "Telefon", "Tablet", "Bilgisayar", "Aksesuar", "Ak\u0131ll\u0131 Saat"
+                    "Telefon", "Tablet", "Bilgisayar", "Aksesuar", "Akıllı Saat"
                   ].some((c) => c.toLowerCase() === form.category.trim().toLowerCase())}
                   onChange={(e) => handleFormChange("category", e.target.value)}
                   className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 read-only:bg-slate-100 read-only:text-slate-500"
-                  placeholder="\u00d6rn: Telefon, Aksesuar..."
+                  placeholder="Örn: Telefon, Aksesuar..."
                 />
                 {form.category && (
                   <button
@@ -862,12 +871,12 @@ export default function UrunlerPage() {
                     onClick={() => handleFormChange("category", "")}
                     className="shrink-0 text-xs text-slate-400 hover:text-rose-500 transition px-2 py-1 rounded-lg hover:bg-rose-50"
                   >
-                    \u00d7 Temizle
+                    × Temizle
                   </button>
                 )}
               </div>
               {!form.category && (
-                <p className="text-xs text-slate-400">Yukar\u0131dan bir kategori chip'i se\u00e7in veya alana yaz\u0131n.</p>
+                <p className="text-xs text-slate-400">Yukarıdan bir kategori chip'i seçin veya alana yazın.</p>
               )}
             </div>
 
@@ -896,16 +905,16 @@ export default function UrunlerPage() {
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
                     size={1}
                   >
-                    <option value="">Marka Se\u00e7in...</option>
+                    <option value="">Marka Seçin...</option>
                     {activeBrands.map((brand) => (
                       <option key={brand} value={brand}>{brand}</option>
                     ))}
-                    <option value="_other">Di\u011fer...</option>
+                    <option value="_other">Diğer...</option>
                   </select>
                   {selBrand === "_other" && (
                     <input
                       type="text"
-                      placeholder="L\u00fctfen marka girin..."
+                      placeholder="Lütfen marka girin..."
                       value={customBrand}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -952,19 +961,19 @@ export default function UrunlerPage() {
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     size={1}
                   >
-                    <option value="">Model Se\u00e7in...</option>
+                    <option value="">Model Seçin...</option>
                     {activeModelsForBrand.map((p) => (
                       <option key={p.model} value={p.model}>{p.model}</option>
                     ))}
-                    <option value="_other">Di\u011fer...</option>
+                    <option value="_other">Diğer...</option>
                   </select>
                   {(!selBrand || selBrand === "_other") && (
-                    <p className="text-xs text-amber-600 flex items-center gap-1">\u26a0\ufe0f \u00d6nce marka se\u00e7in</p>
+                    <p className="text-xs text-amber-600 flex items-center gap-1">⚠️ Önce marka seçin</p>
                   )}
                   {selModel === "_other" && (
                     <input
                       type="text"
-                      placeholder="L\u00fctfen model girin..."
+                      placeholder="Lütfen model girin..."
                       value={customModel}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1003,19 +1012,19 @@ export default function UrunlerPage() {
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     size={1}
                   >
-                    <option value="">Renk Se\u00e7in...</option>
+                    <option value="">Renk Seçin...</option>
                     {modelColors.map((color) => (
                       <option key={color} value={color}>{color}</option>
                     ))}
-                    <option value="_other">Di\u011fer...</option>
+                    <option value="_other">Diğer...</option>
                   </select>
                   {(!selModel || selModel === "_other") && (
-                    <p className="text-xs text-amber-600 flex items-center gap-1">\u26a0\ufe0f \u00d6nce model se\u00e7in</p>
+                    <p className="text-xs text-amber-600 flex items-center gap-1">⚠️ Önce model seçin</p>
                   )}
                   {selColor === "_other" && (
                     <input
                       type="text"
-                      placeholder="L\u00fctfen renk girin..."
+                      placeholder="Lütfen renk girin..."
                       value={customColor}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1038,16 +1047,16 @@ export default function UrunlerPage() {
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
                     size={1}
                   >
-                    <option value="">Renk Se\u00e7in...</option>
+                    <option value="">Renk Seçin...</option>
                     {accessoryColors.map((color) => (
                       <option key={color} value={color}>{color}</option>
                     ))}
-                    <option value="_other">Di\u011fer...</option>
+                    <option value="_other">Diğer...</option>
                   </select>
                   {selColor === "_other" && (
                     <input
                       type="text"
-                      placeholder="L\u00fctfen renk girin..."
+                      placeholder="Lütfen renk girin..."
                       value={customColor}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1089,19 +1098,19 @@ export default function UrunlerPage() {
                         className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         size={1}
                       >
-                        <option value="">RAM Se\u00e7in...</option>
+                        <option value="">RAM Seçin...</option>
                         {laptopRamOptions.map((r) => (
                           <option key={r} value={r}>{r}</option>
                         ))}
-                        <option value="_other">Di\u011fer...</option>
+                        <option value="_other">Diğer...</option>
                       </select>
                       {(!selModel || selModel === "_other") && (
-                        <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce model se\u00e7in</p>
+                        <p className="text-xs text-amber-600">⚠️ Önce model seçin</p>
                       )}
                       {selRam === "_other" && (
                         <input
                           type="text"
-                          placeholder="\u00d6rn: 32 GB"
+                          placeholder="Örn: 32 GB"
                           value={customRam}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -1120,11 +1129,11 @@ export default function UrunlerPage() {
                         id="product-ram"
                         value={form.ram}
                         onChange={(e) => handleFormChange("ram", e.target.value)}
-                        placeholder="\u00d6rn: 16 GB (Opsiyonel)"
+                        placeholder="Örn: 16 GB (Opsiyonel)"
                         disabled={!selBrand}
                         className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
                       />
-                      {!selBrand && <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce marka se\u00e7in</p>}
+                      {!selBrand && <p className="text-xs text-amber-600">⚠️ Önce marka seçin</p>}
                     </>
                   )}
                 </div>
@@ -1143,19 +1152,19 @@ export default function UrunlerPage() {
                         className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         size={1}
                       >
-                        <option value="">Depolama Se\u00e7in...</option>
+                        <option value="">Depolama Seçin...</option>
                         {laptopStorageOptions.map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
-                        <option value="_other">Di\u011fer...</option>
+                        <option value="_other">Diğer...</option>
                       </select>
                       {(!selModel || selModel === "_other") && (
-                        <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce model se\u00e7in</p>
+                        <p className="text-xs text-amber-600">⚠️ Önce model seçin</p>
                       )}
                       {selStorage === "_other" && (
                         <input
                           type="text"
-                          placeholder="\u00d6rn: 1 TB SSD"
+                          placeholder="Örn: 1 TB SSD"
                           value={customStorage}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -1174,11 +1183,11 @@ export default function UrunlerPage() {
                         id="product-storage"
                         value={form.storage}
                         onChange={(e) => handleFormChange("storage", e.target.value)}
-                        placeholder="\u00d6rn: 512 GB SSD (Opsiyonel)"
+                        placeholder="Örn: 512 GB SSD (Opsiyonel)"
                         disabled={!selBrand}
                         className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
                       />
-                      {!selBrand && <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce marka se\u00e7in</p>}
+                      {!selBrand && <p className="text-xs text-amber-600">⚠️ Önce marka seçin</p>}
                     </>
                   )}
                 </div>
@@ -1200,16 +1209,16 @@ export default function UrunlerPage() {
                       className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
                       size={1}
                     >
-                      <option value="">Hafıza Se\u00e7in...</option>
+                      <option value="">Hafıza Seçin...</option>
                       {modelMemories.map((mem) => (
                         <option key={mem} value={mem}>{mem}</option>
                       ))}
-                      <option value="_other">Di\u011fer...</option>
+                      <option value="_other">Diğer...</option>
                     </select>
                     {selMemory === "_other" && (
                       <input
                         type="text"
-                        placeholder="L\u00fctfen hafıza girin..."
+                        placeholder="Lütfen hafıza girin..."
                         value={customMemory}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -1228,7 +1237,7 @@ export default function UrunlerPage() {
                     id="product-memory"
                     value={form.memory}
                     onChange={(e) => handleFormChange("memory", e.target.value)}
-                    placeholder="Opsiyonel (genellikle bo\u015f bırakılır)"
+                    placeholder="Opsiyonel (genellikle boş bırakılır)"
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                   />
                 ) : (
@@ -1239,18 +1248,18 @@ export default function UrunlerPage() {
                       id="product-memory"
                       value={form.memory}
                       onChange={(e) => handleFormChange("memory", e.target.value)}
-                      placeholder="\u00d6rn: 256 GB (Bo\u015f bırakılabilir)"
+                      placeholder="Örn: 256 GB (Boş bırakılabilir)"
                       disabled={!!(activeCatalog && (!selModel || selModel === "_other"))}
                       className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
                     />
                     {activeCatalog && (!selModel || selModel === "_other") && (
-                      <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce model se\u00e7in</p>
+                      <p className="text-xs text-amber-600">⚠️ Önce model seçin</p>
                     )}
                   </>
                 )}
               </div>
             )}
-            {/* Di\u011fer kategoriler: opsiyonel hafıza alanı */}
+            {/* Diğer kategoriler: opsiyonel hafıza alanı */}
             {!isPhone && !isTablet && !isLaptop && !isSmartwatch && !isAccessory && (
               <div className="grid gap-2 text-sm text-slate-700">
                 <span className="font-medium">Hafıza (Opsiyonel)</span>
@@ -1260,7 +1269,7 @@ export default function UrunlerPage() {
                   id="product-memory"
                   value={form.memory}
                   onChange={(e) => handleFormChange("memory", e.target.value)}
-                  placeholder="\u00d6rn: 256 GB (Bo\u015f bırakılabilir)"
+                  placeholder="Örn: 256 GB (Boş bırakılabilir)"
                   className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                 />
               </div>
@@ -1628,24 +1637,24 @@ export default function UrunlerPage() {
                               />
                             ) : (
                               <span className="text-2xl select-none">
-                                {product.category?.toLowerCase() === 'telefon' ? '\ud83d\udcf1'
-                                  : product.category?.toLowerCase() === 'tablet' ? '\ud83d\udcdf'
-                                  : product.category?.toLowerCase() === 'bilgisayar' ? '\ud83d\udcbb'
-                                  : product.category?.toLowerCase() === 'aksesuar' ? '\ud83c\udfa7'
-                                  : product.category?.toLowerCase() === 'ak\u0131ll\u0131 saat' ? '\u231a'
-                                  : '\ud83d\udce6'}
+                                {product.category?.toLowerCase() === 'telefon' ? '📱'
+                                  : product.category?.toLowerCase() === 'tablet' ? '📟'
+                                  : product.category?.toLowerCase() === 'bilgisayar' ? '💻'
+                                  : product.category?.toLowerCase() === 'aksesuar' ? '🎧'
+                                  : product.category?.toLowerCase() === 'akıllı saat' ? '⌚'
+                                  : '📦'}
                               </span>
                             )}
                           </div>
                         </div>
 
-                        {/* Sa\u011f: Bilgi + İ\u015flemler */}
+                        {/* Sağ: Bilgi + İşlemler */}
                         <div className="flex-1 min-w-0">
-                          {/* Ba\u015flık satırı */}
+                          {/* Başlık satırı */}
                           <div className="flex flex-wrap items-center gap-2 mb-0.5">
                             <h4 className="text-sm font-bold text-slate-900 leading-snug">{product.name}</h4>
                             {product.is_web_visible ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">\u2713 Webde</span>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">✓ Webde</span>
                             ) : (
                               <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 border border-slate-200">Gizli</span>
                             )}
@@ -1654,21 +1663,21 @@ export default function UrunlerPage() {
                           {/* Kategori • Marka • Model */}
                           {(product.category || product.brand || product.model) && (
                             <p className="text-xs text-slate-500 mb-1 leading-relaxed">
-                              {[product.category, product.brand, product.model].filter(Boolean).join(' \u2022 ')}
+                              {[product.category, product.brand, product.model].filter(Boolean).join(' • ')}
                             </p>
                           )}
 
-                          {/* \u00d6zellikler: Renk • Hafıza */}
+                          {/* Özellikler: Renk • Hafıza */}
                           {(product.color || product.memory) && (
                             <p className="text-xs text-slate-500 mb-2">
-                              {[product.color && `\ud83c\udfa8 ${product.color}`, product.memory && `\ud83d\udcbe ${product.memory}`].filter(Boolean).join('  ')}
+                              {[product.color && `🎨 ${product.color}`, product.memory && `💾 ${product.memory}`].filter(Boolean).join('  ')}
                             </p>
                           )}
 
                           {/* Barkod */}
                           <p className="text-[10px] text-slate-400 font-mono mb-2">#{product.barcode || '—'}</p>
 
-                          {/* Stok + Fiyat + İ\u015flemler satırı */}
+                          {/* Stok + Fiyat + İşlemler satırı */}
                           <div className="flex flex-wrap items-center gap-3">
                             {/* Stok */}
                             <div className="flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5">
@@ -1679,16 +1688,16 @@ export default function UrunlerPage() {
                               }`}>{product.stock}</span>
                               <span className="text-[10px] text-slate-500 font-medium">adet</span>
                             </div>
-                            {/* Satı\u015f Fiyatı */}
+                            {/* Satış Fiyatı */}
                             <div className="flex items-baseline gap-1">
                               <span className="text-base font-bold text-slate-900">{formatCurrencyTRY(product.sell_price)}</span>
                             </div>
-                            {/* Alı\u015f */}
+                            {/* Alış */}
                             {product.buy_price > 0 && (
-                              <span className="text-xs text-slate-400">Alı\u015f: {formatCurrencyTRY(product.buy_price)}</span>
+                              <span className="text-xs text-slate-400">Alış: {formatCurrencyTRY(product.buy_price)}</span>
                             )}
 
-                            {/* İ\u015flem Butonları */}
+                            {/* İşlem Butonları */}
                             <div className="ml-auto flex flex-wrap gap-1.5">
                               <button
                                 type="button"
@@ -1702,14 +1711,14 @@ export default function UrunlerPage() {
                                 onClick={() => handleStockAdjustment(product, "OUT")}
                                 className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600 active:scale-95"
                               >
-                                \u2212 Stok
+                                − Stok
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleStartEdit(product)}
                                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95"
                               >
-                                D\u00fczenle
+                                Düzenle
                               </button>
                               <button
                                 type="button"
@@ -1721,7 +1730,7 @@ export default function UrunlerPage() {
                             </div>
                           </div>
 
-                          {/* A\u00e7ıklama */}
+                          {/* Açıklama */}
                           {product.description && (
                             <p className="mt-2 text-[11px] text-slate-400 italic line-clamp-2">{product.description}</p>
                           )}

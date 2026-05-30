@@ -47,6 +47,23 @@ const headerMap: Record<string, string> = {
   "webde goster": "is_web_visible",
   "webde görünür": "is_web_visible",
   "webde gorunur": "is_web_visible",
+  brand: "brand",
+  marka: "brand",
+  model: "model",
+  color: "color",
+  renk: "color",
+  memory: "memory",
+  hafıza: "memory",
+  hafiza: "memory",
+};
+
+const buildProductName = (brand: string, model: string, color?: string | null, memory?: string | null) => {
+  const parts = [];
+  if (brand && brand.trim()) parts.push(brand.trim());
+  if (model && model.trim()) parts.push(model.trim());
+  if (memory && memory.trim()) parts.push(memory.trim());
+  if (color && color.trim()) parts.push(`(${color.trim()})`);
+  return parts.join(" ");
 };
 
 function normalizeHeader(h: string) {
@@ -155,15 +172,24 @@ export default function AyarlarPage() {
         }
 
         const barcode = mapped["barcode"] ? String(mapped["barcode"]).trim() : "";
-        const name = mapped["name"] ? String(mapped["name"]).trim() : "";
-        if (!barcode && !name) {
+        let name = mapped["name"] ? String(mapped["name"]).trim() : "";
+        const brand = mapped["brand"] ? String(mapped["brand"]).trim() : "";
+        const model = mapped["model"] ? String(mapped["model"]).trim() : "";
+        const color = mapped["color"] ? String(mapped["color"]).trim() : "";
+        const memory = mapped["memory"] ? String(mapped["memory"]).trim() : "";
+
+        if (!barcode && !name && !brand && !model) {
           skipped++;
           continue;
         }
 
+        if (!name) {
+          name = buildProductName(brand, model, color, memory) || "İsimsiz Ürün";
+        }
+
         const parsed = {
           barcode: barcode || null,
-          name: name || "",
+          name: name || "İsimsiz Ürün",
           category: mapped["category"] ? String(mapped["category"]).trim() : null,
           stock: mapped["stock"] !== null && mapped["stock"] !== undefined ? Number(mapped["stock"]) : 0,
           buy_price: mapped["buy_price"] !== null && mapped["buy_price"] !== undefined ? Number(mapped["buy_price"]) : 0,
@@ -178,6 +204,10 @@ export default function AyarlarPage() {
                mapped["is_web_visible"] === 1 ||
                mapped["is_web_visible"] === true)
             : false,
+          brand: brand || null,
+          model: model || null,
+          color: color || null,
+          memory: memory || null,
         };
 
         try {
@@ -205,6 +235,10 @@ export default function AyarlarPage() {
                 description: parsed.description,
                 image_url: parsed.image_url,
                 is_web_visible: parsed.is_web_visible,
+                brand: parsed.brand,
+                model: parsed.model,
+                color: parsed.color,
+                memory: parsed.memory,
               });
 
               if (error) {
@@ -243,6 +277,10 @@ export default function AyarlarPage() {
                 description: parsed.description,
                 image_url: parsed.image_url,
                 is_web_visible: parsed.is_web_visible,
+                brand: parsed.brand,
+                model: parsed.model,
+                color: parsed.color,
+                memory: parsed.memory,
               } as any);
 
               if (error || !data) {
@@ -280,6 +318,10 @@ export default function AyarlarPage() {
               description: parsed.description,
               image_url: parsed.image_url,
               is_web_visible: parsed.is_web_visible,
+              brand: parsed.brand,
+              model: parsed.model,
+              color: parsed.color,
+              memory: parsed.memory,
             } as any);
 
             if (error || !data) {
@@ -374,6 +416,10 @@ export default function AyarlarPage() {
                   Barkod: p.barcode || "",
                   "Ürün Adı": p.name,
                   Kategori: p.category || "",
+                  Marka: p.brand || "",
+                  Model: p.model || "",
+                  Renk: p.color || "",
+                  Hafıza: p.memory || "",
                   Stok: p.stock,
                   "Alış Fiyatı": Number(p.buy_price || 0),
                   "Satış Fiyatı": Number(p.sell_price || 0),

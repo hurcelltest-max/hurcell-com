@@ -12,6 +12,10 @@ export type Product = {
   description: string | null;
   image_url: string | null;
   is_web_visible: boolean;
+  brand: string | null;
+  model: string | null;
+  color: string | null;
+  memory: string | null;
 };
 
 export type StockMovementType = 'IN' | 'OUT' | 'RETURN' | 'ADJUSTMENT';

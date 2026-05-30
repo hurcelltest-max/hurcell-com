@@ -10,6 +10,312 @@ import {
   Product,
   updateProduct,
 } from "@/lib/productService";
+import { supabase } from "@/lib/supabaseClient";
+
+// İstemci tarafında görsel optimizasyonu yapan yardımcı fonksiyon (Maks 1600px, 0.85 JPEG sıkıştırma)
+const optimizeImage = async (file: File): Promise<Blob> => {
+  return new Promise((resolve) => {
+    if (
+      file.size < 400 * 1024 &&
+      (file.type === "image/jpeg" ||
+        file.type === "image/jpg" ||
+        file.type === "image/png" ||
+        file.type === "image/webp")
+    ) {
+      resolve(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        const MAX_WIDTH = 1600;
+        const MAX_HEIGHT = 1600;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              resolve(file);
+            }
+          },
+          "image/jpeg",
+          0.85
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+};
+
+interface ProductImageUploaderProps {
+  imageUrl: string;
+  onUploadSuccess: (url: string) => void;
+  onUploadStart?: () => void;
+  onUploadEnd?: () => void;
+  idPrefix: string;
+}
+
+function ProductImageUploader({
+  imageUrl,
+  onUploadSuccess,
+  onUploadStart,
+  onUploadEnd,
+  idPrefix,
+}: ProductImageUploaderProps) {
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFile = async (file: File) => {
+    // Format doğrulaması
+    const allowedFormats = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowedFormats.includes(file.type)) {
+      setErrorMsg("Yalnızca JPG, JPEG, PNG ve WEBP formatları desteklenir.");
+      setSuccessMsg(null);
+      return;
+    }
+
+    // Dosya boyutu doğrulaması (5 MB limit)
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setErrorMsg("Dosya boyutu maksimum 5 MB olabilir.");
+      setSuccessMsg(null);
+      return;
+    }
+
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setUploading(true);
+    setProgress(10);
+    onUploadStart?.();
+
+    try {
+      // 1. İstemci tarafında sıkıştırma/boyutlandırma
+      setProgress(30);
+      const optimizedBlob = await optimizeImage(file);
+
+      // 2. Benzersiz dosya adı oluşturma
+      setProgress(60);
+      const ext = file.name.split(".").pop() || "jpg";
+      const filename = `products/${Date.now()}-${Math.random().toString(36).substring(2, 11)}.${ext}`;
+
+      if (!supabase) {
+        throw new Error("Supabase bağlantısı yapılandırılmamış.");
+      }
+
+      // 3. Supabase Storage'a yükleme
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(filename, optimizedBlob, {
+          contentType: file.type || "image/jpeg",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      setProgress(90);
+      // 4. Public URL alma
+      const { data } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(filename);
+
+      if (!data || !data.publicUrl) {
+        throw new Error("Public URL üretilemedi.");
+      }
+
+      setProgress(100);
+      setSuccessMsg("Görsel başarıyla yüklendi!");
+      onUploadSuccess(data.publicUrl);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || "Görsel yüklenirken bir hata oluştu.");
+    } finally {
+      setUploading(false);
+      onUploadEnd?.();
+    }
+  };
+
+  const handleFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  return (
+    <div className="grid gap-3">
+      {/* Gizli file inputlar */}
+      <input
+        type="file"
+        ref={galleryInputRef}
+        onChange={handleFileInputChange}
+        accept="image/*"
+        className="hidden"
+        id={`${idPrefix}-gallery-input`}
+      />
+      <input
+        type="file"
+        ref={cameraInputRef}
+        onChange={handleFileInputChange}
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        id={`${idPrefix}-camera-input`}
+      />
+
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition ${
+          dragOver
+            ? "border-sky-500 bg-sky-50/50"
+            : imageUrl
+            ? "border-emerald-200 bg-emerald-50/10"
+            : "border-slate-200 bg-slate-50/50 hover:bg-slate-50"
+        }`}
+      >
+        {imageUrl ? (
+          <div className="w-full space-y-4">
+            <div className="relative mx-auto h-32 w-32 overflow-hidden rounded-xl border border-slate-100 bg-slate-50 shadow-sm">
+              <img
+                src={imageUrl}
+                alt="Ürün Önizleme"
+                className="h-full w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => onUploadSuccess("")}
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white shadow hover:bg-rose-600 transition"
+                title="Görseli Kaldır"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="text-xs text-slate-500 font-medium break-all">
+              Mevcut görsel URL'si: <span className="underline">{imageUrl}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 text-lg">
+              🖼️
+            </div>
+            <div className="text-sm font-medium text-slate-700">
+              Görseli buraya sürükleyin veya cihazınızdan seçin
+            </div>
+            <div className="text-xs text-slate-400 font-normal">
+              Desteklenen formatlar: JPG, JPEG, PNG, WEBP (Maks: 5 MB)
+            </div>
+          </div>
+        )}
+
+        {/* Yükleniyor Durumu */}
+        {uploading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-white/95 p-4 z-10">
+            <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full bg-sky-500 transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <span className="mt-2 text-xs font-semibold text-sky-600 animate-pulse">
+              Görsel yükleniyor... %{progress}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Tetikleyici Butonlar */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => galleryInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+        >
+          📂 Galeriden Seç
+        </button>
+        <button
+          type="button"
+          onClick={() => cameraInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+        >
+          📸 Kamerayı Aç
+        </button>
+      </div>
+
+      {/* Durum Mesajları */}
+      {successMsg && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 flex items-center gap-1.5">
+          ✓ {successMsg}
+        </div>
+      )}
+      {errorMsg && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800 flex items-center gap-1.5">
+          ⚠️ {errorMsg}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 const initialFormState = {
   barcode: "",
@@ -23,22 +329,44 @@ const initialFormState = {
   description: "",
   image_url: "",
   is_web_visible: false as boolean,
+  brand: "",
+  model: "",
+  color: "",
+  memory: "",
 };
 
 type FormFieldKey = keyof typeof initialFormState;
 
-const formFields: Array<{ label: string; key: FormFieldKey; type: "text" | "number" }> = [
-  { label: "Barkod", key: "barcode", type: "text" },
-  { label: "Ürün Adı", key: "name", type: "text" },
-  { label: "Kategori", key: "category", type: "text" },
-  { label: "Stok Adedi", key: "stock", type: "number" },
-  { label: "Alış Fiyatı", key: "buy_price", type: "number" },
-  { label: "Satış Fiyatı", key: "sell_price", type: "number" },
-  { label: "Minimum Stok", key: "min_stock", type: "number" },
-  { label: "Raf / Konum", key: "location", type: "text" },
-];
-
 const formatAmount = (value: string) => value.replace(/[^0-9.]/g, "");
+
+const formatCurrencyTRY = (value: string | number) => {
+  const num = Number(value);
+  if (isNaN(num) || value === "" || value === undefined || value === null) return "";
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num);
+};
+
+const parseCurrencyTRY = (formattedValue: string) => {
+  if (!formattedValue) return "";
+  let clean = formattedValue
+    .replace(/[^0-9,.-]/g, "") // remove ₺, letters, spaces
+    .replace(/\./g, "")       // remove dots (thousands separators)
+    .replace(/,/g, ".");       // replace comma with dot (decimal separator)
+  return clean;
+};
+
+const buildProductName = (brand: string, model: string, color?: string | null, memory?: string | null) => {
+  const parts = [];
+  if (brand && brand.trim()) parts.push(brand.trim());
+  if (model && model.trim()) parts.push(model.trim());
+  if (memory && memory.trim()) parts.push(memory.trim());
+  if (color && color.trim()) parts.push(`(${color.trim()})`);
+  return parts.join(" ");
+};
 
 export default function UrunlerPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -52,6 +380,10 @@ export default function UrunlerPage() {
     text: string;
   } | null>(null);
   const barcodeRef = useRef<HTMLInputElement | null>(null);
+  const [buyPriceFocused, setBuyPriceFocused] = useState(false);
+  const [sellPriceFocused, setSellPriceFocused] = useState(false);
+  const [editBuyPriceFocused, setEditBuyPriceFocused] = useState(false);
+  const [editSellPriceFocused, setEditSellPriceFocused] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -104,8 +436,13 @@ export default function UrunlerPage() {
 
   const handleAddProduct = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!form.barcode.trim() || !form.name.trim()) {
-      showStatus("error", "Barkod ve ürün adı alanları zorunludur.");
+    if (!form.barcode.trim()) {
+      showStatus("error", "Barkod / Karekod alanı zorunludur.");
+      return;
+    }
+
+    if (!form.name.trim() && !form.brand.trim() && !form.model.trim()) {
+      showStatus("error", "Ürün Adı boş bırakılacaksa Marka veya Model girilmelidir.");
       return;
     }
 
@@ -123,9 +460,12 @@ export default function UrunlerPage() {
       return;
     }
 
+    const manualName = form.name.trim();
+    const finalName = manualName || buildProductName(form.brand, form.model, form.color, form.memory) || "İsimsiz Ürün";
+
     const { data, error } = await createProduct({
       barcode: form.barcode.trim(),
-      name: form.name.trim(),
+      name: finalName,
       category: form.category.trim() || null,
       stock: Number(form.stock) || 0,
       buy_price: Number(form.buy_price) || 0,
@@ -135,6 +475,10 @@ export default function UrunlerPage() {
       description: form.description.trim() || null,
       image_url: form.image_url.trim() || null,
       is_web_visible: form.is_web_visible === true,
+      brand: form.brand.trim() || null,
+      model: form.model.trim() || null,
+      color: form.color.trim() || null,
+      memory: form.memory.trim() || null,
     });
 
     setSaving(false);
@@ -164,6 +508,10 @@ export default function UrunlerPage() {
       description: product.description || "",
       image_url: product.image_url || "",
       is_web_visible: product.is_web_visible || false,
+      brand: product.brand || "",
+      model: product.model || "",
+      color: product.color || "",
+      memory: product.memory || "",
     });
   };
 
@@ -173,8 +521,13 @@ export default function UrunlerPage() {
   };
 
   const handleSaveEdit = async (product: Product) => {
-    if (!editForm.barcode.trim() || !editForm.name.trim()) {
-      showStatus("error", "Barkod ve ürün adı alanları zorunludur.");
+    if (!editForm.barcode.trim()) {
+      showStatus("error", "Barkod / Karekod alanı zorunludur.");
+      return;
+    }
+
+    if (!editForm.name.trim() && !editForm.brand.trim() && !editForm.model.trim()) {
+      showStatus("error", "Ürün Adı boş bırakılacaksa Marka veya Model girilmelidir.");
       return;
     }
 
@@ -193,9 +546,12 @@ export default function UrunlerPage() {
       }
     }
 
+    const manualName = editForm.name.trim();
+    const finalName = manualName || buildProductName(editForm.brand, editForm.model, editForm.color, editForm.memory) || "İsimsiz Ürün";
+
     const { data, error } = await updateProduct(product.id, {
       barcode: editForm.barcode.trim(),
-      name: editForm.name.trim(),
+      name: finalName,
       category: editForm.category.trim() || null,
       stock: Number(editForm.stock) || 0,
       buy_price: Number(editForm.buy_price) || 0,
@@ -205,6 +561,10 @@ export default function UrunlerPage() {
       description: editForm.description.trim() || null,
       image_url: editForm.image_url.trim() || null,
       is_web_visible: editForm.is_web_visible === true,
+      brand: editForm.brand.trim() || null,
+      model: editForm.model.trim() || null,
+      color: editForm.color.trim() || null,
+      memory: editForm.memory.trim() || null,
     });
 
     setSaving(false);
@@ -308,24 +668,102 @@ export default function UrunlerPage() {
             Yeni Ürün Ekle
           </p>
           <div className="mt-6 grid gap-4">
-            {formFields.map(({ label, key, type }) => (
-              <label key={key} className="grid gap-2 text-sm text-slate-700">
-                <span className="font-medium">{label}</span>
-                <input
-                  type={type}
-                  name={key}
-                  id={`product-${key}`}
-                  value={form[key] as string}
-                  onChange={handleFormInputChange}
-                  ref={key === "barcode" ? barcodeRef : undefined}
-                  {...(type === "number"
-                    ? { inputMode: "decimal", step: "any" }
-                    : {})}
-                  {...(key === "barcode" || key === "name" ? { required: true } : {})}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                />
-              </label>
-            ))}
+            {/* 1. Barkod / Karekod */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Barkod / Karekod</span>
+              <input
+                type="text"
+                name="barcode"
+                id="product-barcode"
+                value={form.barcode}
+                onChange={(e) => handleFormChange("barcode", e.target.value)}
+                ref={barcodeRef}
+                required
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 2. Kategori */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Kategori</span>
+              <input
+                type="text"
+                name="category"
+                id="product-category"
+                value={form.category}
+                onChange={(e) => handleFormChange("category", e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 3. Marka */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Marka</span>
+              <input
+                type="text"
+                name="brand"
+                id="product-brand"
+                value={form.brand}
+                onChange={(e) => handleFormChange("brand", e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 4. Model */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Model</span>
+              <input
+                type="text"
+                name="model"
+                id="product-model"
+                value={form.model}
+                onChange={(e) => handleFormChange("model", e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 5. Renk */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Renk</span>
+              <input
+                type="text"
+                name="color"
+                id="product-color"
+                value={form.color}
+                onChange={(e) => handleFormChange("color", e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 6. Hafıza */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Hafıza (Opsiyonel)</span>
+              <input
+                type="text"
+                name="memory"
+                id="product-memory"
+                value={form.memory}
+                onChange={(e) => handleFormChange("memory", e.target.value)}
+                placeholder="Örn: 256 GB, 8 GB (Boş bırakılabilir)"
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 7. Ürün Adı */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Ürün Adı (Boş bırakılırsa otomatik oluşturulur)</span>
+              <input
+                type="text"
+                name="name"
+                id="product-name"
+                value={form.name}
+                onChange={(e) => handleFormChange("name", e.target.value)}
+                placeholder="Örn: Apple iPhone 15 Pro Max"
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 8. Ürün Açıklaması */}
             <label className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Ürün Açıklaması</span>
               <textarea
@@ -337,17 +775,80 @@ export default function UrunlerPage() {
                 rows={3}
               />
             </label>
+
+            {/* 9. Ürün Fotoğrafı */}
+            <div className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Ürün Fotoğrafı</span>
+              <ProductImageUploader
+                imageUrl={form.image_url}
+                onUploadSuccess={(url) => handleFormChange("image_url", url)}
+                idPrefix="new-product"
+              />
+            </div>
+
+            {/* 9. Stok Adedi */}
             <label className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">Ürün Fotoğraf URL'si</span>
+              <span className="font-medium">Stok Adedi</span>
               <input
-                type="text"
-                name="image_url"
-                id="product-image_url"
-                value={form.image_url}
-                onChange={(e) => handleFormChange("image_url", e.target.value)}
+                type="number"
+                name="stock"
+                id="product-stock"
+                value={form.stock}
+                onChange={(e) => handleFormChange("stock", formatAmount(e.target.value))}
                 className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
               />
             </label>
+
+            {/* 10. Alış Fiyatı */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Alış Fiyatı</span>
+              <input
+                type="text"
+                name="buy_price"
+                id="product-buy_price"
+                value={buyPriceFocused ? form.buy_price : formatCurrencyTRY(form.buy_price)}
+                onFocus={() => setBuyPriceFocused(true)}
+                onBlur={(e) => {
+                  setBuyPriceFocused(false);
+                  handleFormChange("buy_price", parseCurrencyTRY(e.target.value));
+                }}
+                onChange={(e) => handleFormChange("buy_price", e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 11. Satış Fiyatı */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Satış Fiyatı</span>
+              <input
+                type="text"
+                name="sell_price"
+                id="product-sell_price"
+                value={sellPriceFocused ? form.sell_price : formatCurrencyTRY(form.sell_price)}
+                onFocus={() => setSellPriceFocused(true)}
+                onBlur={(e) => {
+                  setSellPriceFocused(false);
+                  handleFormChange("sell_price", parseCurrencyTRY(e.target.value));
+                }}
+                onChange={(e) => handleFormChange("sell_price", e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 12. Azalan Stok Alarmı */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Azalan Stok Alarmı</span>
+              <input
+                type="number"
+                name="min_stock"
+                id="product-min_stock"
+                value={form.min_stock}
+                onChange={(e) => handleFormChange("min_stock", formatAmount(e.target.value))}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 13. Web Sitesinde Gösterilsin mi? */}
             <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer mt-2">
               <input
                 type="checkbox"
@@ -357,7 +858,7 @@ export default function UrunlerPage() {
                 onChange={(e) => handleFormChange("is_web_visible", e.target.checked)}
                 className="h-5 w-5 rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500"
               />
-              <span className="font-medium">Web sitesinde gösterilsin mi?</span>
+              <span className="font-medium">Web Sitesinde Gösterilsin mi?</span>
             </label>
           </div>
           <button
@@ -403,21 +904,11 @@ export default function UrunlerPage() {
                       <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
                         <div className="grid gap-4 sm:grid-cols-2">
                           <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Barkod</span>
+                            <span>Barkod / Karekod</span>
                             <input
                               value={editForm.barcode}
                               onChange={(event) =>
                                 handleEditFormChange("barcode", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Ürün Adı</span>
-                            <input
-                              value={editForm.name}
-                              onChange={(event) =>
-                                handleEditFormChange("name", event.target.value)
                               }
                               className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
                             />
@@ -433,7 +924,59 @@ export default function UrunlerPage() {
                             />
                           </label>
                           <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Stok</span>
+                            <span>Marka</span>
+                            <input
+                              value={editForm.brand}
+                              onChange={(event) =>
+                                handleEditFormChange("brand", event.target.value)
+                              }
+                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                            />
+                          </label>
+                          <label className="grid gap-2 text-sm text-slate-700">
+                            <span>Model</span>
+                            <input
+                              value={editForm.model}
+                              onChange={(event) =>
+                                handleEditFormChange("model", event.target.value)
+                              }
+                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                            />
+                          </label>
+                          <label className="grid gap-2 text-sm text-slate-700">
+                            <span>Renk</span>
+                            <input
+                              value={editForm.color}
+                              onChange={(event) =>
+                                handleEditFormChange("color", event.target.value)
+                              }
+                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                            />
+                          </label>
+                          <label className="grid gap-2 text-sm text-slate-700">
+                            <span>Hafıza (Opsiyonel)</span>
+                            <input
+                              value={editForm.memory}
+                              onChange={(event) =>
+                                handleEditFormChange("memory", event.target.value)
+                              }
+                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                              placeholder="Örn: 256 GB, 8 GB (Boş bırakılabilir)"
+                            />
+                          </label>
+                          <label className="grid gap-2 text-sm text-slate-700">
+                            <span>Ürün Adı (Boş bırakılırsa otomatik oluşturulur)</span>
+                            <input
+                              value={editForm.name}
+                              onChange={(event) =>
+                                handleEditFormChange("name", event.target.value)
+                              }
+                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                              placeholder="Örn: Apple iPhone 15 Pro Max"
+                            />
+                          </label>
+                          <label className="grid gap-2 text-sm text-slate-700">
+                            <span>Stok Adedi</span>
                             <input
                               type="number"
                               value={editForm.stock}
@@ -449,13 +992,15 @@ export default function UrunlerPage() {
                           <label className="grid gap-2 text-sm text-slate-700">
                             <span>Alış Fiyatı</span>
                             <input
-                              type="number"
-                              value={editForm.buy_price}
+                              type="text"
+                              value={editBuyPriceFocused ? editForm.buy_price : formatCurrencyTRY(editForm.buy_price)}
+                              onFocus={() => setEditBuyPriceFocused(true)}
+                              onBlur={(event) => {
+                                setEditBuyPriceFocused(false);
+                                handleEditFormChange("buy_price", parseCurrencyTRY(event.target.value));
+                              }}
                               onChange={(event) =>
-                                handleEditFormChange(
-                                  "buy_price",
-                                  formatAmount(event.target.value)
-                                )
+                                handleEditFormChange("buy_price", event.target.value)
                               }
                               className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
                             />
@@ -463,19 +1008,21 @@ export default function UrunlerPage() {
                           <label className="grid gap-2 text-sm text-slate-700">
                             <span>Satış Fiyatı</span>
                             <input
-                              type="number"
-                              value={editForm.sell_price}
+                              type="text"
+                              value={editSellPriceFocused ? editForm.sell_price : formatCurrencyTRY(editForm.sell_price)}
+                              onFocus={() => setEditSellPriceFocused(true)}
+                              onBlur={(event) => {
+                                setEditSellPriceFocused(false);
+                                handleEditFormChange("sell_price", parseCurrencyTRY(event.target.value));
+                              }}
                               onChange={(event) =>
-                                handleEditFormChange(
-                                  "sell_price",
-                                  formatAmount(event.target.value)
-                                )
+                                handleEditFormChange("sell_price", event.target.value)
                               }
                               className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
                             />
                           </label>
                           <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Minimum Stok</span>
+                            <span>Azalan Stok Alarmı</span>
                             <input
                               type="number"
                               value={editForm.min_stock}
@@ -509,16 +1056,14 @@ export default function UrunlerPage() {
                               rows={2}
                             />
                           </label>
-                          <label className="grid gap-2 text-sm text-slate-700 sm:col-span-2">
-                            <span>Ürün Fotoğraf URL'si</span>
-                            <input
-                              value={editForm.image_url}
-                              onChange={(event) =>
-                                handleEditFormChange("image_url", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                          <div className="grid gap-2 text-sm text-slate-700 sm:col-span-2">
+                            <span className="font-medium">Ürün Fotoğrafı</span>
+                            <ProductImageUploader
+                              imageUrl={editForm.image_url}
+                              onUploadSuccess={(url) => handleEditFormChange("image_url", url)}
+                              idPrefix="edit-product"
                             />
-                          </label>
+                          </div>
                           <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer sm:col-span-2 py-2">
                             <input
                               type="checkbox"
@@ -584,14 +1129,20 @@ export default function UrunlerPage() {
                                 </span>
                               )}
                             </div>
+                            {/* Structured e-commerce details */}
                             <p className="mt-1 text-sm leading-6 text-slate-600 truncate">
-                              {product.category || "Kategori yok"} • {product.barcode}
+                              {product.category && <span className="font-semibold text-slate-700">{product.category}</span>}
+                              {product.brand && <span> • {product.brand}</span>}
+                              {product.model && <span> • {product.model}</span>}
+                              {product.color && <span> • Renk: {product.color}</span>}
+                              {product.memory && <span> • Hafıza: {product.memory}</span>}
                             </p>
-                            <p className="mt-1 text-sm text-slate-500 truncate">
-                              {product.location || "Konum yok"}
+                            <p className="mt-0.5 text-xs text-slate-500 truncate">
+                              Barkod: {product.barcode || "Barkod yok"}
+                              {product.location && <span> • Konum: {product.location}</span>}
                             </p>
                             {product.description && (
-                              <p className="mt-1 text-xs text-slate-400 italic line-clamp-2 max-w-md">
+                              <p className="mt-1.5 text-xs text-slate-400 italic line-clamp-2 max-w-md">
                                 {product.description}
                               </p>
                             )}

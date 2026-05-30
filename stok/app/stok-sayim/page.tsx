@@ -150,6 +150,10 @@ export default function StokSayimPage() {
       description: null,
       image_url: null,
       is_web_visible: false,
+      brand: null,
+      model: null,
+      color: null,
+      memory: null,
     });
     setBusy(false);
 

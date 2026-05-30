@@ -958,7 +958,7 @@ export default function UrunlerPage() {
                       handleFormChange("ram", "");
                       handleFormChange("storage", "");
                     }}
-                    disabled={!selBrand || selBrand === "_other"}
+                     disabled={!selBrand}
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     size={1}
                   >
@@ -968,7 +968,7 @@ export default function UrunlerPage() {
                     ))}
                     <option value="_other">Diğer...</option>
                   </select>
-                  {(!selBrand || selBrand === "_other") && (
+                   {!selBrand && (
                     <p className="text-xs text-amber-600 flex items-center gap-1">⚠️ Önce marka seçin</p>
                   )}
                   {selModel === "_other" && (
@@ -991,8 +991,9 @@ export default function UrunlerPage() {
                   name="model"
                   id="product-model"
                   value={form.model}
+                  disabled={isAccessory && !selBrand}
                   onChange={(e) => handleFormChange("model", e.target.value)}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               )}
             </div>
@@ -1009,7 +1010,7 @@ export default function UrunlerPage() {
                       setSelColor(val);
                       handleFormChange("color", val === "_other" ? customColor : val);
                     }}
-                    disabled={!selModel || selModel === "_other"}
+                    disabled={!selModel}
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     size={1}
                   >
@@ -1019,7 +1020,7 @@ export default function UrunlerPage() {
                     ))}
                     <option value="_other">Diğer...</option>
                   </select>
-                  {(!selModel || selModel === "_other") && (
+                   {!selModel && (
                     <p className="text-xs text-amber-600 flex items-center gap-1">⚠️ Önce model seçin</p>
                   )}
                   {selColor === "_other" && (
@@ -1045,7 +1046,8 @@ export default function UrunlerPage() {
                       setSelColor(val);
                       handleFormChange("color", val === "_other" ? customColor : val);
                     }}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                    disabled={!selBrand}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     size={1}
                   >
                     <option value="">Renk Seçin...</option>
@@ -1095,7 +1097,7 @@ export default function UrunlerPage() {
                           setSelRam(val);
                           handleFormChange("ram", val === "_other" ? customRam : val);
                         }}
-                        disabled={!selModel || selModel === "_other"}
+                        disabled={!selModel}
                         className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         size={1}
                       >
@@ -1105,7 +1107,7 @@ export default function UrunlerPage() {
                         ))}
                         <option value="_other">Diğer...</option>
                       </select>
-                      {(!selModel || selModel === "_other") && (
+                      {!selModel && (
                         <p className="text-xs text-amber-600">⚠️ Önce model seçin</p>
                       )}
                       {selRam === "_other" && (
@@ -1149,7 +1151,7 @@ export default function UrunlerPage() {
                           setSelStorage(val);
                           handleFormChange("storage", val === "_other" ? customStorage : val);
                         }}
-                        disabled={!selModel || selModel === "_other"}
+                        disabled={!selModel}
                         className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         size={1}
                       >
@@ -1159,7 +1161,7 @@ export default function UrunlerPage() {
                         ))}
                         <option value="_other">Diğer...</option>
                       </select>
-                      {(!selModel || selModel === "_other") && (
+                      {!selModel && (
                         <p className="text-xs text-amber-600">⚠️ Önce model seçin</p>
                       )}
                       {selStorage === "_other" && (

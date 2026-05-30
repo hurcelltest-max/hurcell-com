@@ -816,25 +816,17 @@ export default function UrunlerPage() {
               />
             </label>
 
-            {/* 2. Kategori */}
+            {/* 2. Kategori — Chip seçimi + Diğer toggle */}
             <div className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Kategori</span>
-              <input
-                type="text"
-                name="category"
-                id="product-category"
-                value={form.category}
-                onChange={(e) => handleFormChange("category", e.target.value)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                placeholder="Örn: Telefon, Aksesuar, Tablet..."
-              />
-              <div className="flex flex-wrap gap-1.5 mt-1">
+              {/* Kategori chip'leri */}
+              <div className="flex flex-wrap gap-1.5">
                 {([
-                  { label: "📱 Telefon", value: "Telefon" },
-                  { label: "📟 Tablet", value: "Tablet" },
-                  { label: "💻 Bilgisayar", value: "Bilgisayar" },
-                  { label: "🎧 Aksesuar", value: "Aksesuar" },
-                  { label: "⌚ Akıllı Saat", value: "Akıllı Saat" },
+                  { label: "\ud83d\udcf1 Telefon", value: "Telefon" },
+                  { label: "\ud83d\udcdf Tablet", value: "Tablet" },
+                  { label: "\ud83d\udcbb Bilgisayar", value: "Bilgisayar" },
+                  { label: "\ud83c\udfa7 Aksesuar", value: "Aksesuar" },
+                  { label: "\u231a Ak\u0131ll\u0131 Saat", value: "Ak\u0131ll\u0131 Saat" },
                 ] as const).map(({ label, value }) => (
                   <button
                     key={value}
@@ -850,6 +842,33 @@ export default function UrunlerPage() {
                   </button>
                 ))}
               </div>
+              {/* Kategori text: readonly iken dolu, yoksa "Di\u011fer" link ile a\u00e7ıl\u0131r */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  name="category"
+                  id="product-category"
+                  value={form.category}
+                  readOnly={[
+                    "Telefon", "Tablet", "Bilgisayar", "Aksesuar", "Ak\u0131ll\u0131 Saat"
+                  ].some((c) => c.toLowerCase() === form.category.trim().toLowerCase())}
+                  onChange={(e) => handleFormChange("category", e.target.value)}
+                  className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 read-only:bg-slate-100 read-only:text-slate-500"
+                  placeholder="\u00d6rn: Telefon, Aksesuar..."
+                />
+                {form.category && (
+                  <button
+                    type="button"
+                    onClick={() => handleFormChange("category", "")}
+                    className="shrink-0 text-xs text-slate-400 hover:text-rose-500 transition px-2 py-1 rounded-lg hover:bg-rose-50"
+                  >
+                    \u00d7 Temizle
+                  </button>
+                )}
+              </div>
+              {!form.category && (
+                <p className="text-xs text-slate-400">Yukar\u0131dan bir kategori chip'i se\u00e7in veya alana yaz\u0131n.</p>
+              )}
             </div>
 
             {/* 3. Marka */}
@@ -875,17 +894,18 @@ export default function UrunlerPage() {
                       handleFormChange("storage", "");
                     }}
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                    size={1}
                   >
-                    <option value="">Marka Seçin...</option>
+                    <option value="">Marka Se\u00e7in...</option>
                     {activeBrands.map((brand) => (
                       <option key={brand} value={brand}>{brand}</option>
                     ))}
-                    <option value="_other">Diğer...</option>
+                    <option value="_other">Di\u011fer...</option>
                   </select>
                   {selBrand === "_other" && (
                     <input
                       type="text"
-                      placeholder="Lütfen marka girin..."
+                      placeholder="L\u00fctfen marka girin..."
                       value={customBrand}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -929,18 +949,22 @@ export default function UrunlerPage() {
                       handleFormChange("storage", "");
                     }}
                     disabled={!selBrand || selBrand === "_other"}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 cursor-pointer"
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    size={1}
                   >
-                    <option value="">Model Seçin...</option>
+                    <option value="">Model Se\u00e7in...</option>
                     {activeModelsForBrand.map((p) => (
                       <option key={p.model} value={p.model}>{p.model}</option>
                     ))}
-                    <option value="_other">Diğer...</option>
+                    <option value="_other">Di\u011fer...</option>
                   </select>
+                  {(!selBrand || selBrand === "_other") && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">\u26a0\ufe0f \u00d6nce marka se\u00e7in</p>
+                  )}
                   {selModel === "_other" && (
                     <input
                       type="text"
-                      placeholder="Lütfen model girin..."
+                      placeholder="L\u00fctfen model girin..."
                       value={customModel}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -966,7 +990,7 @@ export default function UrunlerPage() {
             {/* 5. Renk */}
             <div className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Renk</span>
-              {(isPhone || isTablet || isLaptop || isSmartwatch) && (selModel && selModel !== "_other") ? (
+              {(isPhone || isTablet || isLaptop || isSmartwatch) ? (
                 <>
                   <select
                     value={selColor}
@@ -975,18 +999,23 @@ export default function UrunlerPage() {
                       setSelColor(val);
                       handleFormChange("color", val === "_other" ? customColor : val);
                     }}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                    disabled={!selModel || selModel === "_other"}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    size={1}
                   >
-                    <option value="">Renk Seçin...</option>
+                    <option value="">Renk Se\u00e7in...</option>
                     {modelColors.map((color) => (
                       <option key={color} value={color}>{color}</option>
                     ))}
-                    <option value="_other">Diğer...</option>
+                    <option value="_other">Di\u011fer...</option>
                   </select>
+                  {(!selModel || selModel === "_other") && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">\u26a0\ufe0f \u00d6nce model se\u00e7in</p>
+                  )}
                   {selColor === "_other" && (
                     <input
                       type="text"
-                      placeholder="Lütfen renk girin..."
+                      placeholder="L\u00fctfen renk girin..."
                       value={customColor}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1007,17 +1036,18 @@ export default function UrunlerPage() {
                       handleFormChange("color", val === "_other" ? customColor : val);
                     }}
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                    size={1}
                   >
-                    <option value="">Renk Seçin...</option>
+                    <option value="">Renk Se\u00e7in...</option>
                     {accessoryColors.map((color) => (
                       <option key={color} value={color}>{color}</option>
                     ))}
-                    <option value="_other">Diğer...</option>
+                    <option value="_other">Di\u011fer...</option>
                   </select>
                   {selColor === "_other" && (
                     <input
                       type="text"
-                      placeholder="Lütfen renk girin..."
+                      placeholder="L\u00fctfen renk girin..."
                       value={customColor}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1055,18 +1085,23 @@ export default function UrunlerPage() {
                           setSelRam(val);
                           handleFormChange("ram", val === "_other" ? customRam : val);
                         }}
-                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                        disabled={!selModel || selModel === "_other"}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        size={1}
                       >
-                        <option value="">RAM Seçin...</option>
+                        <option value="">RAM Se\u00e7in...</option>
                         {laptopRamOptions.map((r) => (
                           <option key={r} value={r}>{r}</option>
                         ))}
-                        <option value="_other">Diğer...</option>
+                        <option value="_other">Di\u011fer...</option>
                       </select>
+                      {(!selModel || selModel === "_other") && (
+                        <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce model se\u00e7in</p>
+                      )}
                       {selRam === "_other" && (
                         <input
                           type="text"
-                          placeholder="Örn: 32 GB"
+                          placeholder="\u00d6rn: 32 GB"
                           value={customRam}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -1078,15 +1113,19 @@ export default function UrunlerPage() {
                       )}
                     </>
                   ) : (
-                    <input
-                      type="text"
-                      name="ram"
-                      id="product-ram"
-                      value={form.ram}
-                      onChange={(e) => handleFormChange("ram", e.target.value)}
-                      placeholder="Örn: 16 GB (Opsiyonel)"
-                      className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                    />
+                    <>
+                      <input
+                        type="text"
+                        name="ram"
+                        id="product-ram"
+                        value={form.ram}
+                        onChange={(e) => handleFormChange("ram", e.target.value)}
+                        placeholder="\u00d6rn: 16 GB (Opsiyonel)"
+                        disabled={!selBrand}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
+                      />
+                      {!selBrand && <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce marka se\u00e7in</p>}
+                    </>
                   )}
                 </div>
                 <div className="grid gap-2 text-sm text-slate-700">
@@ -1100,18 +1139,23 @@ export default function UrunlerPage() {
                           setSelStorage(val);
                           handleFormChange("storage", val === "_other" ? customStorage : val);
                         }}
-                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                        disabled={!selModel || selModel === "_other"}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        size={1}
                       >
-                        <option value="">Depolama Seçin...</option>
+                        <option value="">Depolama Se\u00e7in...</option>
                         {laptopStorageOptions.map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
-                        <option value="_other">Diğer...</option>
+                        <option value="_other">Di\u011fer...</option>
                       </select>
+                      {(!selModel || selModel === "_other") && (
+                        <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce model se\u00e7in</p>
+                      )}
                       {selStorage === "_other" && (
                         <input
                           type="text"
-                          placeholder="Örn: 1 TB SSD"
+                          placeholder="\u00d6rn: 1 TB SSD"
                           value={customStorage}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -1123,15 +1167,19 @@ export default function UrunlerPage() {
                       )}
                     </>
                   ) : (
-                    <input
-                      type="text"
-                      name="storage"
-                      id="product-storage"
-                      value={form.storage}
-                      onChange={(e) => handleFormChange("storage", e.target.value)}
-                      placeholder="Örn: 512 GB SSD (Opsiyonel)"
-                      className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                    />
+                    <>
+                      <input
+                        type="text"
+                        name="storage"
+                        id="product-storage"
+                        value={form.storage}
+                        onChange={(e) => handleFormChange("storage", e.target.value)}
+                        placeholder="\u00d6rn: 512 GB SSD (Opsiyonel)"
+                        disabled={!selBrand}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
+                      />
+                      {!selBrand && <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce marka se\u00e7in</p>}
+                    </>
                   )}
                 </div>
               </>
@@ -1150,17 +1198,18 @@ export default function UrunlerPage() {
                         handleFormChange("memory", val === "_other" ? customMemory : val);
                       }}
                       className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 cursor-pointer"
+                      size={1}
                     >
-                      <option value="">Hafıza Seçin...</option>
+                      <option value="">Hafıza Se\u00e7in...</option>
                       {modelMemories.map((mem) => (
                         <option key={mem} value={mem}>{mem}</option>
                       ))}
-                      <option value="_other">Diğer...</option>
+                      <option value="_other">Di\u011fer...</option>
                     </select>
                     {selMemory === "_other" && (
                       <input
                         type="text"
-                        placeholder="Lütfen hafıza girin..."
+                        placeholder="L\u00fctfen hafıza girin..."
                         value={customMemory}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -1171,20 +1220,37 @@ export default function UrunlerPage() {
                       />
                     )}
                   </>
-                ) : (
+                ) : isSmartwatch && (selModel && selModel !== "_other") ? (
+                  /* Akıllı saat: hafıza genellikle yok, opsiyonel manuel */
                   <input
                     type="text"
                     name="memory"
                     id="product-memory"
                     value={form.memory}
                     onChange={(e) => handleFormChange("memory", e.target.value)}
-                    placeholder="Örn: 256 GB, 8 GB (Boş bırakılabilir)"
+                    placeholder="Opsiyonel (genellikle bo\u015f bırakılır)"
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                   />
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      name="memory"
+                      id="product-memory"
+                      value={form.memory}
+                      onChange={(e) => handleFormChange("memory", e.target.value)}
+                      placeholder="\u00d6rn: 256 GB (Bo\u015f bırakılabilir)"
+                      disabled={!!(activeCatalog && (!selModel || selModel === "_other"))}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
+                    />
+                    {activeCatalog && (!selModel || selModel === "_other") && (
+                      <p className="text-xs text-amber-600">\u26a0\ufe0f \u00d6nce model se\u00e7in</p>
+                    )}
+                  </>
                 )}
               </div>
             )}
-            {/* Diğer kategoriler: opsiyonel hafıza alanı */}
+            {/* Di\u011fer kategoriler: opsiyonel hafıza alanı */}
             {!isPhone && !isTablet && !isLaptop && !isSmartwatch && !isAccessory && (
               <div className="grid gap-2 text-sm text-slate-700">
                 <span className="font-medium">Hafıza (Opsiyonel)</span>
@@ -1194,7 +1260,7 @@ export default function UrunlerPage() {
                   id="product-memory"
                   value={form.memory}
                   onChange={(e) => handleFormChange("memory", e.target.value)}
-                  placeholder="Örn: 256 GB (Boş bırakılabilir)"
+                  placeholder="\u00d6rn: 256 GB (Bo\u015f bırakılabilir)"
                   className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                 />
               </div>
@@ -1546,100 +1612,119 @@ export default function UrunlerPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid gap-3 sm:grid-cols-[2.5fr_1fr_1fr_1.5fr] sm:items-center">
-                        <div className="flex gap-4 items-center">
-                          {/* Image section */}
-                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-center p-1">
+                      /* ─── Ürün Kartı — Profesyonel Tasarım ─── */
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+                        {/* Sol: Fotoğraf */}
+                        <div className="shrink-0">
+                          <div className="h-20 w-20 overflow-hidden rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center shadow-sm">
                             {product.image_url ? (
                               <img
                                 src={product.image_url}
                                 alt={product.name}
-                                className="h-full w-full object-cover rounded-xl"
+                                className="h-full w-full object-cover"
                                 onError={(e) => {
-                                  // Fallback in case of broken link
                                   (e.target as HTMLImageElement).style.display = 'none';
                                 }}
                               />
                             ) : (
-                              <span className="text-[10px] leading-tight text-slate-400 font-medium">Fotoğraf yok</span>
+                              <span className="text-2xl select-none">
+                                {product.category?.toLowerCase() === 'telefon' ? '\ud83d\udcf1'
+                                  : product.category?.toLowerCase() === 'tablet' ? '\ud83d\udcdf'
+                                  : product.category?.toLowerCase() === 'bilgisayar' ? '\ud83d\udcbb'
+                                  : product.category?.toLowerCase() === 'aksesuar' ? '\ud83c\udfa7'
+                                  : product.category?.toLowerCase() === 'ak\u0131ll\u0131 saat' ? '\u231a'
+                                  : '\ud83d\udce6'}
+                              </span>
                             )}
                           </div>
-                          {/* Text section */}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-semibold text-slate-900 truncate">
-                                {product.name}
-                              </p>
-                              {product.is_web_visible ? (
-                                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
-                                  Webde Görünür
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 border border-slate-200">
-                                  Webde Gizli
-                                </span>
-                              )}
+                        </div>
+
+                        {/* Sa\u011f: Bilgi + İ\u015flemler */}
+                        <div className="flex-1 min-w-0">
+                          {/* Ba\u015flık satırı */}
+                          <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                            <h4 className="text-sm font-bold text-slate-900 leading-snug">{product.name}</h4>
+                            {product.is_web_visible ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">\u2713 Webde</span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 border border-slate-200">Gizli</span>
+                            )}
+                          </div>
+
+                          {/* Kategori • Marka • Model */}
+                          {(product.category || product.brand || product.model) && (
+                            <p className="text-xs text-slate-500 mb-1 leading-relaxed">
+                              {[product.category, product.brand, product.model].filter(Boolean).join(' \u2022 ')}
+                            </p>
+                          )}
+
+                          {/* \u00d6zellikler: Renk • Hafıza */}
+                          {(product.color || product.memory) && (
+                            <p className="text-xs text-slate-500 mb-2">
+                              {[product.color && `\ud83c\udfa8 ${product.color}`, product.memory && `\ud83d\udcbe ${product.memory}`].filter(Boolean).join('  ')}
+                            </p>
+                          )}
+
+                          {/* Barkod */}
+                          <p className="text-[10px] text-slate-400 font-mono mb-2">#{product.barcode || '—'}</p>
+
+                          {/* Stok + Fiyat + İ\u015flemler satırı */}
+                          <div className="flex flex-wrap items-center gap-3">
+                            {/* Stok */}
+                            <div className="flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5">
+                              <span className={`text-base font-bold ${
+                                product.stock === 0 ? 'text-rose-600'
+                                : product.stock <= product.min_stock ? 'text-amber-600'
+                                : 'text-slate-900'
+                              }`}>{product.stock}</span>
+                              <span className="text-[10px] text-slate-500 font-medium">adet</span>
                             </div>
-                            {/* Structured e-commerce details */}
-                            <p className="mt-1 text-sm leading-6 text-slate-600 truncate">
-                              {product.category && <span className="font-semibold text-slate-700">{product.category}</span>}
-                              {product.brand && <span> • {product.brand}</span>}
-                              {product.model && <span> • {product.model}</span>}
-                              {product.color && <span> • Renk: {product.color}</span>}
-                              {product.memory && <span> • Hafıza: {product.memory}</span>}
-                            </p>
-                            <p className="mt-0.5 text-xs text-slate-500 truncate">
-                              Barkod: {product.barcode || "Barkod yok"}
-                              {product.location && <span> • Konum: {product.location}</span>}
-                            </p>
-                            {product.description && (
-                              <p className="mt-1.5 text-xs text-slate-400 italic line-clamp-2 max-w-md">
-                                {product.description}
-                              </p>
+                            {/* Satı\u015f Fiyatı */}
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-base font-bold text-slate-900">{formatCurrencyTRY(product.sell_price)}</span>
+                            </div>
+                            {/* Alı\u015f */}
+                            {product.buy_price > 0 && (
+                              <span className="text-xs text-slate-400">Alı\u015f: {formatCurrencyTRY(product.buy_price)}</span>
                             )}
+
+                            {/* İ\u015flem Butonları */}
+                            <div className="ml-auto flex flex-wrap gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleStockAdjustment(product, "IN")}
+                                className="rounded-xl bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600 active:scale-95"
+                              >
+                                + Stok
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStockAdjustment(product, "OUT")}
+                                className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600 active:scale-95"
+                              >
+                                \u2212 Stok
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(product)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95"
+                              >
+                                D\u00fczenle
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(product.id)}
+                                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 active:scale-95"
+                              >
+                                Sil
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-sm text-slate-900">
-                          <span className="block font-semibold">{product.stock}</span>
-                          <span className="text-slate-500">Stok</span>
-                        </div>
-                        <div className="text-sm text-slate-900">
-                          <span className="block font-semibold">{product.sell_price.toFixed(2)} ₺</span>
-                          <span className="text-slate-500">Satış Fiyatı</span>
-                        </div>
-                        <div className="grid gap-2 sm:justify-end">
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleStockAdjustment(product, "IN")}
-                              className="rounded-2xl bg-emerald-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-600"
-                            >
-                              Stok Artır
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleStockAdjustment(product, "OUT")}
-                              className="rounded-2xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-600"
-                            >
-                              Stok Azalt
-                            </button>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleStartEdit(product)}
-                              className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                            >
-                              Düzenle
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(product.id)}
-                              className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
-                            >
-                              Sil
-                            </button>
-                          </div>
+
+                          {/* A\u00e7ıklama */}
+                          {product.description && (
+                            <p className="mt-2 text-[11px] text-slate-400 italic line-clamp-2">{product.description}</p>
+                          )}
                         </div>
                       </div>
                     )}

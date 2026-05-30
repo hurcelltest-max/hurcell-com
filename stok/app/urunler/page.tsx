@@ -379,11 +379,30 @@ const buildProductName = (
   ram?: string | null,
   storage?: string | null,
   processor?: string | null,
-  screen_size?: string | null
+  screen_size?: string | null,
+  isLaptop?: boolean
 ) => {
   const parts = [];
-  if (brand && brand.trim()) parts.push(brand.trim());
-  if (model && model.trim()) parts.push(model.trim());
+  const brandTrim = brand ? brand.trim() : "";
+  const modelTrim = model ? model.trim() : "";
+  
+  if (isLaptop) {
+    if (brandTrim && modelTrim) {
+      if (modelTrim.toLowerCase().startsWith(brandTrim.toLowerCase())) {
+        parts.push(modelTrim);
+      } else {
+        parts.push(brandTrim, modelTrim);
+      }
+    } else if (modelTrim) {
+      parts.push(modelTrim);
+    } else if (brandTrim) {
+      parts.push(brandTrim);
+    }
+    return parts.join(" ");
+  }
+  
+  if (brandTrim) parts.push(brandTrim);
+  if (modelTrim) parts.push(modelTrim);
   
   if (ram && ram.trim()) {
     const r = ram.trim();
@@ -547,7 +566,7 @@ export default function UrunlerPage() {
 
     const memoryValue = computedMemory(form, form.ram, form.storage);
     const manualName = form.name.trim();
-    const finalName = manualName || buildProductName(form.brand, form.model, form.color, memoryValue, form.ram, form.storage, form.processor, form.screen_size) || "İsimsiz Ürün";
+    const finalName = manualName || buildProductName(form.brand, form.model, form.color, memoryValue, form.ram, form.storage, form.processor, form.screen_size, isLaptop) || "İsimsiz Ürün";
 
     const { data, error } = await createProduct({
       barcode: form.barcode.trim(),
@@ -641,7 +660,8 @@ export default function UrunlerPage() {
     }
 
     const manualName = editForm.name.trim();
-    const finalName = manualName || buildProductName(editForm.brand, editForm.model, editForm.color, editForm.memory, editForm.ram, editForm.storage, editForm.processor, editForm.screen_size) || "İsimsiz Ürün";
+    const isEditLaptop = editForm.category.trim().toLowerCase() === "bilgisayar";
+    const finalName = manualName || buildProductName(editForm.brand, editForm.model, editForm.color, editForm.memory, editForm.ram, editForm.storage, editForm.processor, editForm.screen_size, isEditLaptop) || "İsimsiz Ürün";
 
     const { data, error } = await updateProduct(product.id, {
       barcode: editForm.barcode.trim(),
@@ -1497,7 +1517,8 @@ export default function UrunlerPage() {
                       form.ram,
                       form.storage,
                       form.processor,
-                      form.screen_size
+                      form.screen_size,
+                      form.category.trim().toLowerCase() === "bilgisayar"
                     );
                     return form.name.trim() || computedName || "Yeni Ürün Adı";
                   })()}

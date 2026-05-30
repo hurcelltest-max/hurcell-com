@@ -343,6 +343,8 @@ const initialFormState = {
   memory: "",
   ram: "",
   storage: "",
+  processor: "",
+  screen_size: "",
 };
 
 type FormFieldKey = keyof typeof initialFormState;
@@ -375,15 +377,25 @@ const buildProductName = (
   color?: string | null,
   memory?: string | null,
   ram?: string | null,
-  storage?: string | null
+  storage?: string | null,
+  processor?: string | null,
+  screen_size?: string | null
 ) => {
   const parts = [];
   if (brand && brand.trim()) parts.push(brand.trim());
   if (model && model.trim()) parts.push(model.trim());
-  // Bilgisayar: RAM + Depolama
-  if (ram && ram.trim()) parts.push(ram.trim());
+  
+  if (ram && ram.trim()) {
+    const r = ram.trim();
+    parts.push(r.toLowerCase().includes("ram") ? r : `${r} RAM`);
+  }
   if (storage && storage.trim()) parts.push(storage.trim());
-  // Telefon/Tablet/Akıllı Saat: Memory
+  if (processor && processor.trim()) parts.push(processor.trim());
+  if (screen_size && screen_size.trim()) {
+    const s = screen_size.trim();
+    parts.push(s.toLowerCase().includes("inç") || s.includes("\"") || s.toLowerCase().includes("inch") ? s : `${s} inç`);
+  }
+  
   if (!ram && memory && memory.trim()) parts.push(memory.trim());
   if (color && color.trim()) parts.push(`(${color.trim()})`);
   return parts.join(" ");
@@ -535,7 +547,7 @@ export default function UrunlerPage() {
 
     const memoryValue = computedMemory(form, form.ram, form.storage);
     const manualName = form.name.trim();
-    const finalName = manualName || buildProductName(form.brand, form.model, form.color, memoryValue, form.ram, form.storage) || "İsimsiz Ürün";
+    const finalName = manualName || buildProductName(form.brand, form.model, form.color, memoryValue, form.ram, form.storage, form.processor, form.screen_size) || "İsimsiz Ürün";
 
     const { data, error } = await createProduct({
       barcode: form.barcode.trim(),
@@ -552,7 +564,11 @@ export default function UrunlerPage() {
       brand: form.brand.trim() || null,
       model: form.model.trim() || null,
       color: form.color.trim() || null,
-      memory: memoryValue.trim() || null,
+      memory: isLaptop ? null : (memoryValue.trim() || null),
+      ram: isLaptop ? (form.ram.trim() || null) : null,
+      storage: isLaptop ? (form.storage.trim() || null) : null,
+      processor: isLaptop ? (form.processor.trim() || null) : null,
+      screen_size: isLaptop ? (form.screen_size.trim() || null) : null,
     });
 
     setSaving(false);
@@ -586,8 +602,10 @@ export default function UrunlerPage() {
       model: product.model || "",
       color: product.color || "",
       memory: product.memory || "",
-      ram: "",
-      storage: "",
+      ram: product.ram || "",
+      storage: product.storage || "",
+      processor: product.processor || "",
+      screen_size: product.screen_size || "",
     });
   };
 
@@ -623,7 +641,7 @@ export default function UrunlerPage() {
     }
 
     const manualName = editForm.name.trim();
-    const finalName = manualName || buildProductName(editForm.brand, editForm.model, editForm.color, editForm.memory) || "İsimsiz Ürün";
+    const finalName = manualName || buildProductName(editForm.brand, editForm.model, editForm.color, editForm.memory, editForm.ram, editForm.storage, editForm.processor, editForm.screen_size) || "İsimsiz Ürün";
 
     const { data, error } = await updateProduct(product.id, {
       barcode: editForm.barcode.trim(),
@@ -640,7 +658,11 @@ export default function UrunlerPage() {
       brand: editForm.brand.trim() || null,
       model: editForm.model.trim() || null,
       color: editForm.color.trim() || null,
-      memory: editForm.memory.trim() || null,
+      memory: editForm.category.trim().toLowerCase() === "bilgisayar" ? null : (editForm.memory.trim() || null),
+      ram: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.ram.trim() || null) : null,
+      storage: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.storage.trim() || null) : null,
+      processor: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.processor.trim() || null) : null,
+      screen_size: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.screen_size.trim() || null) : null,
     });
 
     setSaving(false);
@@ -1194,6 +1216,34 @@ export default function UrunlerPage() {
                     </>
                   )}
                 </div>
+                <div className="grid gap-2 text-sm text-slate-700">
+                  <span className="font-medium">İşlemci</span>
+                  <input
+                    type="text"
+                    name="processor"
+                    id="product-processor"
+                    value={form.processor}
+                    onChange={(e) => handleFormChange("processor", e.target.value)}
+                    placeholder="Örn: M3 Pro (Opsiyonel)"
+                    disabled={!selBrand}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
+                  />
+                  {!selBrand && <p className="text-xs text-amber-600">⚠️ Önce marka seçin</p>}
+                </div>
+                <div className="grid gap-2 text-sm text-slate-700">
+                  <span className="font-medium">Ekran Boyutu</span>
+                  <input
+                    type="text"
+                    name="screen_size"
+                    id="product-screen_size"
+                    value={form.screen_size}
+                    onChange={(e) => handleFormChange("screen_size", e.target.value)}
+                    placeholder="Örn: 14 (Opsiyonel)"
+                    disabled={!selBrand}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
+                  />
+                  {!selBrand && <p className="text-xs text-amber-600">⚠️ Önce marka seçin</p>}
+                </div>
               </>
             )}
             {/* Telefon / Tablet / Akıllı Saat: Hafıza (gizli değilse) */}
@@ -1443,9 +1493,11 @@ export default function UrunlerPage() {
                       form.brand,
                       form.model,
                       selColor === "_other" ? customColor : (selColor || form.color),
-                      form.category.trim().toLowerCase() === "bilgisayar" ? computedMemory(form, form.ram, form.storage) : (selMemory === "_other" ? customMemory : (selMemory || form.memory)),
+                      form.category.trim().toLowerCase() === "bilgisayar" ? null : (selMemory === "_other" ? customMemory : (selMemory || form.memory)),
                       form.ram,
-                      form.storage
+                      form.storage,
+                      form.processor,
+                      form.screen_size
                     );
                     return form.name.trim() || computedName || "Yeni Ürün Adı";
                   })()}
@@ -1482,18 +1534,29 @@ export default function UrunlerPage() {
               </p>
               
               {/* Özellikler: Renk • Hafıza */}
-              {((form.category.trim().toLowerCase() === "bilgisayar" ? (form.ram || form.storage) : (selColor || selMemory || form.color || form.memory)) && (
+              {((form.category.trim().toLowerCase() === "bilgisayar" ? (form.ram || form.storage || form.processor || form.screen_size) : (selColor || selMemory || form.color || form.memory)) && (
                 <p className="text-xs text-slate-500 mb-2">
                   {(() => {
                     const colorVal = selColor === "_other" ? customColor : (selColor || form.color);
-                    const memVal = form.category.trim().toLowerCase() === "bilgisayar" 
-                      ? computedMemory(form, form.ram, form.storage)
-                      : (selMemory === "_other" ? customMemory : (selMemory || form.memory));
-                    
-                    const features = [];
-                    if (colorVal) features.push(`🎨 ${colorVal}`);
-                    if (memVal) features.push(`💾 ${memVal}`);
-                    return features.join('  ');
+                    if (form.category.trim().toLowerCase() === "bilgisayar") {
+                      const features = [];
+                      if (colorVal) features.push(`🎨 ${colorVal}`);
+                      if (form.ram) features.push(`💾 RAM: ${form.ram}`);
+                      if (form.storage) features.push(`📁 Depolama: ${form.storage}`);
+                      if (form.processor) features.push(`⚙️ İşlemci: ${form.processor}`);
+                      if (form.screen_size) {
+                        const s = form.screen_size;
+                        const sizeStr = s.toLowerCase().includes("inç") || s.includes("\"") || s.toLowerCase().includes("inch") ? s : `${s} inç`;
+                        features.push(`🖥️ Ekran: ${sizeStr}`);
+                      }
+                      return features.join('  ');
+                    } else {
+                      const memVal = selMemory === "_other" ? customMemory : (selMemory || form.memory);
+                      const features = [];
+                      if (colorVal) features.push(`🎨 ${colorVal}`);
+                      if (memVal) features.push(`💾 ${memVal}`);
+                      return features.join('  ');
+                    }
                   })()}
                 </p>
               ))}
@@ -1602,17 +1665,62 @@ export default function UrunlerPage() {
                               className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
                             />
                           </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Hafıza (Opsiyonel)</span>
-                            <input
-                              value={editForm.memory}
-                              onChange={(event) =>
-                                handleEditFormChange("memory", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                              placeholder="Örn: 256 GB, 8 GB (Boş bırakılabilir)"
-                            />
-                          </label>
+                          {editForm.category.trim().toLowerCase() === "bilgisayar" ? (
+                            <>
+                              <label className="grid gap-2 text-sm text-slate-700">
+                                <span>RAM</span>
+                                <input
+                                  value={editForm.ram}
+                                  onChange={(event) =>
+                                    handleEditFormChange("ram", event.target.value)
+                                  }
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-700">
+                                <span>Depolama</span>
+                                <input
+                                  value={editForm.storage}
+                                  onChange={(event) =>
+                                    handleEditFormChange("storage", event.target.value)
+                                  }
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-700">
+                                <span>İşlemci</span>
+                                <input
+                                  value={editForm.processor}
+                                  onChange={(event) =>
+                                    handleEditFormChange("processor", event.target.value)
+                                  }
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-700">
+                                <span>Ekran Boyutu</span>
+                                <input
+                                  value={editForm.screen_size}
+                                  onChange={(event) =>
+                                    handleEditFormChange("screen_size", event.target.value)
+                                  }
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+                            </>
+                          ) : (
+                            <label className="grid gap-2 text-sm text-slate-700">
+                              <span>Hafıza (Opsiyonel)</span>
+                              <input
+                                value={editForm.memory}
+                                onChange={(event) =>
+                                  handleEditFormChange("memory", event.target.value)
+                                }
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                placeholder="Örn: 256 GB, 8 GB (Boş bırakılabilir)"
+                              />
+                            </label>
+                          )}
                           <label className="grid gap-2 text-sm text-slate-700">
                             <span>Ürün Adı (Boş bırakılırsa otomatik oluşturulur)</span>
                             <input
@@ -1809,12 +1917,38 @@ export default function UrunlerPage() {
                             </p>
                           )}
 
-                          {/* Özellikler: Renk • Hafıza */}
-                          {(product.color || product.memory) && (
-                            <p className="text-xs text-slate-500 mb-2">
-                              {[product.color && `🎨 ${product.color}`, product.memory && `💾 ${product.memory}`].filter(Boolean).join('  ')}
-                            </p>
-                          )}
+                          {/* Özellikler: Renk • Hafıza / RAM • Depolama • İşlemci • Ekran Boyutu */}
+                          {(() => {
+                            const isL = product.category?.toLowerCase() === 'bilgisayar';
+                            if (isL) {
+                              const features = [];
+                              if (product.color) features.push(`🎨 ${product.color}`);
+                              if (product.ram) features.push(`💾 RAM: ${product.ram}`);
+                              if (product.storage) features.push(`📁 Depolama: ${product.storage}`);
+                              if (product.processor) features.push(`⚙️ İşlemci: ${product.processor}`);
+                              if (product.screen_size) {
+                                const s = product.screen_size;
+                                const sizeStr = s.toLowerCase().includes("inç") || s.includes("\"") || s.toLowerCase().includes("inch") ? s : `${s} inç`;
+                                features.push(`🖥️ Ekran: ${sizeStr}`);
+                              }
+                              if (features.length > 0) {
+                                return (
+                                  <p className="text-xs text-slate-500 mb-2">
+                                    {features.join('  ')}
+                                  </p>
+                                );
+                              }
+                            } else {
+                              if (product.color || product.memory) {
+                                return (
+                                  <p className="text-xs text-slate-500 mb-2">
+                                    {[product.color && `🎨 ${product.color}`, product.memory && `💾 ${product.memory}`].filter(Boolean).join('  ')}
+                                  </p>
+                                );
+                              }
+                            }
+                            return null;
+                          })()}
 
                           {/* Barkod */}
                           <p className="text-[10px] text-slate-400 font-mono mb-2">#{product.barcode || '—'}</p>

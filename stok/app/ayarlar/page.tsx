@@ -55,13 +55,43 @@ const headerMap: Record<string, string> = {
   memory: "memory",
   hafıza: "memory",
   hafiza: "memory",
+  ram: "ram",
+  storage: "storage",
+  depolama: "storage",
+  processor: "processor",
+  "işlemci": "processor",
+  islemci: "processor",
+  screen_size: "screen_size",
+  "ekran boyutu": "screen_size",
+  ekranboyutu: "screen_size",
 };
 
-const buildProductName = (brand: string, model: string, color?: string | null, memory?: string | null) => {
+const buildProductName = (
+  brand: string,
+  model: string,
+  color?: string | null,
+  memory?: string | null,
+  ram?: string | null,
+  storage?: string | null,
+  processor?: string | null,
+  screen_size?: string | null
+) => {
   const parts = [];
   if (brand && brand.trim()) parts.push(brand.trim());
   if (model && model.trim()) parts.push(model.trim());
-  if (memory && memory.trim()) parts.push(memory.trim());
+  
+  if (ram && ram.trim()) {
+    const r = ram.trim();
+    parts.push(r.toLowerCase().includes("ram") ? r : `${r} RAM`);
+  }
+  if (storage && storage.trim()) parts.push(storage.trim());
+  if (processor && processor.trim()) parts.push(processor.trim());
+  if (screen_size && screen_size.trim()) {
+    const s = screen_size.trim();
+    parts.push(s.toLowerCase().includes("inç") || s.includes("\"") || s.toLowerCase().includes("inch") ? s : `${s} inç`);
+  }
+  
+  if (!ram && memory && memory.trim()) parts.push(memory.trim());
   if (color && color.trim()) parts.push(`(${color.trim()})`);
   return parts.join(" ");
 };
@@ -177,20 +207,36 @@ export default function AyarlarPage() {
         const model = mapped["model"] ? String(mapped["model"]).trim() : "";
         const color = mapped["color"] ? String(mapped["color"]).trim() : "";
         const memory = mapped["memory"] ? String(mapped["memory"]).trim() : "";
+        const ram = mapped["ram"] ? String(mapped["ram"]).trim() : "";
+        const storage = mapped["storage"] ? String(mapped["storage"]).trim() : "";
+        const processor = mapped["processor"] ? String(mapped["processor"]).trim() : "";
+        const screen_size = mapped["screen_size"] ? String(mapped["screen_size"]).trim() : "";
 
         if (!barcode && !name && !brand && !model) {
           skipped++;
           continue;
         }
 
+        const categoryVal = mapped["category"] ? String(mapped["category"]).trim() : "";
+        const isLaptop = categoryVal.toLowerCase() === "bilgisayar";
+
         if (!name) {
-          name = buildProductName(brand, model, color, memory) || "İsimsiz Ürün";
+          name = buildProductName(
+            brand,
+            model,
+            color,
+            isLaptop ? null : memory,
+            isLaptop ? ram : null,
+            isLaptop ? storage : null,
+            isLaptop ? processor : null,
+            isLaptop ? screen_size : null
+          ) || "İsimsiz Ürün";
         }
 
         const parsed = {
           barcode: barcode || null,
           name: name || "İsimsiz Ürün",
-          category: mapped["category"] ? String(mapped["category"]).trim() : null,
+          category: categoryVal || null,
           stock: mapped["stock"] !== null && mapped["stock"] !== undefined ? Number(mapped["stock"]) : 0,
           buy_price: mapped["buy_price"] !== null && mapped["buy_price"] !== undefined ? Number(mapped["buy_price"]) : 0,
           sell_price: mapped["sell_price"] !== null && mapped["sell_price"] !== undefined ? Number(mapped["sell_price"]) : 0,
@@ -207,7 +253,11 @@ export default function AyarlarPage() {
           brand: brand || null,
           model: model || null,
           color: color || null,
-          memory: memory || null,
+          memory: isLaptop ? null : (memory || null),
+          ram: isLaptop ? (ram || null) : null,
+          storage: isLaptop ? (storage || null) : null,
+          processor: isLaptop ? (processor || null) : null,
+          screen_size: isLaptop ? (screen_size || null) : null,
         };
 
         try {
@@ -239,6 +289,10 @@ export default function AyarlarPage() {
                 model: parsed.model,
                 color: parsed.color,
                 memory: parsed.memory,
+                ram: parsed.ram,
+                storage: parsed.storage,
+                processor: parsed.processor,
+                screen_size: parsed.screen_size,
               });
 
               if (error) {
@@ -281,6 +335,10 @@ export default function AyarlarPage() {
                 model: parsed.model,
                 color: parsed.color,
                 memory: parsed.memory,
+                ram: parsed.ram,
+                storage: parsed.storage,
+                processor: parsed.processor,
+                screen_size: parsed.screen_size,
               } as any);
 
               if (error || !data) {
@@ -420,6 +478,10 @@ export default function AyarlarPage() {
                   Model: p.model || "",
                   Renk: p.color || "",
                   Hafıza: p.memory || "",
+                  RAM: p.ram || "",
+                  Depolama: p.storage || "",
+                  İşlemci: p.processor || "",
+                  "Ekran Boyutu": p.screen_size || "",
                   Stok: p.stock,
                   "Alış Fiyatı": Number(p.buy_price || 0),
                   "Satış Fiyatı": Number(p.sell_price || 0),

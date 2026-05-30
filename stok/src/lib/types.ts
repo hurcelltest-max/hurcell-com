@@ -16,6 +16,10 @@ export type Product = {
   model: string | null;
   color: string | null;
   memory: string | null;
+  ram?: string | null;
+  storage?: string | null;
+  processor?: string | null;
+  screen_size?: string | null;
 };
 
 export type StockMovementType = 'IN' | 'OUT' | 'RETURN' | 'ADJUSTMENT';

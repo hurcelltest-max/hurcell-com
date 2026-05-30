@@ -533,9 +533,9 @@ export default function UrunlerPage() {
       return;
     }
 
-    const memoryValue = computedMemory(form, selRam === "_other" ? customRam : selRam, selStorage === "_other" ? customStorage : selStorage);
+    const memoryValue = computedMemory(form, form.ram, form.storage);
     const manualName = form.name.trim();
-    const finalName = manualName || buildProductName(form.brand, form.model, form.color, form.memory, form.ram, form.storage) || "İsimsiz Ürün";
+    const finalName = manualName || buildProductName(form.brand, form.model, form.color, memoryValue, form.ram, form.storage) || "İsimsiz Ürün";
 
     const { data, error } = await createProduct({
       barcode: form.barcode.trim(),
@@ -1443,9 +1443,9 @@ export default function UrunlerPage() {
                       form.brand,
                       form.model,
                       selColor === "_other" ? customColor : (selColor || form.color),
-                      form.category.trim().toLowerCase() === "bilgisayar" ? computedMemory(form, selRam === "_other" ? customRam : selRam, selStorage === "_other" ? customStorage : selStorage) : (selMemory === "_other" ? customMemory : selMemory),
-                      selRam === "_other" ? customRam : selRam,
-                      selStorage === "_other" ? customStorage : selStorage
+                      form.category.trim().toLowerCase() === "bilgisayar" ? computedMemory(form, form.ram, form.storage) : (selMemory === "_other" ? customMemory : (selMemory || form.memory)),
+                      form.ram,
+                      form.storage
                     );
                     return form.name.trim() || computedName || "Yeni Ürün Adı";
                   })()}
@@ -1482,12 +1482,12 @@ export default function UrunlerPage() {
               </p>
               
               {/* Özellikler: Renk • Hafıza */}
-              {((form.category.trim().toLowerCase() === "bilgisayar" ? (selRam || selStorage) : (selColor || selMemory || form.color || form.memory)) && (
+              {((form.category.trim().toLowerCase() === "bilgisayar" ? (form.ram || form.storage) : (selColor || selMemory || form.color || form.memory)) && (
                 <p className="text-xs text-slate-500 mb-2">
                   {(() => {
                     const colorVal = selColor === "_other" ? customColor : (selColor || form.color);
                     const memVal = form.category.trim().toLowerCase() === "bilgisayar" 
-                      ? computedMemory(form, selRam === "_other" ? customRam : selRam, selStorage === "_other" ? customStorage : selStorage)
+                      ? computedMemory(form, form.ram, form.storage)
                       : (selMemory === "_other" ? customMemory : (selMemory || form.memory));
                     
                     const features = [];

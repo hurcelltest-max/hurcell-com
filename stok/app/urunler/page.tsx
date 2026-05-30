@@ -802,10 +802,11 @@ export default function UrunlerPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
-        <form
-          onSubmit={handleAddProduct}
-          className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5"
-        >
+        <div className="space-y-6">
+          <form
+            onSubmit={handleAddProduct}
+            className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5"
+          >
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
             Yeni Ürün Ekle
           </p>
@@ -862,7 +863,7 @@ export default function UrunlerPage() {
                     "Telefon", "Tablet", "Bilgisayar", "Aksesuar", "Akıllı Saat"
                   ].some((c) => c.toLowerCase() === form.category.trim().toLowerCase())}
                   onChange={(e) => handleFormChange("category", e.target.value)}
-                  className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 read-only:bg-slate-100 read-only:text-slate-500"
+                  className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 read-only:bg-slate-100 read-only:text-slate-800 read-only:font-semibold"
                   placeholder="Örn: Telefon, Aksesuar..."
                 />
                 {form.category && (
@@ -1396,6 +1397,126 @@ export default function UrunlerPage() {
           </button>
         </form>
 
+        {/* CANLI ÜRÜN ÖNİZLEME KARTI */}
+        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
+              Canlı Ürün Önizleme
+            </p>
+            <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-[10px] font-semibold text-sky-700 border border-sky-100">
+              Web Sitesi Görünümü
+            </span>
+          </div>
+          
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5 p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
+            {/* Sol: Fotoğraf veya Kategori İkonu */}
+            <div className="shrink-0">
+              <div className="h-20 w-20 overflow-hidden rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm text-3xl select-none">
+                {form.image_url ? (
+                  <img
+                    src={form.image_url}
+                    alt="Önizleme"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  (() => {
+                    const cat = form.category.trim().toLowerCase();
+                    if (cat === "telefon") return "📱";
+                    if (cat === "tablet") return "📟";
+                    if (cat === "bilgisayar") return "💻";
+                    if (cat === "aksesuar") return "🎧";
+                    if (cat === "akıllı saat") return "⌚";
+                    return "📦";
+                  })()
+                )}
+              </div>
+            </div>
+            
+            {/* Sağ: Bilgiler */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                  {(() => {
+                    const computedName = buildProductName(
+                      form.brand,
+                      form.model,
+                      selColor === "_other" ? customColor : (selColor || form.color),
+                      form.category.trim().toLowerCase() === "bilgisayar" ? computedMemory(form, selRam === "_other" ? customRam : selRam, selStorage === "_other" ? customStorage : selStorage) : (selMemory === "_other" ? customMemory : selMemory),
+                      selRam === "_other" ? customRam : selRam,
+                      selStorage === "_other" ? customStorage : selStorage
+                    );
+                    return form.name.trim() || computedName || "Yeni Ürün Adı";
+                  })()}
+                </h4>
+                {form.is_web_visible ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">✓ Webde</span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 border border-slate-200">Gizli</span>
+                )}
+              </div>
+              
+              {/* Kategori • Marka • Model (Sadeleştirilmiş) */}
+              <p className="text-xs text-slate-500 mb-1 leading-relaxed">
+                {(() => {
+                  const parts = [];
+                  if (form.category) parts.push(form.category);
+                  
+                  const brandStr = (form.brand || "").trim();
+                  const modelStr = (form.model || "").trim();
+                  
+                  if (brandStr && modelStr) {
+                    if (modelStr.toLowerCase().startsWith(brandStr.toLowerCase())) {
+                      parts.push(modelStr);
+                    } else {
+                      parts.push(`${brandStr} ${modelStr}`);
+                    }
+                  } else if (modelStr) {
+                    parts.push(modelStr);
+                  } else if (brandStr) {
+                    parts.push(brandStr);
+                  }
+                  return parts.join(' • ') || "Kategori • Model";
+                })()}
+              </p>
+              
+              {/* Özellikler: Renk • Hafıza */}
+              {((form.category.trim().toLowerCase() === "bilgisayar" ? (selRam || selStorage) : (selColor || selMemory || form.color || form.memory)) && (
+                <p className="text-xs text-slate-500 mb-2">
+                  {(() => {
+                    const colorVal = selColor === "_other" ? customColor : (selColor || form.color);
+                    const memVal = form.category.trim().toLowerCase() === "bilgisayar" 
+                      ? computedMemory(form, selRam === "_other" ? customRam : selRam, selStorage === "_other" ? customStorage : selStorage)
+                      : (selMemory === "_other" ? customMemory : (selMemory || form.memory));
+                    
+                    const features = [];
+                    if (colorVal) features.push(`🎨 ${colorVal}`);
+                    if (memVal) features.push(`💾 ${memVal}`);
+                    return features.join('  ');
+                  })()}
+                </p>
+              ))}
+              
+              {/* Barkod */}
+              <p className="text-[10px] text-slate-400 font-mono mb-2">#{form.barcode || "Barkod / Karekod"}</p>
+              
+              {/* Fiyat Satırı */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-base font-bold text-slate-900">
+                    {formatCurrencyTRY(form.sell_price) || "₺0,00"}
+                  </span>
+                </div>
+                {Number(form.buy_price) > 0 && (
+                  <span className="text-xs text-slate-400">
+                    Alış: {formatCurrencyTRY(form.buy_price)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
         <div className="space-y-4">
           <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1663,7 +1784,26 @@ export default function UrunlerPage() {
                           {/* Kategori • Marka • Model */}
                           {(product.category || product.brand || product.model) && (
                             <p className="text-xs text-slate-500 mb-1 leading-relaxed">
-                              {[product.category, product.brand, product.model].filter(Boolean).join(' • ')}
+                              {(() => {
+                                const parts = [];
+                                if (product.category) parts.push(product.category);
+                                
+                                const brandStr = (product.brand || "").trim();
+                                const modelStr = (product.model || "").trim();
+                                
+                                if (brandStr && modelStr) {
+                                  if (modelStr.toLowerCase().startsWith(brandStr.toLowerCase())) {
+                                    parts.push(modelStr);
+                                  } else {
+                                    parts.push(`${brandStr} ${modelStr}`);
+                                  }
+                                } else if (modelStr) {
+                                  parts.push(modelStr);
+                                } else if (brandStr) {
+                                  parts.push(brandStr);
+                                }
+                                return parts.join(' • ');
+                              })()}
                             </p>
                           )}
 

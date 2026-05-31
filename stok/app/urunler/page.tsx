@@ -19,6 +19,7 @@ import {
   accessoryBrands,
   accessoryColors
 } from "@/lib/productCatalog";
+import Scanner from "@/components/Scanner";
 
 // İstemci tarafında görsel optimizasyonu yapan yardımcı fonksiyon (Maks 1600px, 0.85 JPEG sıkıştırma)
 const optimizeImage = async (file: File): Promise<Blob> => {
@@ -492,6 +493,7 @@ export default function UrunlerPage() {
   const [sellPriceFocused, setSellPriceFocused] = useState(false);
   const [editBuyPriceFocused, setEditBuyPriceFocused] = useState(false);
   const [editSellPriceFocused, setEditSellPriceFocused] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
   // Akıllı açılır liste (dropdown) ve "Diğer" seçeneği için local stateler
   const [selBrand, setSelBrand] = useState("");
@@ -910,19 +912,49 @@ export default function UrunlerPage() {
           </p>
           <div className="mt-6 grid gap-4">
             {/* 1. Barkod / Karekod */}
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">Barkod / Karekod</span>
-              <input
-                type="text"
-                name="barcode"
-                id="product-barcode"
-                value={form.barcode}
-                onChange={(e) => handleFormChange("barcode", e.target.value)}
-                ref={barcodeRef}
-                required
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
+            <div className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Barkod / Karekod *</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  name="barcode"
+                  id="product-barcode"
+                  value={form.barcode}
+                  onChange={(e) => handleFormChange("barcode", e.target.value)}
+                  ref={barcodeRef}
+                  required
+                  placeholder="Barkod okutun veya yazın..."
+                  className="flex-1 min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowBarcodeScanner(!showBarcodeScanner)}
+                  className={`shrink-0 rounded-2xl border px-4 py-3 text-xs font-semibold shadow-sm transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
+                    showBarcodeScanner 
+                      ? "bg-rose-500 text-white border-rose-500 hover:bg-rose-600 shadow-rose-500/10" 
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {showBarcodeScanner ? "❌ Kapat" : "📷 Kamerayla Oku"}
+                </button>
+              </div>
+              
+              {showBarcodeScanner && (
+                <div className="mt-2 rounded-3xl border border-slate-100 bg-slate-50/50 p-2 shadow-inner">
+                  <Scanner
+                    onDecode={(code) => {
+                      handleFormChange("barcode", code);
+                      setShowBarcodeScanner(false);
+                      showStatus("success", `Barkod başarıyla okundu: ${code}`);
+                    }}
+                    onError={(message) => {
+                      showStatus("error", "Kamera başlatılamadı. Lütfen kamera iznini kontrol edin veya barkodu elle girin.");
+                    }}
+                    buttonLabel="Barkod Tarayıcıyı Başlat"
+                  />
+                </div>
+              )}
+            </div>
 
             {/* 2. Kategori — Chip seçimi + Diğer toggle */}
             <div className="grid gap-2 text-sm text-slate-700">

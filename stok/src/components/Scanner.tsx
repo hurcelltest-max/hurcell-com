@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { initAudioFeedback, playScanSuccessFeedback } from "@/lib/scanFeedback";
 
 type ScannerProps = {
   onDecode: (decodedText: string) => void;
@@ -86,6 +87,9 @@ export default function Scanner({
     setCameraError(null);
     setShowTroubleshoot(false);
 
+    // Initialize AudioContext inside click handler to unlock iOS audio context constraints
+    initAudioFeedback();
+
     console.log("--- [Scanner] Kamera Başlatma Süreci Başladı ---");
 
     // Check if there was a library loading error
@@ -154,6 +158,9 @@ export default function Scanner({
           setTimeout(() => {
             lastDecodedRef.current = null;
           }, 1400);
+
+          // Play Audio/Vibration scan success feedback
+          playScanSuccessFeedback();
 
           onDecode(decodedText);
         },

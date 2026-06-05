@@ -524,6 +524,48 @@ export default function UrunlerPage() {
   const [editSellPriceFocused, setEditSellPriceFocused] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
+  // --- YENİ EKLENEN DURUMLAR VE DEĞERLER (STOK ÖZETİ & MODAL) ---
+  const [showAllProductsModal, setShowAllProductsModal] = useState(false);
+  const [modalFilter, setModalFilter] = useState("all");
+  const [modalSearchQuery, setModalSearchQuery] = useState("");
+
+  const totalProductsCount = products.length;
+  const totalStockCount = products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+
+  const phoneStockCount = products
+    .filter(p => isDeviceCategory(p.category || "") && normalizeText(p.category || "").includes("telefon"))
+    .reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+
+  const tabletStockCount = products
+    .filter(p => isDeviceCategory(p.category || "") && normalizeText(p.category || "").includes("tablet"))
+    .reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+
+  const computerStockCount = products
+    .filter(p => isDeviceCategory(p.category || "") && (normalizeText(p.category || "").includes("bilgisayar") || normalizeText(p.category || "").includes("laptop") || normalizeText(p.category || "").includes("computer")))
+    .reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+
+  const accessoryStockCount = products
+    .filter(p => normalizeText(p.category || "").includes("aksesuar") || normalizeText(p.category || "").includes("accessory"))
+    .reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+
+  const newSealedCount = products
+    .filter(p => p.device_condition_type === "new_sealed")
+    .reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+
+  const usedDeviceCount = products
+    .filter(p => p.device_condition_type && p.device_condition_type !== "new_sealed")
+    .reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+
+  const lowStockProductsCount = products.filter(p => p.stock > 0 && p.stock <= p.min_stock).length;
+  const outOfStockProductsCount = products.filter(p => p.stock === 0).length;
+
+  const lowStockWarnings = products.filter(p => p.stock > 0 && p.stock <= p.min_stock);
+
+  const lastAddedProducts = [...products]
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    .slice(0, 5);
+  // -------------------------------------------------------------
+
   // Akıllı açılır liste (dropdown) ve "Diğer" seçeneği için local stateler
   const [selBrand, setSelBrand] = useState("");
   const [customBrand, setCustomBrand] = useState("");
@@ -1970,575 +2012,695 @@ export default function UrunlerPage() {
         </div>
       </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6 self-start xl:sticky xl:top-6">
+          {/* Stok Özeti Panel Kartı */}
           <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Ürün Listesi</h3>
-                <p className="text-sm leading-6 text-slate-600">
-                  Burada sistemde kayıtlı tüm ürünler yer alır.
-                </p>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600 mb-4">Stok Özeti</h3>
+            
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 xl:grid-cols-2">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Toplam Ürün</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{totalProductsCount}</span>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                {products.length} ürün
-              </span>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Toplam Stok</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{totalStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Telefon</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{phoneStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tablet</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{tabletStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Bilgisayar</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{computerStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Aksesuar</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{accessoryStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-sky-100 bg-sky-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wider">Sıfır Kapalı Kutu</span>
+                <span className="text-xl font-bold text-sky-700 mt-1">{newSealedCount}</span>
+              </div>
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider">İkinci El / Diğer</span>
+                <span className="text-xl font-bold text-indigo-700 mt-1">{usedDeviceCount}</span>
+              </div>
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider">Stoku Azalan</span>
+                <span className="text-xl font-bold text-amber-700 mt-1">{lowStockProductsCount}</span>
+              </div>
+              <div className="rounded-2xl border border-rose-100 bg-rose-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-rose-600 uppercase tracking-wider">Stoku Biten</span>
+                <span className="text-xl font-bold text-rose-700 mt-1">{outOfStockProductsCount}</span>
+              </div>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-sm shadow-slate-900/5">
-            <div className="hidden grid-cols-[2.5fr_1fr_1fr_1.5fr] gap-4 border-b border-slate-200 px-6 py-4 text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 sm:grid">
-              <div>Ürün</div>
-              <div>Stok</div>
-              <div>Fiyat</div>
-              <div>İşlemler</div>
+          {/* Düşük Stok Uyarıları (Varsa) */}
+          {lowStockWarnings.length > 0 && (
+            <div className="rounded-3xl border border-amber-200 bg-amber-50/30 p-5 space-y-3 animate-in fade-in duration-200">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                ⚠️ Düşük Stok Uyarıları
+              </h4>
+              <div className="divide-y divide-amber-100 max-h-40 overflow-y-auto scrollbar-thin">
+                {lowStockWarnings.slice(0, 5).map((p) => (
+                  <div key={p.id} className="py-2 first:pt-0 last:pb-0 flex items-center justify-between text-xs">
+                    <span className="font-medium text-slate-800 truncate max-w-[200px]" title={p.name}>{p.name}</span>
+                    <span className={`px-2 py-0.5 rounded-full font-bold ${p.stock === 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {p.stock} adet kaldı
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="divide-y divide-slate-200">
-              {loading ? (
-                <div className="p-6 text-sm text-slate-500">Yükleniyor...</div>
-              ) : products.length === 0 ? (
-                <div className="p-6 text-sm text-slate-500">Henüz ürün eklenmemiş.</div>
-              ) : (
-                products.map((product) => {
-                  const isEditDevice = isDeviceCategory(editForm.category);
-                  return (
-                    <div key={product.id} className="px-4 py-4 sm:px-6">
-                    {editingId === product.id ? (
-                      <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Barkod / Karekod</span>
-                            <input
-                              value={editForm.barcode}
-                              onChange={(event) =>
-                                handleEditFormChange("barcode", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Kategori</span>
-                            <input
-                              value={editForm.category}
-                              onChange={(event) =>
-                                handleEditFormChange("category", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Marka</span>
-                            <input
-                              value={editForm.brand}
-                              onChange={(event) =>
-                                handleEditFormChange("brand", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Model</span>
-                            <input
-                              value={editForm.model}
-                              onChange={(event) =>
-                                handleEditFormChange("model", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Renk</span>
-                            <input
-                              value={editForm.color}
-                              onChange={(event) =>
-                                handleEditFormChange("color", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
+          )}
 
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Cihaz Durumu</span>
-                            <select
-                              value={editForm.device_condition_type}
-                              onChange={(event) =>
-                                handleEditFormChange("device_condition_type", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none font-semibold text-sky-600"
-                            >
-                              <option value="">Seçiniz</option>
-                              <option value="new_sealed">Sıfır Kapalı Kutu</option>
-                              <option value="new_open_box">Sıfır Açık Kutu</option>
-                              <option value="display">Teşhir Ürünü</option>
-                              <option value="used">İkinci El</option>
-                              <option value="refurbished">Yenilenmiş</option>
-                              <option value="authorized_refurbished">Yetkili Onarıcı Raporlu</option>
-                            </select>
-                          </label>
+          {/* Son Eklenen 5 Ürün */}
+          <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Son Eklenen Ürünler</h3>
+              <span className="text-xs text-slate-400 font-medium">Son 5 Ürün</span>
+            </div>
 
-                          {isEditDevice && editForm.device_condition_type && (
-                            <>
-                              <label className="grid gap-2 text-sm text-slate-700">
-                                <span>IMEI 1 / Seri No *</span>
-                                <input
-                                  value={editForm.imei_1}
-                                  onChange={(event) => handleEditFormChange("imei_1", event.target.value)}
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                />
-                              </label>
-
-                              {editForm.device_condition_type !== 'new_sealed' && (
-                                <>
-                                  <label className="grid gap-2 text-sm text-slate-700">
-                                    <span>IMEI 2 (Varsa)</span>
-                                    <input
-                                      value={editForm.imei_2}
-                                      onChange={(event) => handleEditFormChange("imei_2", event.target.value)}
-                                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                    />
-                                  </label>
-                                  <label className="grid gap-2 text-sm text-slate-700">
-                                    <span>Seri Numarası</span>
-                                    <input
-                                      value={editForm.serial_number}
-                                      onChange={(event) => handleEditFormChange("serial_number", event.target.value)}
-                                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                    />
-                                  </label>
-                                  <label className="grid gap-2 text-sm text-slate-700">
-                                    <span>Batarya Sağlığı / Durumu</span>
-                                    <input
-                                      value={editForm.battery_health}
-                                      onChange={(event) => handleEditFormChange("battery_health", event.target.value)}
-                                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                    />
-                                  </label>
-                                  <label className="grid gap-2 text-sm text-slate-700">
-                                    <span>Servis / Rapor No</span>
-                                    <input
-                                      value={editForm.service_report_no}
-                                      onChange={(event) => handleEditFormChange("service_report_no", event.target.value)}
-                                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                    />
-                                  </label>
-                                </>
-                              )}
-
-                              <label className="grid gap-2 text-sm text-slate-700">
-                                <span>Kutu Durumu</span>
-                                <input
-                                  value={editForm.box_status}
-                                  onChange={(event) => handleEditFormChange("box_status", event.target.value)}
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                />
-                              </label>
-
-                              <label className="grid gap-2 text-sm text-slate-700">
-                                <span>Garanti Durumu</span>
-                                <input
-                                  value={editForm.warranty_status}
-                                  onChange={(event) => handleEditFormChange("warranty_status", event.target.value)}
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                />
-                              </label>
-
-                              <label className="grid gap-2 text-sm text-slate-700">
-                                <span>Tedarikçi</span>
-                                <input
-                                  value={editForm.supplier_name}
-                                  onChange={(event) => handleEditFormChange("supplier_name", event.target.value)}
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                />
-                              </label>
-
-                              <label className="grid gap-2 text-sm text-slate-700">
-                                <span>Tedarikçi Fatura No</span>
-                                <input
-                                  value={editForm.supplier_invoice_no}
-                                  onChange={(event) => handleEditFormChange("supplier_invoice_no", event.target.value)}
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                />
-                              </label>
-                            </>
-                          )}
-
-                          {editForm.category.trim().toLowerCase() === "bilgisayar" ? (
-                            <>
-                              <label className="grid gap-2 text-sm text-slate-700">
-                                <span>RAM</span>
-                                <input
-                                  value={editForm.ram}
-                                  onChange={(event) =>
-                                    handleEditFormChange("ram", event.target.value)
-                                  }
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                />
-                              </label>
-                              <label className="grid gap-2 text-sm text-slate-700">
-                                <span>Depolama</span>
-                                <input
-                                  value={editForm.storage}
-                                  onChange={(event) =>
-                                    handleEditFormChange("storage", event.target.value)
-                                  }
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                />
-                              </label>
-                              <label className="grid gap-2 text-sm text-slate-700">
-                                <span>İşlemci</span>
-                                <input
-                                  value={editForm.processor}
-                                  onChange={(event) =>
-                                    handleEditFormChange("processor", event.target.value)
-                                  }
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                />
-                              </label>
-                              <label className="grid gap-2 text-sm text-slate-700">
-                                <span>Ekran Boyutu</span>
-                                <input
-                                  value={editForm.screen_size}
-                                  onChange={(event) =>
-                                    handleEditFormChange("screen_size", event.target.value)
-                                  }
-                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                />
-                              </label>
-                            </>
-                          ) : (
-                            <label className="grid gap-2 text-sm text-slate-700">
-                              <span>Hafıza (Opsiyonel)</span>
-                              <input
-                                value={editForm.memory}
-                                onChange={(event) =>
-                                  handleEditFormChange("memory", event.target.value)
-                                }
-                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                                placeholder="Örn: 256 GB, 8 GB (Boş bırakılabilir)"
-                              />
-                            </label>
-                          )}
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Ürün Adı (Boş bırakılırsa otomatik oluşturulur)</span>
-                            <input
-                              value={editForm.name}
-                              onChange={(event) =>
-                                handleEditFormChange("name", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                              placeholder="Örn: Apple iPhone 15 Pro Max"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Stok Adedi</span>
-                            <input
-                              type="number"
-                              value={editForm.stock}
-                              onChange={(event) =>
-                                handleEditFormChange(
-                                  "stock",
-                                  formatAmount(event.target.value)
-                                )
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Alış Fiyatı</span>
-                            <input
-                              type="text"
-                              value={editBuyPriceFocused ? editForm.buy_price : formatCurrencyTRY(editForm.buy_price)}
-                              onFocus={() => setEditBuyPriceFocused(true)}
-                              onBlur={(event) => {
-                                setEditBuyPriceFocused(false);
-                                handleEditFormChange("buy_price", parseCurrencyTRY(event.target.value));
-                              }}
-                              onChange={(event) =>
-                                handleEditFormChange("buy_price", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Satış Fiyatı</span>
-                            <input
-                              type="text"
-                              value={editSellPriceFocused ? editForm.sell_price : formatCurrencyTRY(editForm.sell_price)}
-                              onFocus={() => setEditSellPriceFocused(true)}
-                              onBlur={(event) => {
-                                setEditSellPriceFocused(false);
-                                handleEditFormChange("sell_price", parseCurrencyTRY(event.target.value));
-                              }}
-                              onChange={(event) =>
-                                handleEditFormChange("sell_price", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Azalan Stok Alarmı</span>
-                            <input
-                              type="number"
-                              value={editForm.min_stock}
-                              onChange={(event) =>
-                                handleEditFormChange(
-                                  "min_stock",
-                                  formatAmount(event.target.value)
-                                )
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700">
-                            <span>Raf / Konum</span>
-                            <input
-                              value={editForm.location}
-                              onChange={(event) =>
-                                handleEditFormChange("location", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                            />
-                          </label>
-                          <label className="grid gap-2 text-sm text-slate-700 sm:col-span-2">
-                            <span>Ürün Açıklaması</span>
-                            <textarea
-                              value={editForm.description}
-                              onChange={(event) =>
-                                handleEditFormChange("description", event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none resize-y"
-                              rows={2}
-                            />
-                          </label>
-                          <div className="grid gap-2 text-sm text-slate-700 sm:col-span-2">
-                            <span className="font-medium">Ürün Fotoğrafı</span>
-                            <ProductImageUploader
-                              imageUrl={editForm.image_url}
-                              onUploadSuccess={(url) => handleEditFormChange("image_url", url)}
-                              idPrefix="edit-product"
-                            />
-                          </div>
-                          <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer sm:col-span-2 py-2">
-                            <input
-                              type="checkbox"
-                              checked={editForm.is_web_visible}
-                              onChange={(event) =>
-                                handleEditFormChange("is_web_visible", event.target.checked)
-                              }
-                              className="h-5 w-5 rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500"
-                            />
-                            <span>Web sitesinde gösterilsin mi?</span>
-                          </label>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    <th className="pb-2">Ürün Adı</th>
+                    <th className="pb-2 text-center">Stok</th>
+                    <th className="pb-2 text-right">Fiyat</th>
+                    <th className="pb-2 text-right">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {lastAddedProducts.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/50 transition">
+                      <td className="py-2.5 pr-2">
+                        <div className="font-semibold text-slate-800 truncate max-w-[150px]" title={p.name}>
+                          {p.name}
                         </div>
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                          <button
-                            type="button"
-                            onClick={() => handleSaveEdit(product)}
-                            disabled={saving}
-                            className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Kaydet
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelEdit}
-                            className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                          >
-                            İptal
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      /* ─── Ürün Kartı — Profesyonel Tasarım ─── */
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
-                        {/* Sol: Fotoğraf */}
-                        <div className="shrink-0">
-                          <div className="h-20 w-20 overflow-hidden rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center shadow-sm">
-                            {product.image_url ? (
-                              <img
-                                src={product.image_url}
-                                alt={product.name}
-                                className="h-full w-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <span className="text-2xl select-none">
-                                {product.category?.toLowerCase() === 'telefon' ? '📱'
-                                  : product.category?.toLowerCase() === 'tablet' ? '📟'
-                                  : product.category?.toLowerCase() === 'bilgisayar' ? '💻'
-                                  : product.category?.toLowerCase() === 'aksesuar' ? '🎧'
-                                  : product.category?.toLowerCase() === 'akıllı saat' ? '⌚'
-                                  : '📦'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Sağ: Bilgi + İşlemler */}
-                        <div className="flex-1 min-w-0">
-                          {/* Başlık satırı */}
-                          <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                            <h4 className="text-sm font-bold text-slate-900 leading-snug">
-                              {product.category?.toLowerCase() === 'bilgisayar' 
-                                ? getCleanedLaptopTitle(product.name, product.brand, product.model, product.ram, product.storage, product.processor, product.screen_size, product.color) 
-                                : product.name
-                              }
-                            </h4>
-                            {product.is_web_visible ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">✓ Webde</span>
-                            ) : (
-                              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 border border-slate-200">Gizli</span>
-                            )}
-                            {product.device_condition_type && (() => {
-                              switch (product.device_condition_type) {
+                        {p.device_condition_type && (
+                          <div className="mt-0.5">
+                            {(() => {
+                              switch (p.device_condition_type) {
                                 case 'new_sealed':
-                                  return <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">Sıfır Kapalı Kutu</span>;
+                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">Sıfır Kapalı Kutu</span>;
                                 case 'new_open_box':
-                                  return <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 border border-indigo-200">Açık Kutu</span>;
+                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">Açık Kutu</span>;
                                 case 'display':
-                                  return <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200">Teşhir</span>;
+                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">Teşhir</span>;
                                 case 'used':
-                                  return <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 border border-slate-200">İkinci El</span>;
+                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">İkinci El</span>;
                                 case 'refurbished':
-                                  return <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">Yenilenmiş</span>;
+                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-purple-50 text-purple-700 border border-purple-100">Yenilenmiş</span>;
                                 case 'authorized_refurbished':
-                                  return <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">Yetkili Raporlu Yenilenmiş</span>;
+                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Yetkili Raporlu</span>;
                                 default:
                                   return null;
                               }
                             })()}
                           </div>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-center font-bold text-slate-700">{p.stock}</td>
+                      <td className="py-2.5 text-right font-bold text-slate-900">{formatCurrencyTRY(p.sell_price)}</td>
+                      <td className="py-2.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleStartEdit(p);
+                            setShowAllProductsModal(true);
+                          }}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 cursor-pointer"
+                        >
+                          Düzenle
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                          {/* Kategori • Marka • Model */}
-                          {(product.category || product.brand || product.model) && (
-                            <p className="text-xs text-slate-500 mb-1 leading-relaxed">
-                              {(() => {
-                                const parts = [];
-                                if (product.category) parts.push(product.category);
-                                
-                                const brandStr = (product.brand || "").trim();
-                                const modelStr = (product.model || "").trim();
-                                
-                                if (brandStr && modelStr) {
-                                  if (modelStr.toLowerCase().startsWith(brandStr.toLowerCase())) {
-                                    parts.push(modelStr);
-                                  } else {
-                                    parts.push(`${brandStr} ${modelStr}`);
-                                  }
-                                } else if (modelStr) {
-                                  parts.push(modelStr);
-                                } else if (brandStr) {
-                                  parts.push(brandStr);
-                                }
-                                return parts.join(' • ');
-                              })()}
-                            </p>
-                          )}
+            <button
+              type="button"
+              onClick={() => {
+                setModalFilter("all");
+                setModalSearchQuery("");
+                setShowAllProductsModal(true);
+              }}
+              className="w-full mt-2 inline-flex items-center justify-center rounded-2xl bg-sky-500 hover:bg-sky-600 px-4 py-3 text-xs font-bold text-white shadow-md shadow-sky-500/10 transition active:scale-95 cursor-pointer"
+            >
+              👁️ Tüm Ürünleri Gör
+            </button>
+          </div>
+        </div>
 
-                          {/* Özellikler: Renk • Hafıza / RAM • Depolama • İşlemci • Ekran Boyutu */}
-                          {(() => {
-                            const isL = product.category?.toLowerCase() === 'bilgisayar';
-                            if (isL) {
-                              const features = [];
-                              if (product.color) features.push(`🎨 ${product.color}`);
-                              if (product.ram) features.push(`💾 RAM: ${product.ram}`);
-                              if (product.storage) features.push(`📁 Depolama: ${product.storage}`);
-                              if (product.processor) features.push(`⚙️ İşlemci: ${product.processor}`);
-                              if (product.screen_size) {
-                                const s = product.screen_size;
-                                const sizeStr = s.toLowerCase().includes("inç") || s.includes("\"") || s.toLowerCase().includes("inch") ? s : `${s} inç`;
-                                features.push(`🖥️ Ekran: ${sizeStr}`);
-                              }
-                              if (features.length > 0) {
-                                return (
-                                  <p className="text-xs text-slate-500 mb-2">
-                                    {features.join('  ')}
-                                  </p>
-                                );
-                              }
-                            } else {
-                              if (product.color || product.memory) {
-                                return (
-                                  <p className="text-xs text-slate-500 mb-2">
-                                    {[product.color && `🎨 ${product.color}`, product.memory && `💾 ${product.memory}`].filter(Boolean).join('  ')}
-                                  </p>
-                                );
-                              }
-                            }
-                            return null;
-                          })()}
+      {/* TÜM ÜRÜNLER MODALI */}
+      {showAllProductsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6">
+          <div className="relative w-full max-w-5xl max-h-[90vh] flex flex-col bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Tüm Ürünler ({products.length})</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Tüm kayıtlı ürünleri buradan listeleyebilir, arayabilir, filtreleyebilir ve düzenleyebilirsiniz.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  handleCancelEdit();
+                  setShowAllProductsModal(false);
+                }}
+                className="rounded-full bg-slate-100 hover:bg-rose-50 hover:text-rose-600 p-2 text-slate-400 transition cursor-pointer"
+                title="Kapat"
+              >
+                ✕
+              </button>
+            </div>
 
-                          {/* Barkod */}
-                          <p className="text-[10px] text-slate-400 font-mono mb-2">#{product.barcode || '—'}</p>
+            {/* Arama & Filtreler */}
+            <div className="p-6 border-b border-slate-100 bg-white gap-4 flex flex-col sm:flex-row sm:items-center">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="Ürün adı, barkod, marka, model ile ara..."
+                  value={modalSearchQuery}
+                  onChange={(e) => setModalSearchQuery(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 pl-10 text-xs shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                />
+                <span className="absolute left-3.5 top-3.5 text-slate-400 text-xs select-none pointer-events-none">🔍</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-w-2xl">
+                {([
+                  { label: "Tümü", value: "all" },
+                  { label: "📱 Telefon", value: "phone" },
+                  { label: "📟 Tablet", value: "tablet" },
+                  { label: "💻 Bilgisayar", value: "computer" },
+                  { label: "🎧 Aksesuar", value: "accessory" },
+                  { label: "⚠️ Stoku Az", value: "low_stock" },
+                  { label: "❌ Stoku Biten", value: "out_of_stock" },
+                  { label: "💎 Sıfır", value: "new" },
+                  { label: "🔄 Yenilenmiş", value: "refurbished" },
+                  { label: "🤝 İkinci El", value: "used" },
+                ]).map(({ label, value }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setModalFilter(value)}
+                    className={`px-3 py-1.5 text-[10px] font-semibold rounded-full border transition cursor-pointer ${
+                      modalFilter === value
+                        ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                          {/* Stok + Fiyat + İşlemler satırı */}
-                          <div className="flex flex-wrap items-center gap-3">
-                            {/* Stok */}
-                            <div className="flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5">
-                              <span className={`text-base font-bold ${
-                                product.stock === 0 ? 'text-rose-600'
-                                : product.stock <= product.min_stock ? 'text-amber-600'
-                                : 'text-slate-900'
-                              }`}>{product.stock}</span>
-                              <span className="text-[10px] text-slate-500 font-medium">adet</span>
-                            </div>
-                            {/* Satış Fiyatı */}
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-base font-bold text-slate-900">{formatCurrencyTRY(product.sell_price)}</span>
-                            </div>
-                            {/* Alış */}
-                            {product.buy_price > 0 && (
-                              <span className="text-xs text-slate-400">Alış: {formatCurrencyTRY(product.buy_price)}</span>
+            {/* Ürün Listesi */}
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/50 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                      <th className="px-4 py-3">Ürün Detayı</th>
+                      <th className="px-4 py-3 text-center w-24">Stok</th>
+                      <th className="px-4 py-3 text-right w-32">Fiyat</th>
+                      <th className="px-4 py-3 text-right w-52">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const filtered = products.filter((p) => {
+                        const query = modalSearchQuery.toLowerCase().trim();
+                        if (query) {
+                          const matchesName = (p.name || '').toLowerCase().includes(query);
+                          const matchesBarcode = (p.barcode || '').toLowerCase().includes(query);
+                          const matchesBrand = (p.brand || '').toLowerCase().includes(query);
+                          const matchesModel = (p.model || '').toLowerCase().includes(query);
+                          if (!matchesName && !matchesBarcode && !matchesBrand && !matchesModel) return false;
+                        }
+
+                        if (modalFilter === "all") return true;
+                        
+                        const normCat = normalizeText(p.category || "");
+                        if (modalFilter === "phone") return isDeviceCategory(p.category || "") && normCat.includes("telefon");
+                        if (modalFilter === "tablet") return isDeviceCategory(p.category || "") && normCat.includes("tablet");
+                        if (modalFilter === "computer") return isDeviceCategory(p.category || "") && (normCat.includes("bilgisayar") || normCat.includes("laptop") || normCat.includes("computer"));
+                        if (modalFilter === "accessory") return normCat.includes("aksesuar") || normCat.includes("accessory");
+                        
+                        if (modalFilter === "low_stock") return p.stock > 0 && p.stock <= p.min_stock;
+                        if (modalFilter === "out_of_stock") return p.stock === 0;
+                        if (modalFilter === "new") return p.device_condition_type === "new_sealed" || p.device_condition_type === "new_open_box";
+                        if (modalFilter === "refurbished") return p.device_condition_type === "refurbished" || p.device_condition_type === "authorized_refurbished";
+                        if (modalFilter === "used") return p.device_condition_type === "used" || p.device_condition_type === "display";
+
+                        return true;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={4} className="px-4 py-8 text-center text-slate-400">Aradığınız kriterlere uygun ürün bulunamadı.</td>
+                          </tr>
+                        );
+                      }
+
+                      return filtered.map((product) => {
+                        const isEditDevice = isDeviceCategory(editForm.category);
+                        return (
+                          <tr key={product.id} className="hover:bg-slate-50/50 transition">
+                            {editingId === product.id ? (
+                              <td colSpan={4} className="p-4 bg-slate-50/50">
+                                <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4">
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Barkod / Karekod</span>
+                                      <input
+                                        value={editForm.barcode}
+                                        onChange={(event) => handleEditFormChange("barcode", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Kategori</span>
+                                      <input
+                                        value={editForm.category}
+                                        onChange={(event) => handleEditFormChange("category", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Marka</span>
+                                      <input
+                                        value={editForm.brand}
+                                        onChange={(event) => handleEditFormChange("brand", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Model</span>
+                                      <input
+                                        value={editForm.model}
+                                        onChange={(event) => handleEditFormChange("model", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Renk</span>
+                                      <input
+                                        value={editForm.color}
+                                        onChange={(event) => handleEditFormChange("color", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Cihaz Durumu</span>
+                                      <select
+                                        value={editForm.device_condition_type}
+                                        onChange={(event) => handleEditFormChange("device_condition_type", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none font-semibold text-sky-600"
+                                      >
+                                        <option value="">Seçiniz</option>
+                                        <option value="new_sealed">Sıfır Kapalı Kutu</option>
+                                        <option value="new_open_box">Sıfır Açık Kutu</option>
+                                        <option value="display">Teşhir Ürünü</option>
+                                        <option value="used">İkinci El</option>
+                                        <option value="refurbished">Yenilenmiş</option>
+                                        <option value="authorized_refurbished">Yetkili Onarıcı Raporlu</option>
+                                      </select>
+                                    </label>
+
+                                    {isEditDevice && editForm.device_condition_type && (
+                                      <>
+                                        <label className="grid gap-2 text-[11px] text-slate-700">
+                                          <span>IMEI 1 / Seri No *</span>
+                                          <input
+                                            value={editForm.imei_1}
+                                            onChange={(event) => handleEditFormChange("imei_1", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+
+                                        {editForm.device_condition_type !== 'new_sealed' && (
+                                          <>
+                                            <label className="grid gap-2 text-[11px] text-slate-700">
+                                              <span>IMEI 2 (Varsa)</span>
+                                              <input
+                                                value={editForm.imei_2}
+                                                onChange={(event) => handleEditFormChange("imei_2", event.target.value)}
+                                                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                              />
+                                            </label>
+                                            <label className="grid gap-2 text-[11px] text-slate-700">
+                                              <span>Seri Numarası</span>
+                                              <input
+                                                value={editForm.serial_number}
+                                                onChange={(event) => handleEditFormChange("serial_number", event.target.value)}
+                                                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                              />
+                                            </label>
+                                            <label className="grid gap-2 text-[11px] text-slate-700">
+                                              <span>Batarya Sağlığı / Durumu</span>
+                                              <input
+                                                value={editForm.battery_health}
+                                                onChange={(event) => handleEditFormChange("battery_health", event.target.value)}
+                                                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                              />
+                                            </label>
+                                            <label className="grid gap-2 text-[11px] text-slate-700">
+                                              <span>Servis / Rapor No</span>
+                                              <input
+                                                value={editForm.service_report_no}
+                                                onChange={(event) => handleEditFormChange("service_report_no", event.target.value)}
+                                                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                              />
+                                            </label>
+                                          </>
+                                        )}
+
+                                        <label className="grid gap-2 text-[11px] text-slate-700">
+                                          <span>Kutu Durumu</span>
+                                          <input
+                                            value={editForm.box_status}
+                                            onChange={(event) => handleEditFormChange("box_status", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+
+                                        <label className="grid gap-2 text-[11px] text-slate-700">
+                                          <span>Garanti Durumu</span>
+                                          <input
+                                            value={editForm.warranty_status}
+                                            onChange={(event) => handleEditFormChange("warranty_status", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+
+                                        <label className="grid gap-2 text-[11px] text-slate-700">
+                                          <span>Tedarikçi</span>
+                                          <input
+                                            value={editForm.supplier_name}
+                                            onChange={(event) => handleEditFormChange("supplier_name", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+
+                                        <label className="grid gap-2 text-[11px] text-slate-700">
+                                          <span>Tedarikçi Fatura No</span>
+                                          <input
+                                            value={editForm.supplier_invoice_no}
+                                            onChange={(event) => handleEditFormChange("supplier_invoice_no", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+                                      </>
+                                    )}
+
+                                    {editForm.category.trim().toLowerCase() === "bilgisayar" ? (
+                                      <>
+                                        <label className="grid gap-2 text-[11px] text-slate-700">
+                                          <span>RAM</span>
+                                          <input
+                                            value={editForm.ram}
+                                            onChange={(event) => handleEditFormChange("ram", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+                                        <label className="grid gap-2 text-[11px] text-slate-700">
+                                          <span>Depolama</span>
+                                          <input
+                                            value={editForm.storage}
+                                            onChange={(event) => handleEditFormChange("storage", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+                                        <label className="grid gap-2 text-[11px] text-slate-700">
+                                          <span>İşlemci</span>
+                                          <input
+                                            value={editForm.processor}
+                                            onChange={(event) => handleEditFormChange("processor", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+                                        <label className="grid gap-2 text-[11px] text-slate-700">
+                                          <span>Ekran Boyutu</span>
+                                          <input
+                                            value={editForm.screen_size}
+                                            onChange={(event) => handleEditFormChange("screen_size", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+                                      </>
+                                    ) : (
+                                      <label className="grid gap-2 text-[11px] text-slate-700">
+                                        <span>Hafıza (Opsiyonel)</span>
+                                        <input
+                                          value={editForm.memory}
+                                          onChange={(event) => handleEditFormChange("memory", event.target.value)}
+                                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                          placeholder="Örn: 256 GB"
+                                        />
+                                      </label>
+                                    )}
+
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Ürün Adı</span>
+                                      <input
+                                        value={editForm.name}
+                                        onChange={(event) => handleEditFormChange("name", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Stok Adedi</span>
+                                      <input
+                                        type="number"
+                                        value={editForm.stock}
+                                        onChange={(event) => handleEditFormChange("stock", formatAmount(event.target.value))}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Alış Fiyatı</span>
+                                      <input
+                                        type="text"
+                                        value={editBuyPriceFocused ? editForm.buy_price : formatCurrencyTRY(editForm.buy_price)}
+                                        onFocus={() => setEditBuyPriceFocused(true)}
+                                        onBlur={(event) => {
+                                          setEditBuyPriceFocused(false);
+                                          handleEditFormChange("buy_price", parseCurrencyTRY(event.target.value));
+                                        }}
+                                        onChange={(event) => handleEditFormChange("buy_price", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Satış Fiyatı</span>
+                                      <input
+                                        type="text"
+                                        value={editSellPriceFocused ? editForm.sell_price : formatCurrencyTRY(editForm.sell_price)}
+                                        onFocus={() => setEditSellPriceFocused(true)}
+                                        onBlur={(event) => {
+                                          setEditSellPriceFocused(false);
+                                          handleEditFormChange("sell_price", parseCurrencyTRY(event.target.value));
+                                        }}
+                                        onChange={(event) => handleEditFormChange("sell_price", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Azalan Stok Alarmı</span>
+                                      <input
+                                        type="number"
+                                        value={editForm.min_stock}
+                                        onChange={(event) => handleEditFormChange("min_stock", formatAmount(event.target.value))}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700">
+                                      <span>Raf / Konum</span>
+                                      <input
+                                        value={editForm.location}
+                                        onChange={(event) => handleEditFormChange("location", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                                      />
+                                    </label>
+                                    <label className="grid gap-2 text-[11px] text-slate-700 sm:col-span-2">
+                                      <span>Ürün Açıklaması</span>
+                                      <textarea
+                                        value={editForm.description}
+                                        onChange={(event) => handleEditFormChange("description", event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none resize-y"
+                                        rows={2}
+                                      />
+                                    </label>
+                                    <div className="grid gap-2 text-[11px] text-slate-700 sm:col-span-2">
+                                      <span className="font-medium">Ürün Fotoğrafı</span>
+                                      <ProductImageUploader
+                                        imageUrl={editForm.image_url}
+                                        onUploadSuccess={(url) => handleEditFormChange("image_url", url)}
+                                        idPrefix="edit-product-modal"
+                                      />
+                                    </div>
+                                    <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer sm:col-span-2 py-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={editForm.is_web_visible}
+                                        onChange={(event) => handleEditFormChange("is_web_visible", event.target.checked)}
+                                        className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                      />
+                                      <span>Web sitesinde gösterilsin mi?</span>
+                                    </label>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveEdit(product)}
+                                      disabled={saving}
+                                      className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                                    >
+                                      Kaydet
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleCancelEdit}
+                                      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                    >
+                                      İptal
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            ) : (
+                              <>
+                                <td className="px-4 py-3.5">
+                                  <div className="flex items-start gap-3">
+                                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center">
+                                      {product.image_url ? (
+                                        <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                                      ) : (
+                                        <span className="text-lg">
+                                          {product.category?.toLowerCase() === 'telefon' ? '📱'
+                                            : product.category?.toLowerCase() === 'tablet' ? '📟'
+                                            : product.category?.toLowerCase() === 'bilgisayar' ? '💻'
+                                            : product.category?.toLowerCase() === 'aksesuar' ? '🎧'
+                                            : product.category?.toLowerCase() === 'akıllı saat' ? '⌚'
+                                            : '📦'}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="font-semibold text-slate-950 truncate max-w-[280px]" title={product.name}>
+                                        {product.category?.toLowerCase() === 'bilgisayar' 
+                                          ? getCleanedLaptopTitle(product.name, product.brand, product.model, product.ram, product.storage, product.processor, product.screen_size, product.color) 
+                                          : product.name
+                                        }
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                        <span className="text-[10px] text-slate-400 font-mono">#{product.barcode || '—'}</span>
+                                        {product.category && (
+                                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 font-medium">{product.category}</span>
+                                        )}
+                                        {product.device_condition_type && (() => {
+                                          switch (product.device_condition_type) {
+                                            case 'new_sealed':
+                                              return <span className="rounded px-1.5 py-0.2 text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">Sıfır Kapalı Kutu</span>;
+                                            case 'new_open_box':
+                                              return <span className="rounded px-1.5 py-0.2 text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">Açık Kutu</span>;
+                                            case 'display':
+                                              return <span className="rounded px-1.5 py-0.2 text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">Teşhir</span>;
+                                            case 'used':
+                                              return <span className="rounded px-1.5 py-0.2 text-[9px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">İkinci El</span>;
+                                            case 'refurbished':
+                                              return <span className="rounded px-1.5 py-0.2 text-[9px] font-semibold bg-purple-50 text-purple-700 border border-purple-100">Yenilenmiş</span>;
+                                            case 'authorized_refurbished':
+                                              return <span className="rounded px-1.5 py-0.2 text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Yetkili Raporlu</span>;
+                                            default:
+                                              return null;
+                                          }
+                                        })()}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3.5 text-center">
+                                  <span className={`inline-block px-2 py-0.5 rounded-full font-bold ${
+                                    product.stock === 0 ? 'bg-rose-100 text-rose-700'
+                                    : product.stock <= product.min_stock ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-slate-100 text-slate-800'
+                                  }`}>{product.stock} adet</span>
+                                </td>
+                                <td className="px-4 py-3.5 text-right font-bold text-slate-900">{formatCurrencyTRY(product.sell_price)}</td>
+                                <td className="px-4 py-3.5 text-right">
+                                  <div className="flex justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStockAdjustment(product, "IN")}
+                                      className="rounded-lg bg-emerald-500 hover:bg-emerald-600 px-2 py-1.5 text-[10px] font-semibold text-white transition cursor-pointer"
+                                    >
+                                      +
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStockAdjustment(product, "OUT")}
+                                      className="rounded-lg bg-amber-500 hover:bg-amber-600 px-2 py-1.5 text-[10px] font-semibold text-white transition cursor-pointer"
+                                    >
+                                      −
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEdit(product)}
+                                      className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 transition cursor-pointer"
+                                    >
+                                      Düzenle
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(product.id)}
+                                      className="rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 text-[10px] font-semibold text-rose-700 transition cursor-pointer"
+                                    >
+                                      Sil
+                                    </button>
+                                  </div>
+                                </td>
+                              </>
                             )}
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-                            {/* İşlem Butonları */}
-                            <div className="ml-auto flex flex-wrap gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleStockAdjustment(product, "IN")}
-                                className="rounded-xl bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600 active:scale-95"
-                              >
-                                + Stok
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleStockAdjustment(product, "OUT")}
-                                className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600 active:scale-95"
-                              >
-                                − Stok
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleStartEdit(product)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95"
-                              >
-                                Düzenle
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(product.id)}
-                                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 active:scale-95"
-                              >
-                                Sil
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Açıklama */}
-                          {product.description && (
-                            <p className="mt-2 text-[11px] text-slate-400 italic line-clamp-2">{product.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-              )}
+            {/* Footer */}
+            <div className="border-t border-slate-100 px-6 py-4 bg-slate-50/50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  handleCancelEdit();
+                  setShowAllProductsModal(false);
+                }}
+                className="rounded-2xl bg-slate-900 hover:bg-slate-800 px-5 py-2.5 text-xs font-bold text-white transition cursor-pointer"
+              >
+                Kapat
+              </button>
             </div>
           </div>
         </div>
+      )}
+
       </div>
     </section>
   );

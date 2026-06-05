@@ -326,6 +326,24 @@ function ProductImageUploader({
 }
 
 
+const normalizeText = (value?: string) =>
+  (value || '')
+    .toLocaleLowerCase('tr-TR')
+    .trim();
+
+const isDeviceCategory = (category?: string) => {
+  const normalized = normalizeText(category);
+  return (
+    normalized.includes('telefon') ||
+    normalized.includes('phone') ||
+    normalized.includes('tablet') ||
+    normalized.includes('bilgisayar') ||
+    normalized.includes('computer') ||
+    normalized.includes('laptop')
+  );
+};
+
+
 const initialFormState = {
   barcode: "",
   name: "",
@@ -346,6 +364,17 @@ const initialFormState = {
   storage: "",
   processor: "",
   screen_size: "",
+  device_condition_type: "",
+  device_category: "",
+  imei_1: "",
+  imei_2: "",
+  serial_number: "",
+  battery_health: "",
+  box_status: "",
+  warranty_status: "",
+  supplier_name: "",
+  supplier_invoice_no: "",
+  service_report_no: "",
 };
 
 type FormFieldKey = keyof typeof initialFormState;
@@ -622,6 +651,27 @@ export default function UrunlerPage() {
       return;
     }
 
+    // Enforce device condition type select for Telefon, Tablet, Bilgisayar
+    const catTrim = form.category.trim();
+    const isDevice = isDeviceCategory(catTrim);
+    if (isDevice && !form.device_condition_type) {
+      setSaving(false);
+      showStatus("error", "Telefon, tablet ve bilgisayar stoklarında cihaz durumu seçilmelidir.");
+      return;
+    }
+    if (isDevice && !form.imei_1.trim()) {
+      setSaving(false);
+      showStatus("error", "Telefon, tablet ve bilgisayar stoklarında IMEI 1 / Seri No alanı zorunludur.");
+      return;
+    }
+
+    let devCat = 'other';
+    const normCat = normalizeText(catTrim);
+    if (normCat.includes('telefon') || normCat.includes('phone')) devCat = 'phone';
+    else if (normCat.includes('tablet')) devCat = 'tablet';
+    else if (normCat.includes('bilgisayar') || normCat.includes('computer') || normCat.includes('laptop')) devCat = 'computer';
+    else if (normCat.includes('aksesuar') || normCat.includes('accessory')) devCat = 'accessory';
+
     const memoryValue = computedMemory(form, form.ram, form.storage);
     const manualName = form.name.trim();
     const finalName = manualName || buildProductName(form.brand, form.model, form.color, memoryValue, form.ram, form.storage, form.processor, form.screen_size, isLaptop) || "İsimsiz Ürün";
@@ -646,6 +696,28 @@ export default function UrunlerPage() {
       storage: isLaptop ? (form.storage.trim() || null) : null,
       processor: isLaptop ? (form.processor.trim() || null) : null,
       screen_size: isLaptop ? (form.screen_size.trim() || null) : null,
+      device_condition_type: form.device_condition_type || null,
+      device_category: devCat,
+      imei_1: form.imei_1.trim() || null,
+      imei_2: form.imei_2.trim() || null,
+      serial_number: form.serial_number.trim() || null,
+      battery_health: form.battery_health.trim() || null,
+      box_status: form.box_status.trim() || null,
+      warranty_status: form.warranty_status.trim() || null,
+      supplier_name: form.supplier_name.trim() || null,
+      supplier_invoice_no: form.supplier_invoice_no.trim() || null,
+      service_report_no: form.service_report_no.trim() || null,
+      device_metadata: isDevice ? {
+        imei_1: form.imei_1.trim() || null,
+        imei_2: form.imei_2.trim() || null,
+        serial_number: form.serial_number.trim() || null,
+        battery_health: form.battery_health.trim() || null,
+        box_status: form.box_status.trim() || null,
+        warranty_status: form.warranty_status.trim() || null,
+        supplier_name: form.supplier_name.trim() || null,
+        supplier_invoice_no: form.supplier_invoice_no.trim() || null,
+        service_report_no: form.service_report_no.trim() || null,
+      } : null,
     });
 
     setSaving(false);
@@ -683,6 +755,17 @@ export default function UrunlerPage() {
       storage: product.storage || "",
       processor: product.processor || "",
       screen_size: product.screen_size || "",
+      device_condition_type: product.device_condition_type || "",
+      device_category: product.device_category || "",
+      imei_1: product.imei_1 || "",
+      imei_2: product.imei_2 || "",
+      serial_number: product.serial_number || "",
+      battery_health: product.battery_health || "",
+      box_status: product.box_status || "",
+      warranty_status: product.warranty_status || "",
+      supplier_name: product.supplier_name || "",
+      supplier_invoice_no: product.supplier_invoice_no || "",
+      service_report_no: product.service_report_no || "",
     });
   };
 
@@ -717,8 +800,29 @@ export default function UrunlerPage() {
       }
     }
 
+    // Enforce device condition type select for Telefon, Tablet, Bilgisayar in edits
+    const catEditTrim = editForm.category.trim();
+    const isEditDevice = isDeviceCategory(catEditTrim);
+    if (isEditDevice && !editForm.device_condition_type) {
+      setSaving(false);
+      showStatus("error", "Telefon, tablet ve bilgisayar stoklarında cihaz durumu seçilmelidir.");
+      return;
+    }
+    if (isEditDevice && !editForm.imei_1.trim()) {
+      setSaving(false);
+      showStatus("error", "Telefon, tablet ve bilgisayar stoklarında IMEI 1 / Seri No alanı zorunludur.");
+      return;
+    }
+
+    let devEditCat = 'other';
+    const normEditCat = normalizeText(catEditTrim);
+    if (normEditCat.includes('telefon') || normEditCat.includes('phone')) devEditCat = 'phone';
+    else if (normEditCat.includes('tablet')) devEditCat = 'tablet';
+    else if (normEditCat.includes('bilgisayar') || normEditCat.includes('computer') || normEditCat.includes('laptop')) devEditCat = 'computer';
+    else if (normEditCat.includes('aksesuar') || normEditCat.includes('accessory')) devEditCat = 'accessory';
+
     const manualName = editForm.name.trim();
-    const isEditLaptop = editForm.category.trim().toLowerCase() === "bilgisayar";
+    const isEditLaptop = normEditCat.includes("bilgisayar") || normEditCat.includes("laptop") || normEditCat.includes("computer");
     const finalName = manualName || buildProductName(editForm.brand, editForm.model, editForm.color, editForm.memory, editForm.ram, editForm.storage, editForm.processor, editForm.screen_size, isEditLaptop) || "İsimsiz Ürün";
 
     const { data, error } = await updateProduct(product.id, {
@@ -741,6 +845,28 @@ export default function UrunlerPage() {
       storage: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.storage.trim() || null) : null,
       processor: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.processor.trim() || null) : null,
       screen_size: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.screen_size.trim() || null) : null,
+      device_condition_type: editForm.device_condition_type || null,
+      device_category: devEditCat,
+      imei_1: editForm.imei_1.trim() || null,
+      imei_2: editForm.imei_2.trim() || null,
+      serial_number: editForm.serial_number.trim() || null,
+      battery_health: editForm.battery_health.trim() || null,
+      box_status: editForm.box_status.trim() || null,
+      warranty_status: editForm.warranty_status.trim() || null,
+      supplier_name: editForm.supplier_name.trim() || null,
+      supplier_invoice_no: editForm.supplier_invoice_no.trim() || null,
+      service_report_no: editForm.service_report_no.trim() || null,
+      device_metadata: isEditDevice ? {
+        imei_1: editForm.imei_1.trim() || null,
+        imei_2: editForm.imei_2.trim() || null,
+        serial_number: editForm.serial_number.trim() || null,
+        battery_health: editForm.battery_health.trim() || null,
+        box_status: editForm.box_status.trim() || null,
+        warranty_status: editForm.warranty_status.trim() || null,
+        supplier_name: editForm.supplier_name.trim() || null,
+        supplier_invoice_no: editForm.supplier_invoice_no.trim() || null,
+        service_report_no: editForm.service_report_no.trim() || null,
+      } : null,
     });
 
     setSaving(false);
@@ -805,12 +931,13 @@ export default function UrunlerPage() {
     showStatus("success", "Stok başarıyla güncellendi.");
   };
 
-  const catLower = form.category.trim().toLowerCase();
-  const isPhone = catLower === "telefon";
-  const isTablet = catLower === "tablet";
-  const isLaptop = catLower === "bilgisayar";
-  const isSmartwatch = catLower === "akıllı saat";
-  const isAccessory = catLower === "aksesuar";
+  const catNormalized = normalizeText(form.category);
+  const isPhone = catNormalized.includes("telefon") || catNormalized.includes("phone");
+  const isTablet = catNormalized.includes("tablet");
+  const isLaptop = catNormalized.includes("bilgisayar") || catNormalized.includes("laptop") || catNormalized.includes("computer");
+  const isSmartwatch = catNormalized.includes("akıllı saat") || catNormalized.includes("smartwatch") || catNormalized.includes("watch");
+  const isAccessory = catNormalized.includes("aksesuar") || catNormalized.includes("accessory");
+  const isDevice = isDeviceCategory(form.category);
   // Telefon veya Tablet veya Akıllı Saat — katalog dropdown kullanan kategoriler
   const usePhoneCatalog = isPhone;
   const useTabletCatalog = isTablet;
@@ -1010,6 +1137,126 @@ export default function UrunlerPage() {
                 <p className="text-xs text-slate-400">Yukarıdan bir kategori chip'i seçin veya alana yazın.</p>
               )}
             </div>
+
+            {/* Cihaz Durumu */}
+            <div className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Cihaz Durumu {isDevice && "*"}</span>
+              <select
+                value={form.device_condition_type}
+                onChange={(e) => handleFormChange("device_condition_type", e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              >
+                <option value="">Seçiniz</option>
+                <option value="new_sealed">Sıfır Kapalı Kutu</option>
+                <option value="new_open_box">Sıfır Açık Kutu</option>
+                <option value="display">Teşhir Ürünü</option>
+                <option value="used">İkinci El</option>
+                <option value="refurbished">Yenilenmiş</option>
+                <option value="authorized_refurbished">Yetkili Onarıcı Raporlu</option>
+              </select>
+            </div>
+
+            {/* Cihaz Durumuna Göre Spesifik Kabul/Kayıt Girişleri */}
+            {isDevice && form.device_condition_type && (
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 gap-4 grid text-sm">
+                <p className="font-semibold text-xs uppercase tracking-wider text-slate-500">Cihaz Kabul & Giriş Verileri</p>
+                
+                <label className="grid gap-1">
+                  <span>IMEI 1 / Seri No *</span>
+                  <input
+                    value={form.imei_1}
+                    onChange={(e) => handleFormChange("imei_1", e.target.value)}
+                    required
+                    placeholder="IMEI veya Seri No"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-sky-400"
+                  />
+                </label>
+
+                {form.device_condition_type !== 'new_sealed' && (
+                  <>
+                    <label className="grid gap-1">
+                      <span>IMEI 2 (Varsa)</span>
+                      <input
+                        value={form.imei_2}
+                        onChange={(e) => handleFormChange("imei_2", e.target.value)}
+                        placeholder="IMEI 2"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-sky-400"
+                      />
+                    </label>
+
+                    <label className="grid gap-1">
+                      <span>Seri Numarası</span>
+                      <input
+                        value={form.serial_number}
+                        onChange={(e) => handleFormChange("serial_number", e.target.value)}
+                        placeholder="Seri No"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-sky-400"
+                      />
+                    </label>
+
+                    <label className="grid gap-1">
+                      <span>Batarya Sağlığı / Durumu</span>
+                      <input
+                        value={form.battery_health}
+                        onChange={(e) => handleFormChange("battery_health", e.target.value)}
+                        placeholder="Örn: %87 veya Yeni"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-sky-400"
+                      />
+                    </label>
+
+                    <label className="grid gap-1">
+                      <span>Servis / Yetkili Yenileme Rapor No</span>
+                      <input
+                        value={form.service_report_no}
+                        onChange={(e) => handleFormChange("service_report_no", e.target.value)}
+                        placeholder="Servis rapor no"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-sky-400"
+                      />
+                    </label>
+                  </>
+                )}
+
+                <label className="grid gap-1">
+                  <span>Kutu Durumu</span>
+                  <input
+                    value={form.box_status}
+                    onChange={(e) => handleFormChange("box_status", e.target.value)}
+                    placeholder={form.device_condition_type === 'new_sealed' ? 'Kapalı kutu / jelatinli' : 'Kutulu, kablo var'}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-sky-400"
+                  />
+                </label>
+
+                <label className="grid gap-1">
+                  <span>Garanti Durumu</span>
+                  <input
+                    value={form.warranty_status}
+                    onChange={(e) => handleFormChange("warranty_status", e.target.value)}
+                    placeholder="2 Yıl distribütör garantili / Garanti bitti vb."
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-sky-400"
+                  />
+                </label>
+
+                <label className="grid gap-1">
+                  <span>Tedarikçi Firma</span>
+                  <input
+                    value={form.supplier_name}
+                    onChange={(e) => handleFormChange("supplier_name", e.target.value)}
+                    placeholder="Tedarikçi firma adı"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-sky-400"
+                  />
+                </label>
+
+                <label className="grid gap-1">
+                  <span>Tedarikçi Fatura No</span>
+                  <input
+                    value={form.supplier_invoice_no}
+                    onChange={(e) => handleFormChange("supplier_invoice_no", e.target.value)}
+                    placeholder="Fatura No"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-sky-400"
+                  />
+                </label>
+              </div>
+            )}
 
             {/* 3. Marka */}
             <div className="grid gap-2 text-sm text-slate-700">
@@ -1410,10 +1657,10 @@ export default function UrunlerPage() {
                       value={form.memory}
                       onChange={(e) => handleFormChange("memory", e.target.value)}
                       placeholder="Örn: 256 GB (Boş bırakılabilir)"
-                      disabled={!!(activeCatalog && (!selModel || selModel === "_other"))}
+                      disabled={!!(activeCatalog && !selModel)}
                       className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
                     />
-                    {activeCatalog && (!selModel || selModel === "_other") && (
+                    {activeCatalog && !selModel && (
                       <p className="text-xs text-amber-600">⚠️ Önce model seçin</p>
                     )}
                   </>
@@ -1630,6 +1877,24 @@ export default function UrunlerPage() {
                 ) : (
                   <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 border border-slate-200">Gizli</span>
                 )}
+                {form.device_condition_type && (() => {
+                  switch (form.device_condition_type) {
+                    case 'new_sealed':
+                      return <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">Sıfır Kapalı Kutu</span>;
+                    case 'new_open_box':
+                      return <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 border border-indigo-200">Açık Kutu</span>;
+                    case 'display':
+                      return <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200">Teşhir</span>;
+                    case 'used':
+                      return <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 border border-slate-200">İkinci El</span>;
+                    case 'refurbished':
+                      return <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">Yenilenmiş</span>;
+                    case 'authorized_refurbished':
+                      return <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">Yetkili Raporlu Yenilenmiş</span>;
+                    default:
+                      return null;
+                  }
+                })()}
               </div>
               
               {/* Kategori • Marka • Model (Sadeleştirilmiş) */}
@@ -1733,8 +1998,10 @@ export default function UrunlerPage() {
               ) : products.length === 0 ? (
                 <div className="p-6 text-sm text-slate-500">Henüz ürün eklenmemiş.</div>
               ) : (
-                products.map((product) => (
-                  <div key={product.id} className="px-4 py-4 sm:px-6">
+                products.map((product) => {
+                  const isEditDevice = isDeviceCategory(editForm.category);
+                  return (
+                    <div key={product.id} className="px-4 py-4 sm:px-6">
                     {editingId === product.id ? (
                       <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
                         <div className="grid gap-4 sm:grid-cols-2">
@@ -1788,6 +2055,112 @@ export default function UrunlerPage() {
                               className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
                             />
                           </label>
+
+                          <label className="grid gap-2 text-sm text-slate-700">
+                            <span>Cihaz Durumu</span>
+                            <select
+                              value={editForm.device_condition_type}
+                              onChange={(event) =>
+                                handleEditFormChange("device_condition_type", event.target.value)
+                              }
+                              className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none font-semibold text-sky-600"
+                            >
+                              <option value="">Seçiniz</option>
+                              <option value="new_sealed">Sıfır Kapalı Kutu</option>
+                              <option value="new_open_box">Sıfır Açık Kutu</option>
+                              <option value="display">Teşhir Ürünü</option>
+                              <option value="used">İkinci El</option>
+                              <option value="refurbished">Yenilenmiş</option>
+                              <option value="authorized_refurbished">Yetkili Onarıcı Raporlu</option>
+                            </select>
+                          </label>
+
+                          {isEditDevice && editForm.device_condition_type && (
+                            <>
+                              <label className="grid gap-2 text-sm text-slate-700">
+                                <span>IMEI 1 / Seri No *</span>
+                                <input
+                                  value={editForm.imei_1}
+                                  onChange={(event) => handleEditFormChange("imei_1", event.target.value)}
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+
+                              {editForm.device_condition_type !== 'new_sealed' && (
+                                <>
+                                  <label className="grid gap-2 text-sm text-slate-700">
+                                    <span>IMEI 2 (Varsa)</span>
+                                    <input
+                                      value={editForm.imei_2}
+                                      onChange={(event) => handleEditFormChange("imei_2", event.target.value)}
+                                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                    />
+                                  </label>
+                                  <label className="grid gap-2 text-sm text-slate-700">
+                                    <span>Seri Numarası</span>
+                                    <input
+                                      value={editForm.serial_number}
+                                      onChange={(event) => handleEditFormChange("serial_number", event.target.value)}
+                                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                    />
+                                  </label>
+                                  <label className="grid gap-2 text-sm text-slate-700">
+                                    <span>Batarya Sağlığı / Durumu</span>
+                                    <input
+                                      value={editForm.battery_health}
+                                      onChange={(event) => handleEditFormChange("battery_health", event.target.value)}
+                                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                    />
+                                  </label>
+                                  <label className="grid gap-2 text-sm text-slate-700">
+                                    <span>Servis / Rapor No</span>
+                                    <input
+                                      value={editForm.service_report_no}
+                                      onChange={(event) => handleEditFormChange("service_report_no", event.target.value)}
+                                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                    />
+                                  </label>
+                                </>
+                              )}
+
+                              <label className="grid gap-2 text-sm text-slate-700">
+                                <span>Kutu Durumu</span>
+                                <input
+                                  value={editForm.box_status}
+                                  onChange={(event) => handleEditFormChange("box_status", event.target.value)}
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+
+                              <label className="grid gap-2 text-sm text-slate-700">
+                                <span>Garanti Durumu</span>
+                                <input
+                                  value={editForm.warranty_status}
+                                  onChange={(event) => handleEditFormChange("warranty_status", event.target.value)}
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+
+                              <label className="grid gap-2 text-sm text-slate-700">
+                                <span>Tedarikçi</span>
+                                <input
+                                  value={editForm.supplier_name}
+                                  onChange={(event) => handleEditFormChange("supplier_name", event.target.value)}
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+
+                              <label className="grid gap-2 text-sm text-slate-700">
+                                <span>Tedarikçi Fatura No</span>
+                                <input
+                                  value={editForm.supplier_invoice_no}
+                                  onChange={(event) => handleEditFormChange("supplier_invoice_no", event.target.value)}
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+                            </>
+                          )}
+
                           {editForm.category.trim().toLowerCase() === "bilgisayar" ? (
                             <>
                               <label className="grid gap-2 text-sm text-slate-700">
@@ -2017,6 +2390,24 @@ export default function UrunlerPage() {
                             ) : (
                               <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 border border-slate-200">Gizli</span>
                             )}
+                            {product.device_condition_type && (() => {
+                              switch (product.device_condition_type) {
+                                case 'new_sealed':
+                                  return <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">Sıfır Kapalı Kutu</span>;
+                                case 'new_open_box':
+                                  return <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 border border-indigo-200">Açık Kutu</span>;
+                                case 'display':
+                                  return <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200">Teşhir</span>;
+                                case 'used':
+                                  return <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 border border-slate-200">İkinci El</span>;
+                                case 'refurbished':
+                                  return <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">Yenilenmiş</span>;
+                                case 'authorized_refurbished':
+                                  return <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">Yetkili Raporlu Yenilenmiş</span>;
+                                default:
+                                  return null;
+                              }
+                            })()}
                           </div>
 
                           {/* Kategori • Marka • Model */}
@@ -2142,7 +2533,8 @@ export default function UrunlerPage() {
                       </div>
                     )}
                   </div>
-                ))
+                );
+              })
               )}
             </div>
           </div>

@@ -1,18 +1,19 @@
 import type { DeviceSaleInput } from './schema'
 
-const conditionLabels: Record<DeviceSaleInput['device']['condition'], string> = {
-  new: 'Sıfır',
-  display: 'Teşhir',
-  used: 'İkinci el',
+const conditionLabels: Record<DeviceSaleInput['deviceConditionType'], string> = {
+  new_sealed: 'Sıfır Kapalı Kutu',
+  new_open_box: 'Sıfır Açık Kutu',
+  display: 'Teşhir Ürünü',
+  used: 'İkinci El',
   refurbished: 'Yenilenmiş',
-  authorized_refurbished: 'Yetkili onarıcı / yenileme raporlu',
+  authorized_refurbished: 'Yetkili Onarıcı Raporlu Yenilenmiş',
 }
 
-const typeLabels: Record<DeviceSaleInput['device']['type'], string> = {
-  phone: 'Telefon',
+const typeLabels: Record<DeviceSaleInput['deviceCategory'], string> = {
+  phone: 'Cep Telefonu',
   tablet: 'Tablet',
   computer: 'Bilgisayar',
-  accessory: 'Aksesuar',
+  accessory: 'Aksesuar / Diğer',
   other: 'Diğer',
 }
 
@@ -21,72 +22,143 @@ function line(value?: string) {
 }
 
 export function buildDeviceSaleContractText(input: DeviceSaleInput, saleCode: string) {
+  const isSealed = input.deviceConditionType === 'new_sealed'
   const knownIssues = input.knownIssues.filter(Boolean)
   const includedItems = input.includedItems.filter(Boolean)
+  
   const passedTests = Object.entries(input.tests)
     .filter(([, passed]) => passed)
     .map(([name]) => name)
 
-  return `HURCELL / HÜRSEL CİHAZ SATIŞ, TESLİM VE CİHAZ DURUMU KABUL SÖZLEŞMESİ
+  const failedTests = Object.entries(input.tests)
+    .filter(([, passed]) => !passed)
+    .map(([name]) => name)
 
-Satış Kodu: ${saleCode}
-Satış Kanalı: ${input.channel === 'store' ? 'Mağaza satışı' : 'Dijital satış'}
-Sözleşme Tarihi: ${new Date().toLocaleString('tr-TR')}
+  const isAuthorizedRefurbished = input.deviceConditionType === 'authorized_refurbished'
+
+  // Dynamic Title
+  let title = 'CİHAZ SATIŞ, TEST VE TESLİM PROTOKOLÜ'
+  if (isSealed) {
+    title = 'SIFIR KAPALI KUTU CİHAZ SATIŞ VE TESLİM PROTOKOLÜ'
+  } else if (isAuthorizedRefurbished) {
+    title = 'YETKİLİ ONARICI RAPORLU YENİLENMİŞ CİHAZ SATIŞ, TEST VE TESLİM PROTOKOLÜ'
+  }
+
+  let deviceDetailsSection = `
+Kategori: ${typeLabels[input.deviceCategory]}
+Durum: ${conditionLabels[input.deviceConditionType]}
+Marka/Model: ${line(input.device.brand)} ${line(input.device.model)}
+IMEI / Seri No: ${line(input.device.imeiOrSerial)}
+Renk: ${line(input.device.color)}
+Depolama / RAM: ${line(input.device.storageRam)}
+`
+
+  // Add specific fields based on category
+  if (input.deviceCategory === 'tablet') {
+    deviceDetailsSection += `Wi-Fi / Cellular: ${line(input.device.wifiCellular)}
+Kalem / Klavye Dahil mi: ${line(input.device.hasPenKeyboard)}
+`
+  } else if (input.deviceCategory === 'computer') {
+    deviceDetailsSection += `İşlemci: ${line(input.device.processor)}
+SSD/HDD Kapasitesi: ${line(input.device.ssdCapacity)}
+Ekran Boyutu: ${line(input.device.screenSize)}
+Batarya Döngüsü: ${line(input.device.batteryCycle)}
+İşletim Sistemi: ${line(input.device.os)}
+Adaptör Dahil mi: ${line(input.device.adapterIncluded)}
+`
+  }
+
+  deviceDetailsSection += `Kutu Durumu: ${line(input.device.boxStatus)}
+Batarya Sağlığı: ${line(input.device.batteryHealth)}
+Tedarikçi / Servis Rapor No: ${line(input.device.supplierReportNo)}
+Satış Bedeli: ${typeof input.salePrice === 'number' ? input.salePrice.toLocaleString('tr-TR') + ' TL' : '-'}
+Adet: ${input.quantity}
+`
+
+  if (isSealed) {
+    // A) Sıfır Kapalı Kutu Cihaz Satış Protokolü Metni
+    return `${title}
+
+Protokol Kodu: ${saleCode}
+Tarih: ${new Date().toLocaleString('tr-TR')}
+Kanal: ${input.channel === 'store' ? 'Mağaza Satışı' : 'Online / Dijital Satış'}
 
 1. MÜŞTERİ BİLGİLERİ
 Ad Soyad: ${line(input.customer.fullName)}
 T.C. Kimlik No: ${line(input.customer.nationalId)}
 Telefon: ${line(input.customer.phone)}
-E-posta: ${line(input.customer.email || '')}
+E-posta: ${line(input.customer.email)}
 Adres: ${line(input.customer.address)}
 
 2. CİHAZ BİLGİLERİ
-Cihaz Türü: ${typeLabels[input.device.type]}
-Durum: ${conditionLabels[input.device.condition]}
-Marka: ${line(input.device.brand)}
-Model: ${line(input.device.model)}
-IMEI / Seri No: ${line(input.device.imeiOrSerial)}
-Renk: ${line(input.device.color)}
-Depolama / RAM: ${line(input.device.storageRam)}
-Batarya Durumu: ${line(input.device.batteryHealth)}
-Kutu Durumu: ${line(input.device.boxStatus)}
-Tedarikçi / Yetkili Onarıcı Rapor No: ${line(input.device.supplierReportNo)}
-Satış Bedeli: ${typeof input.salePrice === 'number' ? input.salePrice.toLocaleString('tr-TR') + ' TL' : '-'}
-Adet: ${input.quantity}
+${deviceDetailsSection}
+3. SIFIR KAPALI KUTU TAAHHÜTNAMESİ VE ŞARTLAR
+A. Teslim edilen cihaz, üretici veya distribütör firma tarafından orijinal fabrika ortamında paketlenmiş, güvenlik bantları veya jelatinleri açılmamış sıfır ve kapalı kutu üründür.
+B. HurCELL, cihaz teslimi öncesinde kutuyu açmamış, cihaz üzerinde herhangi bir donanımsal veya yazılımsal teknik test yapmamıştır. 
+C. Kutu üzerindeki IMEI ve seri numarası alıcı ile birlikte gözle kontrol edilerek faturaya ve bu teslim protokolüne işlenmiş olup, doğruluğu teyit edilmiştir.
+D. Cihazın fabrika çıkışlı üretim veya yazılım hataları (ayıp), doğrudan üretici, ithalatçı veya ilgili markanın yetkili servislerinin garanti prosedürlerine tabidir. Alıcı, olası arıza veya ayıplı mal bildirimlerinde, yetkili servis istasyonu tarafından verilecek teknik raporun esas alınacağını kabul eder.
+E. Kapalı kutu açıldıktan sonra oluşabilecek düşme, darbe, kırılma, sıvı teması, yetkisiz servis veya şahıs müdahaleleri, kullanıcı hesap kilitleri (Apple ID, iCloud, Google vb.) ve veri kayıplarından HurCELL sorumlu tutulamaz. Olası tüm yazılımsal ve donanımsal arıza süreçleri garanti belgesi hükümleri dairesinde yetkili servislerce yürütülür.
+F. Bu protokol müşterinin kanuni haklarını kaldırmaz; ancak müşterinin kapalı kutu olarak teslim almayı kabul ettiği ve satış anında teknik test yapılmadığı hususunda bilgilendirildiğini kayıt altına alır.
 
-3. MÜŞTERİYE AÇIK ÖZET
-Müşteri, cihazın yukarıda yazılı durumda satıldığını, sıfır değilse daha önce kullanılmış olabileceğini, ikinci el / teşhir / yenilenmiş cihazlarda kullanım geçmişi, kozmetik iz, batarya yıpranması ve parça değişimi ihtimali bulunabileceğini kabul eder.
+4. KUTU VE BELGE KONTROLLÜ DOĞRULAMA (SEALED CHECK)
+${passedTests.length ? passedTests.map((item) => `- [OK] ${item}`).join('\n') : '- Belirtilmedi'}
 
-HurCELL yalnızca bu dijital sözleşmede, faturada, cihaz test formunda ve varsa servis / yenileme raporunda açıkça yazan bilgileri taahhüt eder. Bu belgelerde açıkça yazmıyorsa cihazın hiç açılmadığı, hiç parça değişmediği veya tüm parçalarının fabrika çıkışı olduğu garanti edilmiş sayılmaz.
+5. AKSESUAR VE VERİLEN BELGELER
+${includedItems.length ? includedItems.map((item) => `- ${item}`).join('\n') : '- Ek belge belirtilmedi.'}
 
-Bu sözleşme müşterinin kanuni haklarını kaldırmaz. Ancak müşteriye açıkça bildirilen, bu sözleşmede yazan ve müşteri tarafından kabul edilen durumlar için sonradan 'bilmiyordum' denilerek haksız talepte bulunulamaz.
+6. MÜŞTERİ BEYANI VE ONAY
+Müşteri Açık Beyanı: "${input.customerDeclaration}"
 
-4. KOZMETİK DURUM
+Alıcı, yukarıda yazılı seri numaralı ürünü sıfır, kapalı kutulu ve ambalajı hasarsız şekilde teslim aldığını, yetkili servis ve garanti süreçleri hakkında tam bilgi sahibi olduğunu beyan ve kabul eder.
+`
+  }
+
+  // B) Açılmış / İkinci El / Teşhir / Yenilenmiş Cihaz Satış Teslim Protokolü Metni
+  return `${title}
+
+Protokol Kodu: ${saleCode}
+Tarih: ${new Date().toLocaleString('tr-TR')}
+Kanal: ${input.channel === 'store' ? 'Mağaza Satışı' : 'Online / Dijital Satış'}
+
+1. MÜŞTERİ BİLGİLERİ
+Ad Soyad: ${line(input.customer.fullName)}
+T.C. Kimlik No: ${line(input.customer.nationalId)}
+Telefon: ${line(input.customer.phone)}
+E-posta: ${line(input.customer.email)}
+Adres: ${line(input.customer.address)}
+
+2. CİHAZ BİLGİLERİ
+${deviceDetailsSection}
+3. KOZMETİK KABUL DURUMU
 Ekran: ${line(input.cosmetic.screen)}
-Kasa: ${line(input.cosmetic.body)}
+Kasa / Gövde: ${line(input.cosmetic.body)}
 Arka Kapak: ${line(input.cosmetic.backCover)}
 Kamera Camı / Lens: ${line(input.cosmetic.cameraLens)}
-Ek Notlar: ${line(input.cosmetic.notes)}
+Kozmetik Notlar: ${line(input.cosmetic.notes)}
 
-5. SATIŞ ANINDA YAPILAN TESTLER
-${passedTests.length ? passedTests.map((item) => `- ${item}`).join('\n') : '- Test işaretlenmedi'}
+4. SATIŞ ANINDAKİ TEKNİK FONKSİYON TESTLERİ
+ÇALIŞAN / ONAYLANAN HUSUSLAR:
+${passedTests.length ? passedTests.map((item) => `- [OK] ${item}`).join('\n') : '- Çalışan fonksiyon işaretlenmedi.'}
 
-6. BİLİNEN KUSUR / ÖZEL DURUMLAR
-${knownIssues.length ? knownIssues.map((item, index) => `${index + 1}. ${item}`).join('\n') : '- Bilinen kusur belirtilmedi'}
+TEST EDİLEMEYEN VEYA ÇALIŞMAYAN HUSUSLAR:
+${failedTests.length ? failedTests.map((item) => `- [FAIL/NOT TESTED] ${item}`).join('\n') : '- Yok (Tüm testler başarılı).'}
 
-7. TESLİM EDİLEN ÜRÜN / AKSESUARLAR
-${includedItems.length ? includedItems.map((item) => `- ${item}`).join('\n') : '- Ek ürün belirtilmedi'}
+5. BİLİNEN KUSUR / BİLDİRİLEN DURUMLAR
+${knownIssues.length ? knownIssues.map((item, index) => `${index + 1}. ${item}`).join('\n') : '- Belirtilmedi.'}
 
-8. GARANTİ VE SORUMLULUK DIŞI DURUMLAR
-Cihaz tesliminden sonra düşme, darbe, kırılma, sıvı teması, oksitlenme, yetkisiz servis müdahalesi, yanlış şarj cihazı / kablo kullanımı, yazılım müdahalesi, hesap kilidi, kullanıcı şifresi, veri kaybı ve kullanım hatasından doğan sorunlar HurCELL sorumluluğunda değildir.
+6. BERABERİNDE TESLİM EDİLENLER
+${includedItems.length ? includedItems.map((item) => `- ${item}`).join('\n') : '- Yok.'}
 
-Ayıp iddiası varsa cihaz öncelikle HurCELL'e teslim edilir. HurCELL cihazı inceleme, teslim anındaki durumla karşılaştırma ve gerekli görürse teknik servis / uzman raporu alma hakkına sahiptir.
+7. GARANTİ VE HUKUKİ HÜKÜMLER
+A. Cihazın teslim anındaki kozmetik ve teknik durumu alıcı tarafından bizzat görülerek ve test edilerek kabul edilmiş, teslimat bu doğrultuda gerçekleştirilmiştir.
+B. Teslimden sonra oluşacak kırılma, darbe, sıvı teması, orijinal olmayan şarj ekipmanları kullanımı, yazılımsal root/jailbreak işlemleri ve yetkisiz servis müdahaleleri garanti dışıdır.
+C. İkinci el, teşhir veya yenilenmiş statüsündeki ürünlerin doğası gereği oluşabilecek batarya ömrü azalması veya kozmetik çizikler olağan kabul edilir. Bu protokolde açıkça belirtilen kusurlar için sonradan ayıp iddiasında bulunulamaz.
+D. Apple ID / iCloud / Google hesap şifrelerinin muhafazası alıcıya ait olup, hesap kaldırılmadan arıza veya iade işlemleri yapılamaz. Veri yedeklemesi tamamen alıcının sorumluluğundadır; veri kaybından HurCELL sorumlu değildir.
+E. Bu protokol müşterinin kanuni haklarını kaldırmaz. Ancak müşteriye açıkça bildirilen, test formunda işaretlenen ve alıcı tarafından onaylanan durumlar için sonradan "bilmiyordum" denilerek hak talebinde bulunulamaz.
 
-9. VERİLER VE HESAPLAR
-Müşteri kişisel verilerinin, fotoğraflarının, rehberinin, WhatsApp / e-posta / banka uygulamalarının, Apple ID / iCloud / Google / Samsung / Microsoft hesaplarının ve şifrelerinin sorumluluğunun kendisine ait olduğunu kabul eder. Servis, iade veya değişim sürecinde veriler silinebilir.
+8. MÜŞTERİ BEYANI VE ONAY
+Müşteri Açık Beyanı: "${input.customerDeclaration}"
 
-10. MÜŞTERİ BEYANI
-${input.customerDeclaration}
-
-Müşteri sözleşmeyi okuduğunu, anladığını, cihazı mevcut haliyle teslim aldığını ve satışın bu beyana göre yapıldığını kabul eder.
-`}
+Alıcı, yukarıda detayları verilen cihazı mevcut fiziksel ve teknik fonksiyonel durumuyla görerek ve test ederek onayladığını, protokol şartlarını okuyup kabul ettiğini beyan eder.
+`
+}

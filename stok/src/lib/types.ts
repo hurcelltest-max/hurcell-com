@@ -20,6 +20,18 @@ export type Product = {
   storage?: string | null;
   processor?: string | null;
   screen_size?: string | null;
+  device_condition_type?: string | null;
+  device_category?: string | null;
+  imei_1?: string | null;
+  imei_2?: string | null;
+  serial_number?: string | null;
+  battery_health?: string | null;
+  box_status?: string | null;
+  warranty_status?: string | null;
+  supplier_name?: string | null;
+  supplier_invoice_no?: string | null;
+  service_report_no?: string | null;
+  device_metadata?: any | null;
 };
 
 export type StockMovementType = 'IN' | 'OUT' | 'RETURN' | 'ADJUSTMENT';

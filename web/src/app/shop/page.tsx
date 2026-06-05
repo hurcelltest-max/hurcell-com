@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { ChevronRight, ShoppingBag } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useRouter } from 'next/navigation'
 
 // Product Type
 type Product = {
@@ -28,6 +29,37 @@ const formatPrice = (price: number) => {
 
 // All Products from PDF
 const PRODUCTS: Product[] = [
+  // High-Risk Devices (Forces acceptance protocol)
+  {
+    id: 'APL-IPH15P-256',
+    name: 'Apple iPhone 15 Pro 256GB',
+    model: 'A3102',
+    brand: 'Apple',
+    category: 'Telefon',
+    price: 64999,
+    sku: 'APL-IPH15P-256',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: 'APL-MBP16-512',
+    name: 'Apple MacBook Pro 16 M3 Pro',
+    model: 'A2991',
+    brand: 'Apple',
+    category: 'Bilgisayar',
+    price: 94999,
+    sku: 'APL-MBP16-512',
+    image_url: '/images/placeholder.png',
+  },
+  {
+    id: 'SMC-GALS24U-256',
+    name: 'Samsung Galaxy S24 Ultra 256GB',
+    model: 'SM-S928B',
+    brand: 'Samsung',
+    category: 'Telefon',
+    price: 59999,
+    sku: 'SMC-GALS24U-256',
+    image_url: '/images/placeholder.png',
+  },
   // Apple Elite Series
   {
     id: '194253337331',
@@ -254,6 +286,36 @@ const groupedProducts = {
 
 // Product Band Component
 function ProductBand({ title, subtitle, products, bgGradient }: { title: string; subtitle: string; products: Product[]; bgGradient: string }) {
+  const router = useRouter();
+
+  const handleBuy = (product: Product) => {
+    const categoryLower = product.category.toLowerCase();
+    const nameLower = product.name.toLowerCase();
+    
+    const isHighRisk = ['telefon', 'tablet', 'bilgisayar', 'computer', 'phone', 'laptop', 'macbook'].some(
+      keyword => categoryLower.includes(keyword) || nameLower.includes(keyword)
+    );
+
+    if (isHighRisk) {
+      // Map categories to the device type enum values: phone, tablet, computer
+      let deviceType = 'phone';
+      if (categoryLower.includes('tablet')) {
+        deviceType = 'tablet';
+      } else if (categoryLower.includes('bilgisayar') || categoryLower.includes('laptop') || nameLower.includes('macbook')) {
+        deviceType = 'computer';
+      }
+
+      // By default, our catalog products represent brand new products, so we use new_sealed
+      const conditionVal = 'new_sealed';
+
+      // Prepopulate and redirect to digital acceptance protocol/sales contract page
+      router.push(`/satis-sozlesmesi?productId=${encodeURIComponent(product.id)}&brand=${encodeURIComponent(product.brand)}&model=${encodeURIComponent(product.name)}&price=${product.price}&channel=online&type=${deviceType}&condition=${conditionVal}`);
+    } else {
+      // Standard checkout flow
+      alert(`"${product.name}" sepete eklendi! Satın alma işlemini tamamlayabilirsiniz.`);
+    }
+  };
+
   return (
     <section className={cn('py-16 md:py-20', bgGradient)}>
       <div className="max-w-[1600px] mx-auto px-4 md:px-8">
@@ -306,7 +368,10 @@ function ProductBand({ title, subtitle, products, bgGradient }: { title: string;
 
                   {/* Action Buttons - Apple Style */}
                   <div className="flex flex-col gap-3">
-                    <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-light text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg">
+                    <button
+                      onClick={() => handleBuy(product)}
+                      className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-light text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                    >
                       <ShoppingBag size={16} />
                       Satın Al
                     </button>

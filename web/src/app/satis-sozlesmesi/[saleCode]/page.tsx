@@ -59,9 +59,12 @@ export default async function SaleContractDetailPage({ params }: PageProps) {
 
   const isSealed = contract.device_condition_type === 'new_sealed'
   const isAuthorizedRefurbished = contract.device_condition_type === 'authorized_refurbished'
+  const isAccessory = contract.device_category === 'accessory' || device.type === 'accessory'
 
   let title = 'CİHAZ SATIŞ, TEST VE TESLİM PROTOKOLÜ'
-  if (isSealed) {
+  if (isAccessory) {
+    title = 'ÜRÜN SATIŞ VE TESLİM PROTOKOLÜ'
+  } else if (isSealed) {
     title = 'SIFIR KAPALI KUTU CİHAZ SATIŞ VE TESLİM PROTOKOLÜ'
   } else if (isAuthorizedRefurbished) {
     title = 'YETKİLİ ONARICI RAPORLU YENİLENMİŞ CİHAZ SATIŞ, TEST VE TESLİM PROTOKOLÜ'
@@ -130,7 +133,7 @@ export default async function SaleContractDetailPage({ params }: PageProps) {
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 border-b border-slate-100 pb-1">2. Cihaz Bilgileri</h3>
               <dl className="space-y-2 text-xs">
-                <div className="flex justify-between"><dt className="text-slate-500">Kategori / Sınıf:</dt><dd className="font-semibold text-slate-900">{typeLabels[contract.device_category || device.type] || contract.device_category} / {conditionLabels[contract.device_condition_type || device.condition] || contract.device_condition_type}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Kategori / Sınıf:</dt><dd className="font-semibold text-slate-900">{typeLabels[contract.device_category || device.type] || contract.device_category || 'Aksesuar'} / {conditionLabels[contract.device_condition_type || device.condition] || contract.device_condition_type || 'Standart'}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">Marka / Model:</dt><dd className="font-semibold text-slate-900">{device.brand} {device.model}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">IMEI / Seri No:</dt><dd className="font-mono text-slate-900">{device.imeiOrSerial}</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">Renk / Hafıza:</dt><dd className="text-slate-900">{device.color || '-'} / {device.storageRam || '-'}</dd></div>
@@ -160,91 +163,95 @@ export default async function SaleContractDetailPage({ params }: PageProps) {
             </div>
           </div>
 
-          <div className="mt-8 grid gap-8 md:grid-cols-2">
-            {/* Kozmetik Kabul Durumu (Kapalı kutu değilse gösterilir) */}
-            {!isSealed ? (
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 border-b border-slate-100 pb-1">3. Kozmetik Durum</h3>
-                <dl className="space-y-2 text-xs">
-                  <div className="flex justify-between"><dt className="text-slate-500">Ekran:</dt><dd className="text-slate-900">{cosmetic.screen || '-'}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Kasa / Gövde:</dt><dd className="text-slate-900">{cosmetic.body || '-'}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Arka Kapak:</dt><dd className="text-slate-900">{cosmetic.backCover || '-'}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Kamera Camı:</dt><dd className="text-slate-900">{cosmetic.cameraLens || '-'}</dd></div>
-                  {cosmetic.notes && (
-                    <div className="mt-2 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg leading-relaxed">
-                      <strong>Notlar:</strong> {cosmetic.notes}
-                    </div>
-                  )}
-                </dl>
-              </div>
-            ) : (
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 border-b border-slate-100 pb-1">3. Kozmetik Durum</h3>
-                <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-xl">
-                  Cihaz sıfır kapalı kutu (jelatinli/mühürlü) olarak teslim edildiğinden fiziki kozmetik inceleme kutu açılmadan yapılamamıştır. Kutu dış ambalajı hasarsızdır.
-                </p>
-              </div>
-            )}
-
-            {/* Test Formu */}
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 border-b border-slate-100 pb-1">
-                {isSealed ? '4. Kutu Doğrulama Kontrolleri' : '4. Teknik Fonksiyon Raporu'}
-              </h3>
-              <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                {Object.entries(tests).map(([testName, passed]) => (
-                  <div key={testName} className="flex items-center gap-1.5">
-                    {passed ? (
-                      <span className="text-green-600 font-bold">✓</span>
-                    ) : (
-                      <span className="text-red-500 font-bold">✗</span>
+          {!isAccessory && (
+            <div className="mt-8 grid gap-8 md:grid-cols-2">
+              {/* Kozmetik Kabul Durumu (Kapalı kutu değilse gösterilir) */}
+              {!isSealed ? (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 border-b border-slate-100 pb-1">3. Kozmetik Durum</h3>
+                  <dl className="space-y-2 text-xs">
+                    <div className="flex justify-between"><dt className="text-slate-500">Ekran:</dt><dd className="text-slate-900">{cosmetic.screen || '-'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-slate-500">Kasa / Gövde:</dt><dd className="text-slate-900">{cosmetic.body || '-'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-slate-500">Arka Kapak:</dt><dd className="text-slate-900">{cosmetic.backCover || '-'}</dd></div>
+                    <div className="flex justify-between"><dt className="text-slate-500">Kamera Camı:</dt><dd className="text-slate-900">{cosmetic.cameraLens || '-'}</dd></div>
+                    {cosmetic.notes && (
+                      <div className="mt-2 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg leading-relaxed">
+                        <strong>Notlar:</strong> {cosmetic.notes}
+                      </div>
                     )}
-                    <span className="text-slate-700 truncate">{testName}</span>
-                  </div>
-                ))}
-                {Object.keys(tests).length === 0 && (
-                  <p className="text-slate-500 italic col-span-2">Kontrol kaydı bulunmamaktadır.</p>
-                )}
+                  </dl>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 border-b border-slate-100 pb-1">3. Kozmetik Durum</h3>
+                  <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-xl">
+                    Cihaz sıfır kapalı kutu (jelatinli/mühürlü) olarak teslim edildiğinden fiziki kozmetik inceleme kutu açılmadan yapılamamıştır. Kutu dış ambalajı hasarsızdır.
+                  </p>
+                </div>
+              )}
+
+              {/* Test Formu */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 border-b border-slate-100 pb-1">
+                  {isSealed ? '4. Kutu Doğrulama Kontrolleri' : '4. Teknik Fonksiyon Raporu'}
+                </h3>
+                <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                  {Object.entries(tests).map(([testName, passed]) => (
+                    <div key={testName} className="flex items-center gap-1.5">
+                      {passed ? (
+                        <span className="text-green-600 font-bold">✓</span>
+                      ) : (
+                        <span className="text-red-500 font-bold">✗</span>
+                      )}
+                      <span className="text-slate-700 truncate">{testName}</span>
+                    </div>
+                  ))}
+                  {Object.keys(tests).length === 0 && (
+                    <p className="text-slate-500 italic col-span-2">Kontrol kaydı bulunmamaktadır.</p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="mt-8 grid gap-8 md:grid-cols-2 border-t border-slate-100 pt-6">
-            {/* Bilinen Kusurlar (Sadece kullanılmış ise) */}
-            {!isSealed ? (
+          {!isAccessory && (
+            <div className="mt-8 grid gap-8 md:grid-cols-2 border-t border-slate-100 pt-6">
+              {/* Bilinen Kusurlar (Sadece kullanılmış ise) */}
+              {!isSealed ? (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">5. Bilinen Kusurlar</h3>
+                  <ul className="space-y-1 text-xs text-slate-700 list-disc list-inside">
+                    {knownIssues.map((issue, idx) => (
+                      <li key={idx} className="leading-relaxed">{issue}</li>
+                    ))}
+                    {knownIssues.length === 0 && (
+                      <li className="list-none italic text-slate-500">Bilinen kusur bildirilmemiştir.</li>
+                    )}
+                  </ul>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">5. Garanti Kapsamı Notu</h3>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Cihaz orijinal mühürlü kutu olduğundan HurCELL teknik incelemesine tabi tutulmamıştır. Üretici distribütör sınırlı garantisine tabidir.
+                  </p>
+                </div>
+              )}
+
+              {/* Beraberinde Verilenler */}
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">5. Bilinen Kusurlar</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">6. Teslim Edilen Ekipmanlar</h3>
                 <ul className="space-y-1 text-xs text-slate-700 list-disc list-inside">
-                  {knownIssues.map((issue, idx) => (
-                    <li key={idx} className="leading-relaxed">{issue}</li>
+                  {includedItems.map((item, idx) => (
+                    <li key={idx} className="leading-relaxed">{item}</li>
                   ))}
-                  {knownIssues.length === 0 && (
-                    <li className="list-none italic text-slate-500">Bilinen kusur bildirilmemiştir.</li>
+                  {includedItems.length === 0 && (
+                    <li className="list-none italic text-slate-500">Ek ürün belirtilmemiştir.</li>
                   )}
                 </ul>
               </div>
-            ) : (
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">5. Garanti Kapsamı Notu</h3>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Cihaz orijinal mühürlü kutu olduğundan HurCELL teknik incelemesine tabi tutulmamıştır. Üretici distribütör sınırlı garantisine tabidir.
-                </p>
-              </div>
-            )}
-
-            {/* Beraberinde Verilenler */}
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">6. Teslim Edilen Ekipmanlar</h3>
-              <ul className="space-y-1 text-xs text-slate-700 list-disc list-inside">
-                {includedItems.map((item, idx) => (
-                  <li key={idx} className="leading-relaxed">{item}</li>
-                ))}
-                {includedItems.length === 0 && (
-                  <li className="list-none italic text-slate-500">Ek ürün belirtilmemiştir.</li>
-                )}
-              </ul>
             </div>
-          </div>
+          )}
 
           {/* Snapshot verisi */}
           {snapshot && snapshot.name && (
@@ -255,7 +262,7 @@ export default async function SaleContractDetailPage({ params }: PageProps) {
                 <div><strong>Marka/Model:</strong> {snapshot.brand} {snapshot.model}</div>
                 <div><strong>Barkod / SKU:</strong> {snapshot.barcode}</div>
                 <div><strong>IMEI / Seri No:</strong> {snapshot.serial_number || snapshot.imei_1 || '-'}</div>
-                <div><strong>Stok Durum Sınıfı:</strong> {conditionLabels[snapshot.device_condition_type] || snapshot.device_condition_type}</div>
+                <div><strong>Stok Durum Sınıfı:</strong> {conditionLabels[snapshot.device_condition_type] || snapshot.device_condition_type || 'Aksesuar / Standart'}</div>
                 <div><strong>Garanti/Servis Bilgisi:</strong> {snapshot.warranty_status || snapshot.service_report_no || '-'}</div>
               </div>
             </div>

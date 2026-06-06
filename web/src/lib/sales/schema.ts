@@ -12,7 +12,7 @@ export const deviceSaleSchema = z.object({
     'used',
     'refurbished',
     'authorized_refurbished'
-  ]),
+  ]).nullable().optional(),
   deviceCategory: z.enum(['phone', 'tablet', 'computer', 'accessory', 'other']),
   customer: z.object({
     fullName: z.string().min(3, 'Ad soyad zorunludur.'),
@@ -23,10 +23,10 @@ export const deviceSaleSchema = z.object({
   }),
   device: z.object({
     type: z.enum(['phone', 'tablet', 'computer', 'accessory', 'other']),
-    condition: z.enum(['new', 'display', 'used', 'refurbished', 'authorized_refurbished']),
+    condition: z.enum(['new', 'display', 'used', 'refurbished', 'authorized_refurbished']).nullable().optional(),
     brand: z.string().min(1, 'Marka zorunludur.'),
     model: z.string().min(1, 'Model zorunludur.'),
-    imeiOrSerial: z.string().min(3, 'IMEI veya seri numarası zorunludur.'),
+    imeiOrSerial: z.string().optional().default(''),
     color: z.string().optional().default(''),
     storageRam: z.string().optional().default(''),
     batteryHealth: z.string().optional().default(''),

@@ -63,6 +63,15 @@ const sealedCheckItems = [
 const defaultDeclarationUsed = 'Cihazı mevcut teknik ve kozmetik durumu ile görerek, test ederek teslim aldım. Belirtilen hususları kabul ediyorum.'
 const defaultDeclarationSealed = 'Cihazı sıfır ve kapalı kutu olarak teslim aldım. Cihazın kutusu HurCELL tarafından açılıp test edilmemiştir. Satış sonrası işlemlerin yetkili servis kararına bağlı olduğunu biliyorum.'
 
+const conditionLabels: Record<string, string> = {
+  new_sealed: 'Sıfır Kapalı Kutu',
+  new_open_box: 'Sıfır Açık Kutu',
+  display: 'Teşhir Ürünü',
+  used: 'İkinci El',
+  refurbished: 'Yenilenmiş',
+  authorized_refurbished: 'Yetkili Onarıcı Raporlu',
+}
+
 type Product = {
   id: string
   barcode: string
@@ -118,7 +127,7 @@ function DeviceSaleContractForm() {
   const [channel, setChannel] = useState<'store' | 'online'>('store')
   const [deviceCategory, setDeviceCategory] = useState<'phone' | 'tablet' | 'computer' | 'accessory' | 'other'>('phone')
   const [deviceConditionType, setDeviceConditionType] = useState<
-    'new_sealed' | 'new_open_box' | 'display' | 'used' | 'refurbished' | 'authorized_refurbished'
+    'new_sealed' | 'new_open_box' | 'display' | 'used' | 'refurbished' | 'authorized_refurbished' | null
   >('used')
   
   const [brand, setBrand] = useState('')
@@ -169,8 +178,9 @@ function DeviceSaleContractForm() {
 
   // Dynamic default customer declaration
   const computedDeclaration = useMemo(() => {
+    if (deviceCategory === 'accessory') return 'Aksesuar ürünü teslim aldım.'
     return deviceConditionType === 'new_sealed' ? defaultDeclarationSealed : defaultDeclarationUsed
-  }, [deviceConditionType])
+  }, [deviceConditionType, deviceCategory])
 
   // Search autocomplete
   useEffect(() => {
@@ -255,7 +265,9 @@ function DeviceSaleContractForm() {
     }
 
     // Map device condition type from database (defaulting to 'used')
-    if (prod.device_condition_type) {
+    if (isAcc) {
+      setDeviceConditionType(null)
+    } else if (prod.device_condition_type) {
       setDeviceConditionType(prod.device_condition_type as any)
     } else {
       setDeviceConditionType('used')
@@ -354,7 +366,7 @@ function DeviceSaleContractForm() {
       productId: productIdVal,
       quantity: Number(form.get('quantity') || 1),
       salePrice: salePrice ? Number(salePrice) : undefined,
-      deviceConditionType,
+      deviceConditionType: deviceCategory === 'accessory' ? null : deviceConditionType,
       deviceCategory,
       customer: {
         fullName: form.get('customerFullName'),
@@ -365,14 +377,14 @@ function DeviceSaleContractForm() {
       },
       device: {
         type: deviceCategory,
-        condition: deviceConditionType === 'new_sealed' ? 'new' : deviceConditionType === 'new_open_box' ? 'new' : deviceConditionType as any,
+        condition: deviceCategory === 'accessory' ? null : (deviceConditionType === 'new_sealed' ? 'new' : deviceConditionType === 'new_open_box' ? 'new' : deviceConditionType as any),
         brand,
         model,
-        imeiOrSerial: form.get('imeiOrSerial'),
+        imeiOrSerial: form.get('imeiOrSerial') || '',
         color,
         storageRam,
-        batteryHealth: deviceConditionType === 'new_sealed' ? 'Fabrika Çıkışlı' : (form.get('batteryHealth') || ''),
-        boxStatus: deviceConditionType === 'new_sealed' ? 'Orijinal Kapalı Kutu' : (form.get('boxStatus') || ''),
+        batteryHealth: (deviceCategory === 'accessory' || deviceConditionType === 'new_sealed') ? 'Fabrika Çıkışlı' : (form.get('batteryHealth') || ''),
+        boxStatus: (deviceCategory === 'accessory' || deviceConditionType === 'new_sealed') ? 'Orijinal Kapalı Kutu' : (form.get('boxStatus') || ''),
         supplierReportNo: form.get('supplierReportNo') || '',
         wifiCellular,
         hasPenKeyboard,
@@ -384,15 +396,15 @@ function DeviceSaleContractForm() {
         adapterIncluded,
       },
       cosmetic: {
-        screen: deviceConditionType === 'new_sealed' ? 'Kusursuz (Kapalı Kutu)' : (form.get('screen') || ''),
-        body: deviceConditionType === 'new_sealed' ? 'Kusursuz (Kapalı Kutu)' : (form.get('body') || ''),
-        backCover: deviceConditionType === 'new_sealed' ? 'Kusursuz (Kapalı Kutu)' : (form.get('backCover') || ''),
-        cameraLens: deviceConditionType === 'new_sealed' ? 'Kusursuz (Kapalı Kutu)' : (form.get('cameraLens') || ''),
+        screen: (deviceCategory === 'accessory' || deviceConditionType === 'new_sealed') ? 'Kusursuz (Kapalı Kutu)' : (form.get('screen') || ''),
+        body: (deviceCategory === 'accessory' || deviceConditionType === 'new_sealed') ? 'Kusursuz (Kapalı Kutu)' : (form.get('body') || ''),
+        backCover: (deviceCategory === 'accessory' || deviceConditionType === 'new_sealed') ? 'Kusursuz (Kapalı Kutu)' : (form.get('backCover') || ''),
+        cameraLens: (deviceCategory === 'accessory' || deviceConditionType === 'new_sealed') ? 'Kusursuz (Kapalı Kutu)' : (form.get('cameraLens') || ''),
         notes: form.get('cosmeticNotes') || '',
       },
-      tests,
-      knownIssues: knownIssues.split('\n').map((item) => item.trim()).filter(Boolean),
-      includedItems: includedItems.split('\n').map((item) => item.trim()).filter(Boolean),
+      tests: deviceCategory === 'accessory' ? {} : tests,
+      knownIssues: deviceCategory === 'accessory' ? [] : knownIssues.split('\n').map((item) => item.trim()).filter(Boolean),
+      includedItems: deviceCategory === 'accessory' ? [] : includedItems.split('\n').map((item) => item.trim()).filter(Boolean),
       customerDeclaration: form.get('customerDeclaration'),
       acceptedLegalNotice: accepted,
       signatureDataUrl,
@@ -528,7 +540,15 @@ function DeviceSaleContractForm() {
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Cihaz Kategorisi</label>
                 <select
                   value={deviceCategory}
-                  onChange={(e) => setDeviceCategory(e.target.value as any)}
+                  onChange={(e) => {
+                    const cat = e.target.value as any
+                    setDeviceCategory(cat)
+                    if (cat === 'accessory') {
+                      setDeviceConditionType(null)
+                    } else if (deviceConditionType === null) {
+                      setDeviceConditionType('used')
+                    }
+                  }}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition"
                 >
                   <option value="phone">Cep Telefonu</option>
@@ -541,10 +561,12 @@ function DeviceSaleContractForm() {
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Cihaz Hukuki Durumu</label>
                 <select
-                  value={deviceConditionType}
-                  onChange={(e) => setDeviceConditionType(e.target.value as any)}
+                  value={deviceConditionType || ''}
+                  onChange={(e) => setDeviceConditionType(e.target.value ? e.target.value as any : null)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition font-semibold text-blue-700"
+                  disabled={deviceCategory === 'accessory'}
                 >
+                  <option value="">Aksesuar (Durum Yok)</option>
                   <option value="used">İkinci El</option>
                   <option value="new_sealed">Sıfır Kapalı Kutu</option>
                   <option value="new_open_box">Sıfır Açık Kutu</option>
@@ -588,7 +610,12 @@ function DeviceSaleContractForm() {
             <div className="grid gap-5 md:grid-cols-3">
               <Input label="Marka *" value={brand} onChange={(e) => setBrand(e.target.value)} required placeholder="Örn: Apple" />
               <Input label="Model *" value={model} onChange={(e) => setModel(e.target.value)} required placeholder="Örn: iPhone 15 Pro" />
-              <Input name="imeiOrSerial" label="IMEI / Seri Numarası *" required placeholder="IMEI veya Seri No" />
+              <Input
+                name="imeiOrSerial"
+                label={deviceCategory === 'accessory' ? "IMEI / Seri Numarası" : "IMEI / Seri Numarası *"}
+                required={deviceCategory !== 'accessory'}
+                placeholder={deviceCategory === 'accessory' ? "İsteğe bağlı" : "IMEI veya Seri No"}
+              />
               <Input label="Renk" value={color} onChange={(e) => setColor(e.target.value)} placeholder="Renk" />
               <Input label="Hafıza / RAM" value={storageRam} onChange={(e) => setStorageRam(e.target.value)} placeholder="Hafıza" />
               
@@ -628,8 +655,8 @@ function DeviceSaleContractForm() {
             </div>
           </Card>
 
-          {/* Kozmetik Kabul (Sıfır Kapalı Kutu Değilse Gösterilir) */}
-          {deviceConditionType !== 'new_sealed' && (
+          {/* Kozmetik Kabul (Sıfır Kapalı Kutu Değilse ve Cihaz İse Gösterilir) */}
+          {deviceCategory !== 'accessory' && deviceConditionType !== 'new_sealed' && (
             <Card title="5. Kozmetik Teslim Ayrıntıları">
               <div className="grid gap-5 md:grid-cols-2">
                 <Input name="screen" label="Ekran Durumu" placeholder="Temiz / Çizikler var" />
@@ -641,37 +668,39 @@ function DeviceSaleContractForm() {
             </Card>
           )}
 
-          {/* Test Formu / Sealed Checklist */}
-          <Card title={deviceConditionType === 'new_sealed' ? `5. Kutu & Ambalaj Doğrulama (${checkedCount}/${activeTestItems.length})` : `6. Cihaz Fonksiyonel Test Raporu (${checkedCount}/${activeTestItems.length})`}>
-            <p className="text-xs text-slate-500 mb-4">
-              {deviceConditionType === 'new_sealed' 
-                ? 'Sıfır kapalı kutu ürün doğrulama adımlarını işaretleyin.' 
-                : 'Cihazın test edilip onaylanan donanım fonksiyonlarını işaretleyin.'}
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-              {activeTestItems.map((item) => (
-                <label
-                  key={item}
-                  className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-xs font-medium cursor-pointer transition-all ${
-                    tests[item]
-                      ? 'border-blue-500 bg-blue-50/50 text-blue-900 shadow-sm'
-                      : 'border-slate-200 bg-slate-50/50 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={!!tests[item]}
-                    onChange={(event) => setTests((current) => ({ ...current, [item]: event.target.checked }))}
-                    className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>{item}</span>
-                </label>
-              ))}
-            </div>
-          </Card>
+          {/* Test Formu / Sealed Checklist (Sadece Cihaz İse Gösterilir) */}
+          {deviceCategory !== 'accessory' && (
+            <Card title={deviceConditionType === 'new_sealed' ? `5. Kutu & Ambalaj Doğrulama (${checkedCount}/${activeTestItems.length})` : `6. Cihaz Fonksiyonel Test Raporu (${checkedCount}/${activeTestItems.length})`}>
+              <p className="text-xs text-slate-500 mb-4">
+                {deviceConditionType === 'new_sealed' 
+                  ? 'Sıfır kapalı kutu ürün doğrulama adımlarını işaretleyin.' 
+                  : 'Cihazın test edilip onaylanan donanım fonksiyonlarını işaretleyin.'}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                {activeTestItems.map((item) => (
+                  <label
+                    key={item}
+                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-xs font-medium cursor-pointer transition-all ${
+                      tests[item]
+                        ? 'border-blue-500 bg-blue-50/50 text-blue-900 shadow-sm'
+                        : 'border-slate-200 bg-slate-50/50 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!tests[item]}
+                      onChange={(event) => setTests((current) => ({ ...current, [item]: event.target.checked }))}
+                      className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>{item}</span>
+                  </label>
+                ))}
+              </div>
+            </Card>
+          )}
 
-          {/* Bilinen Kusurlar (Kapalı Kutu Değilse) */}
-          {deviceConditionType !== 'new_sealed' && (
+          {/* Bilinen Kusurlar (Kapalı Kutu Değilse ve Cihaz İse Gösterilir) */}
+          {deviceCategory !== 'accessory' && deviceConditionType !== 'new_sealed' && (
             <Card title="7. Kusurlar & Beraberinde Verilenler">
               <div className="grid gap-5 md:grid-cols-2">
                 <Textarea

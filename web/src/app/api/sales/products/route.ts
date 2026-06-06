@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('products')
-      .select('id, barcode, name, category, brand, model, color, sell_price, stock, ram, storage, processor, screen_size')
+      .select('id, barcode, name, category, brand, model, color, sell_price, stock, ram, storage, processor, screen_size, device_condition_type, device_category')
 
     if (q.trim()) {
       query = query.or(`name.ilike.%${q}%,barcode.ilike.%${q}%,brand.ilike.%${q}%,model.ilike.%${q}%`)

@@ -764,7 +764,9 @@ export default function UrunlerPage() {
 
     setSaving(false);
     if (error || !data) {
-      showStatus("error", "Ürün ekleme sırasında hata oluştu.");
+      const errorMsg = error ? error.message : "Veritabanı yanıtı boş (data null).";
+      showStatus("error", `Ürün kaydedilemedi: ${errorMsg}`);
+      console.error("Ürün ekleme hatası:", error);
       return;
     }
 
@@ -913,7 +915,9 @@ export default function UrunlerPage() {
 
     setSaving(false);
     if (error || !data) {
-      showStatus("error", "Ürün güncelleme sırasında hata oluştu.");
+      const errorMsg = error ? error.message : "Veritabanı yanıtı boş (data null).";
+      showStatus("error", `Ürün güncellenemedi: ${errorMsg}`);
+      console.error("Ürün güncelleme hatası:", error);
       return;
     }
 
@@ -933,7 +937,9 @@ export default function UrunlerPage() {
 
     const { error } = await deleteProduct(productId);
     if (error) {
-      showStatus("error", "Ürün silme sırasında hata oluştu.");
+      const errorMsg = error ? error.message : "Bilinmeyen hata";
+      showStatus("error", `Ürün silinemedi: ${errorMsg}`);
+      console.error("Ürün silme hatası:", error);
       return;
     }
 
@@ -963,7 +969,9 @@ export default function UrunlerPage() {
     setSaving(false);
 
     if (error || !data) {
-      showStatus("error", "Stok güncelleme sırasında hata oluştu.");
+      const errorMsg = error && typeof error === 'object' && 'message' in error ? (error as any).message : "Bilinmeyen hata";
+      showStatus("error", `Stok güncellenemedi: ${errorMsg}`);
+      console.error("Stok güncelleme hatası:", error);
       return;
     }
 

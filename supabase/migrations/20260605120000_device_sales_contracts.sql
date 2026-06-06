@@ -279,3 +279,24 @@ revoke all on table public.device_sale_contracts from anon;
 revoke all on table public.device_sale_contracts from authenticated;
 
 grant all on table public.device_sale_contracts to service_role;
+
+-- 10. products tablosu için device_metadata null koruma trigger'ı
+create or replace function public.ensure_product_device_metadata()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.device_metadata is null then
+    new.device_metadata := '{}'::jsonb;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_ensure_product_device_metadata on public.products;
+
+create trigger trg_ensure_product_device_metadata
+before insert or update on public.products
+for each row
+execute function public.ensure_product_device_metadata();

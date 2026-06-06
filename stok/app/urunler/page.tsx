@@ -718,6 +718,20 @@ export default function UrunlerPage() {
     const manualName = form.name.trim();
     const finalName = manualName || buildProductName(form.brand, form.model, form.color, memoryValue, form.ram, form.storage, form.processor, form.screen_size, isLaptop) || "İsimsiz Ürün";
 
+    const safeDeviceMetadata = isDevice
+      ? {
+          imei_1: form.imei_1.trim() || '',
+          imei_2: form.imei_2.trim() || '',
+          serial_number: form.serial_number.trim() || '',
+          battery_health: form.battery_health.trim() || '',
+          box_status: form.box_status.trim() || '',
+          warranty_status: form.warranty_status.trim() || '',
+          supplier_name: form.supplier_name.trim() || '',
+          supplier_invoice_no: form.supplier_invoice_no.trim() || '',
+          service_report_no: form.service_report_no.trim() || '',
+        }
+      : {};
+
     const { data, error } = await createProduct({
       barcode: form.barcode.trim(),
       name: finalName,
@@ -738,28 +752,18 @@ export default function UrunlerPage() {
       storage: isLaptop ? (form.storage.trim() || null) : null,
       processor: isLaptop ? (form.processor.trim() || null) : null,
       screen_size: isLaptop ? (form.screen_size.trim() || null) : null,
-      device_condition_type: form.device_condition_type || null,
-      device_category: devCat,
-      imei_1: form.imei_1.trim() || null,
-      imei_2: form.imei_2.trim() || null,
-      serial_number: form.serial_number.trim() || null,
-      battery_health: form.battery_health.trim() || null,
-      box_status: form.box_status.trim() || null,
-      warranty_status: form.warranty_status.trim() || null,
-      supplier_name: form.supplier_name.trim() || null,
-      supplier_invoice_no: form.supplier_invoice_no.trim() || null,
-      service_report_no: form.service_report_no.trim() || null,
-      device_metadata: isDevice ? {
-        imei_1: form.imei_1.trim() || null,
-        imei_2: form.imei_2.trim() || null,
-        serial_number: form.serial_number.trim() || null,
-        battery_health: form.battery_health.trim() || null,
-        box_status: form.box_status.trim() || null,
-        warranty_status: form.warranty_status.trim() || null,
-        supplier_name: form.supplier_name.trim() || null,
-        supplier_invoice_no: form.supplier_invoice_no.trim() || null,
-        service_report_no: form.service_report_no.trim() || null,
-      } : null,
+      device_condition_type: isDevice ? (form.device_condition_type || null) : null,
+      device_category: isDevice ? devCat : (form.category.trim() || null),
+      imei_1: isDevice ? (form.imei_1.trim() || null) : '',
+      imei_2: isDevice ? (form.imei_2.trim() || null) : '',
+      serial_number: isDevice ? (form.serial_number.trim() || null) : '',
+      battery_health: isDevice ? (form.battery_health.trim() || null) : '',
+      box_status: isDevice ? (form.box_status.trim() || null) : '',
+      warranty_status: isDevice ? (form.warranty_status.trim() || null) : '',
+      supplier_name: isDevice ? (form.supplier_name.trim() || null) : '',
+      supplier_invoice_no: isDevice ? (form.supplier_invoice_no.trim() || null) : '',
+      service_report_no: isDevice ? (form.service_report_no.trim() || null) : '',
+      device_metadata: safeDeviceMetadata,
     });
 
     setSaving(false);
@@ -869,6 +873,20 @@ export default function UrunlerPage() {
     const isEditLaptop = normEditCat.includes("bilgisayar") || normEditCat.includes("laptop") || normEditCat.includes("computer");
     const finalName = manualName || buildProductName(editForm.brand, editForm.model, editForm.color, editForm.memory, editForm.ram, editForm.storage, editForm.processor, editForm.screen_size, isEditLaptop) || "İsimsiz Ürün";
 
+    const safeEditDeviceMetadata = isEditDevice
+      ? {
+          imei_1: editForm.imei_1.trim() || '',
+          imei_2: editForm.imei_2.trim() || '',
+          serial_number: editForm.serial_number.trim() || '',
+          battery_health: editForm.battery_health.trim() || '',
+          box_status: editForm.box_status.trim() || '',
+          warranty_status: editForm.warranty_status.trim() || '',
+          supplier_name: editForm.supplier_name.trim() || '',
+          supplier_invoice_no: editForm.supplier_invoice_no.trim() || '',
+          service_report_no: editForm.service_report_no.trim() || '',
+        }
+      : {};
+
     const { data, error } = await updateProduct(product.id, {
       barcode: editForm.barcode.trim(),
       name: finalName,
@@ -889,28 +907,18 @@ export default function UrunlerPage() {
       storage: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.storage.trim() || null) : null,
       processor: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.processor.trim() || null) : null,
       screen_size: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.screen_size.trim() || null) : null,
-      device_condition_type: editForm.device_condition_type || null,
-      device_category: devEditCat,
-      imei_1: editForm.imei_1.trim() || null,
-      imei_2: editForm.imei_2.trim() || null,
-      serial_number: editForm.serial_number.trim() || null,
-      battery_health: editForm.battery_health.trim() || null,
-      box_status: editForm.box_status.trim() || null,
-      warranty_status: editForm.warranty_status.trim() || null,
-      supplier_name: editForm.supplier_name.trim() || null,
-      supplier_invoice_no: editForm.supplier_invoice_no.trim() || null,
-      service_report_no: editForm.service_report_no.trim() || null,
-      device_metadata: isEditDevice ? {
-        imei_1: editForm.imei_1.trim() || null,
-        imei_2: editForm.imei_2.trim() || null,
-        serial_number: editForm.serial_number.trim() || null,
-        battery_health: editForm.battery_health.trim() || null,
-        box_status: editForm.box_status.trim() || null,
-        warranty_status: editForm.warranty_status.trim() || null,
-        supplier_name: editForm.supplier_name.trim() || null,
-        supplier_invoice_no: editForm.supplier_invoice_no.trim() || null,
-        service_report_no: editForm.service_report_no.trim() || null,
-      } : null,
+      device_condition_type: isEditDevice ? (editForm.device_condition_type || null) : null,
+      device_category: isEditDevice ? devEditCat : (editForm.category.trim() || null),
+      imei_1: isEditDevice ? (editForm.imei_1.trim() || null) : '',
+      imei_2: isEditDevice ? (editForm.imei_2.trim() || null) : '',
+      serial_number: isEditDevice ? (editForm.serial_number.trim() || null) : '',
+      battery_health: isEditDevice ? (editForm.battery_health.trim() || null) : '',
+      box_status: isEditDevice ? (editForm.box_status.trim() || null) : '',
+      warranty_status: isEditDevice ? (editForm.warranty_status.trim() || null) : '',
+      supplier_name: isEditDevice ? (editForm.supplier_name.trim() || null) : '',
+      supplier_invoice_no: isEditDevice ? (editForm.supplier_invoice_no.trim() || null) : '',
+      service_report_no: isEditDevice ? (editForm.service_report_no.trim() || null) : '',
+      device_metadata: safeEditDeviceMetadata,
     });
 
     setSaving(false);

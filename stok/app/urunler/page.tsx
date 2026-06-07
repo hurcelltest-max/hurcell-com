@@ -356,6 +356,11 @@ const initialFormState = {
   description: "",
   image_url: "",
   is_web_visible: false as boolean,
+  is_b2b_visible: false as boolean,
+  b2b_package_title: "",
+  b2b_package_description: "",
+  b2b_min_quantity: "1",
+  b2b_package_price: "",
   brand: "",
   model: "",
   color: "",
@@ -744,6 +749,11 @@ export default function UrunlerPage() {
       description: form.description.trim() || null,
       image_url: form.image_url.trim() || null,
       is_web_visible: form.is_web_visible === true,
+      is_b2b_visible: form.is_b2b_visible === true,
+      b2b_package_title: form.is_b2b_visible ? (form.b2b_package_title.trim() || null) : null,
+      b2b_package_description: form.is_b2b_visible ? (form.b2b_package_description.trim() || null) : null,
+      b2b_min_quantity: form.is_b2b_visible ? (form.b2b_min_quantity.trim() !== "" ? Number(form.b2b_min_quantity) : null) : null,
+      b2b_package_price: form.is_b2b_visible ? (form.b2b_package_price.trim() !== "" ? Number(form.b2b_package_price) : null) : null,
       brand: form.brand.trim() || null,
       model: form.model.trim() || null,
       color: form.color.trim() || null,
@@ -795,6 +805,11 @@ export default function UrunlerPage() {
       description: product.description || "",
       image_url: product.image_url || "",
       is_web_visible: product.is_web_visible || false,
+      is_b2b_visible: product.is_b2b_visible || false,
+      b2b_package_title: product.b2b_package_title || "",
+      b2b_package_description: product.b2b_package_description || "",
+      b2b_min_quantity: product.b2b_min_quantity != null ? String(product.b2b_min_quantity) : "1",
+      b2b_package_price: product.b2b_package_price != null ? String(product.b2b_package_price) : "",
       brand: product.brand || "",
       model: product.model || "",
       color: product.color || "",
@@ -899,6 +914,11 @@ export default function UrunlerPage() {
       description: editForm.description.trim() || null,
       image_url: editForm.image_url.trim() || null,
       is_web_visible: editForm.is_web_visible === true,
+      is_b2b_visible: editForm.is_b2b_visible === true,
+      b2b_package_title: editForm.is_b2b_visible ? (editForm.b2b_package_title.trim() || null) : null,
+      b2b_package_description: editForm.is_b2b_visible ? (editForm.b2b_package_description.trim() || null) : null,
+      b2b_min_quantity: editForm.is_b2b_visible ? (editForm.b2b_min_quantity.trim() !== "" ? Number(editForm.b2b_min_quantity) : null) : null,
+      b2b_package_price: editForm.is_b2b_visible ? (editForm.b2b_package_price.trim() !== "" ? Number(editForm.b2b_package_price) : null) : null,
       brand: editForm.brand.trim() || null,
       model: editForm.model.trim() || null,
       color: editForm.color.trim() || null,
@@ -1852,6 +1872,74 @@ export default function UrunlerPage() {
               />
               <span className="font-medium">Web Sitesinde Gösterilsin mi?</span>
             </label>
+
+            {/* 14. B2B / Toptanda Gösterilsin mi? */}
+            <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer mt-2">
+              <input
+                type="checkbox"
+                name="is_b2b_visible"
+                id="product-is_b2b_visible"
+                checked={form.is_b2b_visible}
+                onChange={(e) => handleFormChange("is_b2b_visible", e.target.checked)}
+                className="h-5 w-5 rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500"
+              />
+              <span className="font-medium">B2B / Toptanda Gösterilsin mi?</span>
+            </label>
+
+            {/* B2B Paket Alanları */}
+            {form.is_b2b_visible && (
+              <div className="mt-4 p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-4 w-full">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">B2B Paket Bilgileri</p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                    B2B Paket Başlığı
+                    <input
+                      type="text"
+                      name="b2b_package_title"
+                      placeholder="Örn: 10'lu Apple USB-C Paket"
+                      value={form.b2b_package_title}
+                      onChange={handleFormInputChange}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                    Minimum Toptan Adet
+                    <input
+                      type="number"
+                      name="b2b_min_quantity"
+                      min="1"
+                      value={form.b2b_min_quantity}
+                      onChange={handleFormInputChange}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                    B2B Paket Fiyatı (TL)
+                    <input
+                      type="text"
+                      name="b2b_package_price"
+                      placeholder="Teklif Alın için boş bırakın"
+                      value={form.b2b_package_price}
+                      onChange={(e) => handleFormChange("b2b_package_price", formatAmount(e.target.value))}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                    B2B Paket Açıklaması
+                    <input
+                      type="text"
+                      name="b2b_package_description"
+                      placeholder="Paket detayları..."
+                      value={form.b2b_package_description}
+                      onChange={handleFormInputChange}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
           <button
             type="submit"
@@ -1934,6 +2022,9 @@ export default function UrunlerPage() {
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">✓ Webde</span>
                 ) : (
                   <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 border border-slate-200">Gizli</span>
+                )}
+                {form.is_b2b_visible && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">B2B</span>
                 )}
                 {form.device_condition_type && (() => {
                   switch (form.device_condition_type) {
@@ -2568,7 +2659,7 @@ export default function UrunlerPage() {
                                         idPrefix="edit-product-modal"
                                       />
                                     </div>
-                                    <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer sm:col-span-2 py-2">
+                                    <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer sm:col-span-2 py-1">
                                       <input
                                         type="checkbox"
                                         checked={editForm.is_web_visible}
@@ -2577,6 +2668,59 @@ export default function UrunlerPage() {
                                       />
                                       <span>Web sitesinde gösterilsin mi?</span>
                                     </label>
+                                    <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer sm:col-span-2 py-1">
+                                      <input
+                                        type="checkbox"
+                                        checked={editForm.is_b2b_visible}
+                                        onChange={(event) => handleEditFormChange("is_b2b_visible", event.target.checked)}
+                                        className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                      />
+                                      <span>B2B / Toptanda gösterilsin mi?</span>
+                                    </label>
+                                    {editForm.is_b2b_visible && (
+                                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:col-span-2 p-3 rounded-xl border border-slate-200 bg-slate-50/50 w-full">
+                                        <label className="grid gap-1 text-[11px] text-slate-700">
+                                          <span>B2B Paket Başlığı</span>
+                                          <input
+                                            type="text"
+                                            value={editForm.b2b_package_title}
+                                            onChange={(event) => handleEditFormChange("b2b_package_title", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none"
+                                            placeholder="Örn: 10'lu Apple Adaptör"
+                                          />
+                                        </label>
+                                        <label className="grid gap-1 text-[11px] text-slate-700">
+                                          <span>Minimum Toptan Adet</span>
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            value={editForm.b2b_min_quantity}
+                                            onChange={(event) => handleEditFormChange("b2b_min_quantity", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none"
+                                          />
+                                        </label>
+                                        <label className="grid gap-1 text-[11px] text-slate-700">
+                                          <span>B2B Paket Fiyatı (TL)</span>
+                                          <input
+                                            type="text"
+                                            value={editForm.b2b_package_price}
+                                            onChange={(event) => handleEditFormChange("b2b_package_price", formatAmount(event.target.value))}
+                                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none"
+                                            placeholder="Teklif Alın için boş bırakın"
+                                          />
+                                        </label>
+                                        <label className="grid gap-1 text-[11px] text-slate-700">
+                                          <span>B2B Paket Açıklaması</span>
+                                          <input
+                                            type="text"
+                                            value={editForm.b2b_package_description}
+                                            onChange={(event) => handleEditFormChange("b2b_package_description", event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none"
+                                            placeholder="Açıklama..."
+                                          />
+                                        </label>
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="flex gap-2">
                                     <button
@@ -2626,6 +2770,9 @@ export default function UrunlerPage() {
                                         <span className="text-[10px] text-slate-400 font-mono">#{product.barcode || '—'}</span>
                                         {product.category && (
                                           <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 font-medium">{product.category}</span>
+                                        )}
+                                        {product.is_b2b_visible && (
+                                          <span className="rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">B2B</span>
                                         )}
                                         {product.device_condition_type && (() => {
                                           switch (product.device_condition_type) {

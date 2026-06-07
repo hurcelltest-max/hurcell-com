@@ -12,6 +12,11 @@ export type Product = {
   description: string | null;
   image_url: string | null;
   is_web_visible: boolean;
+  is_b2b_visible: boolean;
+  b2b_package_title?: string | null;
+  b2b_package_description?: string | null;
+  b2b_min_quantity?: number | null;
+  b2b_package_price?: number | null;
   brand: string | null;
   model: string | null;
   color: string | null;

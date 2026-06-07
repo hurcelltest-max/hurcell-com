@@ -47,6 +47,31 @@ const headerMap: Record<string, string> = {
   "webde goster": "is_web_visible",
   "webde görünür": "is_web_visible",
   "webde gorunur": "is_web_visible",
+  is_b2b_visible: "is_b2b_visible",
+  "b2b görünür": "is_b2b_visible",
+  "b2b gorunur": "is_b2b_visible",
+  "toptanda göster": "is_b2b_visible",
+  "toptanda goster": "is_b2b_visible",
+  b2b_package_title: "b2b_package_title",
+  "b2b paket başlığı": "b2b_package_title",
+  "b2b paket basligi": "b2b_package_title",
+  "toptan paket başlığı": "b2b_package_title",
+  "toptan paket basligi": "b2b_package_title",
+  b2b_package_description: "b2b_package_description",
+  "b2b paket açıklaması": "b2b_package_description",
+  "b2b paket aciklamasi": "b2b_package_description",
+  "toptan paket açıklaması": "b2b_package_description",
+  "toptan paket aciklamasi": "b2b_package_description",
+  b2b_min_quantity: "b2b_min_quantity",
+  "minimum toptan adet": "b2b_min_quantity",
+  "toptan minimum adet": "b2b_min_quantity",
+  "minimum sipariş adedi": "b2b_min_quantity",
+  "minimum siparis adedi": "b2b_min_quantity",
+  b2b_package_price: "b2b_package_price",
+  "b2b paket fiyatı": "b2b_package_price",
+  "b2b paket fiyati": "b2b_package_price",
+  "toptan paket fiyatı": "b2b_package_price",
+  "toptan paket fiyati": "b2b_package_price",
   brand: "brand",
   marka: "brand",
   model: "model",
@@ -250,6 +275,20 @@ export default function AyarlarPage() {
                mapped["is_web_visible"] === 1 ||
                mapped["is_web_visible"] === true)
             : false,
+          is_b2b_visible: mapped["is_b2b_visible"] !== null && mapped["is_b2b_visible"] !== undefined
+            ? (String(mapped["is_b2b_visible"]).toLowerCase().trim() === "evet" ||
+               String(mapped["is_b2b_visible"]).toLowerCase().trim() === "true" ||
+               mapped["is_b2b_visible"] === 1 ||
+               mapped["is_b2b_visible"] === true)
+            : false,
+          b2b_package_title: mapped["b2b_package_title"] ? String(mapped["b2b_package_title"]).trim() : null,
+          b2b_package_description: mapped["b2b_package_description"] ? String(mapped["b2b_package_description"]).trim() : null,
+          b2b_min_quantity: mapped["b2b_min_quantity"] !== null && mapped["b2b_min_quantity"] !== undefined
+            ? (Number(mapped["b2b_min_quantity"]) || 1)
+            : null,
+          b2b_package_price: mapped["b2b_package_price"] !== null && mapped["b2b_package_price"] !== undefined && String(mapped["b2b_package_price"]).trim() !== ""
+            ? Number(mapped["b2b_package_price"])
+            : null,
           brand: brand || null,
           model: model || null,
           color: color || null,
@@ -285,6 +324,11 @@ export default function AyarlarPage() {
                 description: parsed.description,
                 image_url: parsed.image_url,
                 is_web_visible: parsed.is_web_visible,
+                is_b2b_visible: parsed.is_b2b_visible,
+                b2b_package_title: parsed.b2b_package_title,
+                b2b_package_description: parsed.b2b_package_description,
+                b2b_min_quantity: parsed.b2b_min_quantity,
+                b2b_package_price: parsed.b2b_package_price,
                 brand: parsed.brand,
                 model: parsed.model,
                 color: parsed.color,
@@ -331,6 +375,11 @@ export default function AyarlarPage() {
                 description: parsed.description,
                 image_url: parsed.image_url,
                 is_web_visible: parsed.is_web_visible,
+                is_b2b_visible: parsed.is_b2b_visible,
+                b2b_package_title: parsed.b2b_package_title,
+                b2b_package_description: parsed.b2b_package_description,
+                b2b_min_quantity: parsed.b2b_min_quantity,
+                b2b_package_price: parsed.b2b_package_price,
                 brand: parsed.brand,
                 model: parsed.model,
                 color: parsed.color,
@@ -376,6 +425,11 @@ export default function AyarlarPage() {
               description: parsed.description,
               image_url: parsed.image_url,
               is_web_visible: parsed.is_web_visible,
+              is_b2b_visible: parsed.is_b2b_visible,
+              b2b_package_title: parsed.b2b_package_title,
+              b2b_package_description: parsed.b2b_package_description,
+              b2b_min_quantity: parsed.b2b_min_quantity,
+              b2b_package_price: parsed.b2b_package_price,
               brand: parsed.brand,
               model: parsed.model,
               color: parsed.color,
@@ -490,6 +544,11 @@ export default function AyarlarPage() {
                   Açıklama: p.description || "",
                   "Fotoğraf URL": p.image_url || "",
                   "Webde Görünür": p.is_web_visible ? "Evet" : "Hayır",
+                  "B2B Görünür": p.is_b2b_visible ? "Evet" : "Hayır",
+                  "B2B Paket Başlığı": p.b2b_package_title || "",
+                  "B2B Paket Açıklaması": p.b2b_package_description || "",
+                  "Minimum Toptan Adet": p.b2b_min_quantity !== null && p.b2b_min_quantity !== undefined ? p.b2b_min_quantity : "",
+                  "B2B Paket Fiyatı": p.b2b_package_price !== null && p.b2b_package_price !== undefined ? Number(p.b2b_package_price) : "",
                 }));
 
                 const ws = XLSX.utils.json_to_sheet(rows);

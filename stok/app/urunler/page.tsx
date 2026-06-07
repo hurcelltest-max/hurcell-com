@@ -511,6 +511,59 @@ const getCleanedLaptopTitle = (
   return cleanName || "İsimsiz Ürün";
 };
 
+const getTurkishPackageTitle = (quantity: number): string => {
+  if (!quantity || quantity <= 0) return "";
+  
+  const lastTwo = quantity % 100;
+  let suffix = "";
+  
+  if (quantity % 100 === 0 && quantity > 0) {
+    suffix = "'lü";
+  } else {
+    if (lastTwo >= 10 && lastTwo % 10 === 0) {
+      const tens = lastTwo;
+      if (tens === 10 || tens === 30) {
+        suffix = "'lu";
+      } else if (tens === 20 || tens === 50 || tens === 70 || tens === 80) {
+        suffix = "'li";
+      } else if (tens === 40 || tens === 60 || tens === 90) {
+        suffix = "'lı";
+      }
+    } else {
+      const lastDigit = quantity % 10;
+      if (lastDigit === 1 || lastDigit === 2 || lastDigit === 5 || lastDigit === 7 || lastDigit === 8) {
+        suffix = "'li";
+      } else if (lastDigit === 3 || lastDigit === 4) {
+        suffix = "'lü";
+      } else if (lastDigit === 6) {
+        suffix = "'lı";
+      } else if (lastDigit === 9) {
+        suffix = "'lu";
+      }
+    }
+  }
+  
+  return `${quantity}${suffix} Paket`;
+};
+
+const checkB2bTitleQuantityMismatch = (packageTitle: string, minQuantity: string | number) => {
+  if (!packageTitle) return null;
+  const match = packageTitle.match(/\d+/);
+  if (match) {
+    const numInTitle = parseInt(match[0], 10);
+    const qty = parseInt(String(minQuantity), 10);
+    if (!isNaN(numInTitle) && !isNaN(qty) && numInTitle !== qty) {
+      const suffix = getTurkishPackageTitle(numInTitle).replace(String(numInTitle), "").replace(" Paket", "");
+      return {
+        numInTitle,
+        qty,
+        warningText: `Paket başlığınız ${numInTitle}${suffix} görünüyor ama paket adedi ${qty}. Paket adedini ${numInTitle} yapmak ister misiniz?`
+      };
+    }
+  }
+  return null;
+};
+
 export default function UrunlerPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -557,6 +610,19 @@ export default function UrunlerPage() {
     setB2bQuickError("");
   };
 
+  const handleB2bQuickFormChange = (key: string, value: any) => {
+    setB2bQuickForm((prev) => {
+      const updated = { ...prev, [key]: value };
+      if (key === "b2b_min_quantity" && !prev.b2b_package_title) {
+        const qtyNum = parseInt(value, 10);
+        if (!isNaN(qtyNum) && qtyNum > 0) {
+          updated.b2b_package_title = getTurkishPackageTitle(qtyNum);
+        }
+      }
+      return updated;
+    });
+  };
+
   const handleSaveB2bQuickSettings = async () => {
     if (!b2bQuickProduct) return;
     
@@ -569,7 +635,7 @@ export default function UrunlerPage() {
         return;
       }
       if (minQty > currentStock) {
-        setB2bQuickError("Minimum toptan adet mevcut stoktan fazla olamaz.");
+        setB2bQuickError("Paket adedi mevcut stoktan fazla olamaz.");
         return;
       }
     }
@@ -697,7 +763,16 @@ export default function UrunlerPage() {
     key: keyof typeof initialFormState,
     value: any
   ) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const updated = { ...prev, [key]: value };
+      if (key === "b2b_min_quantity" && !prev.b2b_package_title) {
+        const qtyNum = parseInt(value, 10);
+        if (!isNaN(qtyNum) && qtyNum > 0) {
+          updated.b2b_package_title = getTurkishPackageTitle(qtyNum);
+        }
+      }
+      return updated;
+    });
     if (key === "category") {
       resetCatalogSelections();
     }
@@ -717,7 +792,16 @@ export default function UrunlerPage() {
     key: keyof typeof initialFormState,
     value: any
   ) => {
-    setEditForm((prev) => ({ ...prev, [key]: value }));
+    setEditForm((prev) => {
+      const updated = { ...prev, [key]: value };
+      if (key === "b2b_min_quantity" && !prev.b2b_package_title) {
+        const qtyNum = parseInt(value, 10);
+        if (!isNaN(qtyNum) && qtyNum > 0) {
+          updated.b2b_package_title = getTurkishPackageTitle(qtyNum);
+        }
+      }
+      return updated;
+    });
   };
 
   const resetForm = () => {
@@ -787,7 +871,7 @@ export default function UrunlerPage() {
       }
       if (minQty > currentStock) {
         setSaving(false);
-        showStatus("error", "Minimum toptan adet mevcut stoktan fazla olamaz.");
+        showStatus("error", "Paket adedi mevcut stoktan fazla olamaz.");
         return;
       }
     }
@@ -967,7 +1051,7 @@ export default function UrunlerPage() {
       }
       if (minQty > currentStock) {
         setSaving(false);
-        showStatus("error", "Minimum toptan adet mevcut stoktan fazla olamaz.");
+        showStatus("error", "Paket adedi mevcut stoktan fazla olamaz.");
         return;
       }
     }
@@ -1998,17 +2082,40 @@ export default function UrunlerPage() {
                     />
                   </label>
                   <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
-                    Minimum Toptan Adet
+                    Paket Adedi / Minimum Sipariş
                     <input
                       type="number"
                       name="b2b_min_quantity"
                       min="1"
+                      placeholder="Örn: 4"
                       value={form.b2b_min_quantity}
                       onChange={handleFormInputChange}
                       className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                     />
+                    <span className="text-[10px] text-slate-400 font-normal mt-0.5">Bu ürün bayiye en az kaç adetlik paketle sunulacak?</span>
                   </label>
                 </div>
+
+                {/* Mismatch Warning */}
+                {(() => {
+                  const mismatch = checkB2bTitleQuantityMismatch(form.b2b_package_title, form.b2b_min_quantity);
+                  if (mismatch) {
+                    return (
+                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span>⚠️ {mismatch.warningText}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleFormChange("b2b_min_quantity", String(mismatch.numInTitle))}
+                          className="text-xs font-bold text-sky-700 hover:text-sky-800 bg-white border border-sky-200 rounded-lg px-2.5 py-1 transition cursor-pointer self-start sm:self-auto shadow-sm"
+                        >
+                          {mismatch.numInTitle} yap
+                        </button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
                     B2B Paket Fiyatı (Toplam)
@@ -2020,7 +2127,12 @@ export default function UrunlerPage() {
                       onChange={(e) => handleFormChange("b2b_package_price", formatAmount(e.target.value))}
                       className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                     />
-                    <span className="text-[10px] text-slate-400 font-normal mt-0.5">Örn: 4’lü paket için toplam bayi fiyatı.</span>
+                    <span className="text-[10px] text-slate-400 font-normal mt-0.5">Bu fiyat, yukarıdaki paket adedi için toplam bayi fiyatıdır. Örn: Paket adedi 4 ve fiyat 499 ise, 4 adetlik paketin toplam fiyatı ₺499’dur.</span>
+                    {Number(form.b2b_min_quantity) > 0 && Number(form.b2b_package_price) > 0 && (
+                      <div className="text-xs text-sky-700 font-bold mt-1.5 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 inline-block self-start">
+                        Yaklaşık adet fiyatı: {formatCurrencyTRY(Number(form.b2b_package_price) / Number(form.b2b_min_quantity))}
+                      </div>
+                    )}
                   </label>
                   <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
                     B2B Paket Açıklaması
@@ -2341,7 +2453,16 @@ export default function UrunlerPage() {
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">Toptanda</span>
                             <span className="text-[9px] text-slate-500 font-medium">
-                              (Min: {p.b2b_min_quantity || 1} • Paket: {p.b2b_package_price != null ? formatCurrencyTRY(p.b2b_package_price) : "Teklif"})
+                              {p.b2b_package_price != null ? (
+                                <>
+                                  (B2B Paket: {formatCurrencyTRY(p.b2b_package_price)}
+                                  {p.b2b_min_quantity && Number(p.b2b_min_quantity) > 1 && (
+                                    <> • Adet: {formatCurrencyTRY(Number(p.b2b_package_price) / Number(p.b2b_min_quantity))}</>
+                                  )})
+                                </>
+                              ) : (
+                                "(B2B: Teklif)"
+                              )}
                             </span>
                           </div>
                         )}
@@ -2815,15 +2936,38 @@ export default function UrunlerPage() {
                                           />
                                         </label>
                                         <label className="grid gap-1 text-[11px] text-slate-700">
-                                          <span>Minimum Toptan Adet</span>
+                                          <span>Paket Adedi / Minimum Sipariş</span>
                                           <input
                                             type="number"
                                             min="1"
+                                            placeholder="Örn: 4"
                                             value={editForm.b2b_min_quantity}
                                             onChange={(event) => handleEditFormChange("b2b_min_quantity", event.target.value)}
                                             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none"
                                           />
+                                          <span className="text-[9px] text-slate-400 font-normal mt-0.5">Bu ürün bayiye en az kaç adetlik paketle sunulacak?</span>
                                         </label>
+
+                                        {/* Mismatch Warning */}
+                                        {(() => {
+                                          const mismatch = checkB2bTitleQuantityMismatch(editForm.b2b_package_title, editForm.b2b_min_quantity);
+                                          if (mismatch) {
+                                            return (
+                                              <div className="col-span-1 sm:col-span-2 rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-[10px] text-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 font-semibold">
+                                                <span>⚠️ {mismatch.warningText}</span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleEditFormChange("b2b_min_quantity", String(mismatch.numInTitle))}
+                                                  className="text-[10px] font-bold text-sky-700 hover:text-sky-800 bg-white border border-sky-200 rounded px-2 py-0.5 transition cursor-pointer self-start sm:self-auto shadow-sm"
+                                                >
+                                                  {mismatch.numInTitle} yap
+                                                </button>
+                                              </div>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
+
                                         <label className="grid gap-1 text-[11px] text-slate-700">
                                           <span>B2B Paket Fiyatı (Toplam)</span>
                                           <input
@@ -2833,6 +2977,12 @@ export default function UrunlerPage() {
                                             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none"
                                             placeholder="Teklif Alın için boş bırakın"
                                           />
+                                          <span className="text-[9px] text-slate-400 font-normal mt-0.5">Bu fiyat, yukarıdaki paket adedi için toplam bayi fiyatıdır. Örn: Paket adedi 4 ve fiyat 499 ise, 4 adetlik paketin toplam fiyatı ₺499’dur.</span>
+                                          {Number(editForm.b2b_min_quantity) > 0 && Number(editForm.b2b_package_price) > 0 && (
+                                            <div className="text-[10px] text-sky-700 font-bold mt-1 bg-sky-50 px-2 py-1 rounded border border-sky-100 inline-block self-start">
+                                              Yaklaşık adet fiyatı: {formatCurrencyTRY(Number(editForm.b2b_package_price) / Number(editForm.b2b_min_quantity))}
+                                            </div>
+                                          )}
                                         </label>
                                         <label className="grid gap-1 text-[11px] text-slate-700">
                                           <span>B2B Paket Açıklaması</span>
@@ -2900,7 +3050,16 @@ export default function UrunlerPage() {
                                           <div className="inline-flex flex-wrap items-center gap-1">
                                             <span className="rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">Toptanda</span>
                                             <span className="text-[9px] text-slate-500 font-semibold">
-                                              (Min: {product.b2b_min_quantity || 1} • Paket: {product.b2b_package_price != null ? formatCurrencyTRY(product.b2b_package_price) : "Teklif"})
+                                              {product.b2b_package_price != null ? (
+                                                <>
+                                                  (B2B Paket: {formatCurrencyTRY(product.b2b_package_price)}
+                                                  {product.b2b_min_quantity && Number(product.b2b_min_quantity) > 1 && (
+                                                    <> • Adet: {formatCurrencyTRY(Number(product.b2b_package_price) / Number(product.b2b_min_quantity))}</>
+                                                  )})
+                                                </>
+                                              ) : (
+                                                "(B2B: Teklif)"
+                                              )}
                                             </span>
                                           </div>
                                         )}
@@ -3096,7 +3255,7 @@ export default function UrunlerPage() {
                         type="text"
                         placeholder="Örn: 10'lu Apple USB-C Paket"
                         value={b2bQuickForm.b2b_package_title}
-                        onChange={(e) => setB2bQuickForm(prev => ({ ...prev, b2b_package_title: e.target.value }))}
+                        onChange={(e) => handleB2bQuickFormChange("b2b_package_title", e.target.value)}
                         className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2"
                       />
                     </label>
@@ -3107,21 +3266,23 @@ export default function UrunlerPage() {
                         type="text"
                         placeholder="Paket detayları..."
                         value={b2bQuickForm.b2b_package_description}
-                        onChange={(e) => setB2bQuickForm(prev => ({ ...prev, b2b_package_description: e.target.value }))}
+                        onChange={(e) => handleB2bQuickFormChange("b2b_package_description", e.target.value)}
                         className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2"
                       />
                     </label>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
-                        Minimum Toptan Adet
+                        Paket Adedi / Minimum Sipariş
                         <input
                           type="number"
                           min="1"
+                          placeholder="Örn: 4"
                           value={b2bQuickForm.b2b_min_quantity}
-                          onChange={(e) => setB2bQuickForm(prev => ({ ...prev, b2b_min_quantity: e.target.value }))}
+                          onChange={(e) => handleB2bQuickFormChange("b2b_min_quantity", e.target.value)}
                           className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2"
                         />
+                        <span className="text-[10px] text-slate-400 font-normal mt-0.5">Bu ürün bayiye en az kaç adetlik paketle sunulacak?</span>
                       </label>
 
                       <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
@@ -3130,12 +3291,37 @@ export default function UrunlerPage() {
                           type="text"
                           placeholder="Örn: 499"
                           value={b2bQuickForm.b2b_package_price}
-                          onChange={(e) => setB2bQuickForm(prev => ({ ...prev, b2b_package_price: formatAmount(e.target.value) }))}
+                          onChange={(e) => handleB2bQuickFormChange("b2b_package_price", formatAmount(e.target.value))}
                           className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2"
                         />
-                        <span className="text-[10px] text-slate-400 font-normal mt-0.5">Bu fiyat, minimum toptan adet için toplam paket fiyatıdır.</span>
+                        <span className="text-[10px] text-slate-400 font-normal mt-0.5">Bu fiyat, yukarıdaki paket adedi için toplam bayi fiyatıdır. Örn: Paket adedi 4 ve fiyat 499 ise, 4 adetlik paketin toplam fiyatı ₺499’dur.</span>
+                        {Number(b2bQuickForm.b2b_min_quantity) > 0 && Number(b2bQuickForm.b2b_package_price) > 0 && (
+                          <div className="text-xs text-sky-700 font-bold mt-1.5 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 inline-block self-start">
+                            Yaklaşık adet fiyatı: {formatCurrencyTRY(Number(b2bQuickForm.b2b_package_price) / Number(b2bQuickForm.b2b_min_quantity))}
+                          </div>
+                        )}
                       </label>
                     </div>
+
+                    {/* Mismatch Warning */}
+                    {(() => {
+                      const mismatch = checkB2bTitleQuantityMismatch(b2bQuickForm.b2b_package_title, b2bQuickForm.b2b_min_quantity);
+                      if (mismatch) {
+                        return (
+                          <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-semibold">
+                            <span>⚠️ {mismatch.warningText}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleB2bQuickFormChange("b2b_min_quantity", String(mismatch.numInTitle))}
+                              className="text-xs font-bold text-sky-700 hover:text-sky-800 bg-white border border-sky-200 rounded-lg px-2.5 py-1 transition cursor-pointer self-start sm:self-auto shadow-sm"
+                            >
+                              {mismatch.numInTitle} yap
+                            </button>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 )}
               </div>

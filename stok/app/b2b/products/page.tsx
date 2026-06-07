@@ -186,14 +186,20 @@ export default function B2bProductsPage() {
                   </div>
 
                   {/* Stock & Minimum Quantity Info */}
-                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-100 py-3">
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Stok Durumu</p>
-                      <p className="font-bold text-slate-700 mt-0.5">Stok: {p.stock} adet</p>
+                  <div className="space-y-1.5 text-xs border-t border-b border-slate-100 py-3">
+                    {p.b2b_package_title && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Paket:</span>
+                        <span className="font-bold text-slate-800">{p.b2b_package_title}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Minimum Sipariş:</span>
+                      <span className="font-bold text-slate-800">{p.b2b_min_quantity || 1} adet</span>
                     </div>
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Min. Sipariş</p>
-                      <p className="font-bold text-slate-700 mt-0.5">{p.b2b_min_quantity || 1} adet</p>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Stok Durumu:</span>
+                      <span className="font-bold text-slate-850">{p.stock} adet</span>
                     </div>
                   </div>
 
@@ -237,7 +243,7 @@ export default function B2bProductsPage() {
                       ) : (
                         <>
                           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                            B2B Paket Fiyatı
+                            Paket Fiyatı
                           </p>
                           <span className="inline-flex items-center rounded-lg bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200 mt-1">
                             Teklif Alın

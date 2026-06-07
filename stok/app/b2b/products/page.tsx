@@ -26,10 +26,11 @@ export default function B2bProductsPage() {
     if (!supabase) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('products')
         .select('*')
         .eq('is_b2b_visible', true)
+        .gt('stock', 0)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -163,38 +164,58 @@ export default function B2bProductsPage() {
                 {/* Content */}
                 <div className="flex flex-1 flex-col p-6 space-y-4">
                   <div className="space-y-1">
-                    <h3 className="font-bold text-slate-900 leading-snug line-clamp-1" title={p.name}>
-                      {p.name}
+                    <h3 className="font-bold text-slate-900 leading-snug line-clamp-1 text-base" title={p.b2b_package_title || p.name}>
+                      {p.b2b_package_title || p.name}
                     </h3>
-                    {p.brand && (
-                      <p className="text-xs text-slate-500">
-                        {p.brand} {p.model ? `• ${p.model}` : ''}
-                      </p>
-                    )}
+                    <p className="text-xs text-slate-500">
+                      {(() => {
+                        const subtitleParts = [];
+                        if (p.b2b_package_title) subtitleParts.push(p.name);
+                        if (p.brand) {
+                          if (p.model) {
+                            subtitleParts.push(`${p.brand} ${p.model}`);
+                          } else {
+                            subtitleParts.push(p.brand);
+                          }
+                        } else if (p.model) {
+                          subtitleParts.push(p.model);
+                        }
+                        return subtitleParts.join(" • ");
+                      })()}
+                    </p>
                   </div>
 
-                  {/* B2B Package Specifics */}
-                  {(p.b2b_package_title || p.b2b_package_description) && (
-                    <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 space-y-1">
-                      {p.b2b_package_title && (
-                        <p className="text-xs font-bold text-slate-700 leading-snug">
-                          {p.b2b_package_title}
-                        </p>
-                      )}
-                      {p.b2b_package_description && (
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
-                          {p.b2b_package_description}
-                        </p>
-                      )}
+                  {/* Stock & Minimum Quantity Info */}
+                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-100 py-3">
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Stok Durumu</p>
+                      <p className="font-bold text-slate-700 mt-0.5">Stok: {p.stock} adet</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Min. Sipariş</p>
+                      <p className="font-bold text-slate-700 mt-0.5">{p.b2b_min_quantity || 1} adet</p>
+                    </div>
+                  </div>
+
+                  {/* Stock Availability Warning */}
+                  {p.b2b_min_quantity && p.stock < p.b2b_min_quantity && (
+                    <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 font-semibold leading-relaxed">
+                      ⚠️ Toptan satış için yeterli stok yok.
                     </div>
                   )}
 
-                  {/* Standard description fallback */}
-                  {!p.b2b_package_title && p.description && (
+                  {/* B2B Package Description */}
+                  {p.b2b_package_description ? (
+                    <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        {p.b2b_package_description}
+                      </p>
+                    </div>
+                  ) : p.description ? (
                     <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                       {p.description}
                     </p>
-                  )}
+                  ) : null}
 
                   {/* Price Block & Action Info */}
                   <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">

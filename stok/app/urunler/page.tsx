@@ -534,8 +534,73 @@ export default function UrunlerPage() {
   const [modalFilter, setModalFilter] = useState("all");
   const [modalSearchQuery, setModalSearchQuery] = useState("");
 
+  // --- B2B Hızlı Ayarlar Modalı State Tanımları ---
+  const [b2bQuickProduct, setB2bQuickProduct] = useState<Product | null>(null);
+  const [b2bQuickForm, setB2bQuickForm] = useState({
+    is_b2b_visible: false,
+    b2b_package_title: "",
+    b2b_package_description: "",
+    b2b_min_quantity: "1",
+    b2b_package_price: "",
+  });
+  const [b2bQuickError, setB2bQuickError] = useState("");
+
+  const handleOpenB2bQuickModal = (product: Product) => {
+    setB2bQuickProduct(product);
+    setB2bQuickForm({
+      is_b2b_visible: product.is_b2b_visible || false,
+      b2b_package_title: product.b2b_package_title || "",
+      b2b_package_description: product.b2b_package_description || "",
+      b2b_min_quantity: product.b2b_min_quantity != null ? String(product.b2b_min_quantity) : "1",
+      b2b_package_price: product.b2b_package_price != null ? String(product.b2b_package_price) : "",
+    });
+    setB2bQuickError("");
+  };
+
+  const handleSaveB2bQuickSettings = async () => {
+    if (!b2bQuickProduct) return;
+    
+    const minQty = b2bQuickForm.is_b2b_visible ? Number(b2bQuickForm.b2b_min_quantity) : 0;
+    const currentStock = b2bQuickProduct.stock;
+    
+    if (b2bQuickForm.is_b2b_visible) {
+      if (isNaN(minQty) || minQty <= 0) {
+        setB2bQuickError("Minimum toptan adet en az 1 olmalıdır.");
+        return;
+      }
+      if (minQty > currentStock) {
+        setB2bQuickError("Minimum toptan adet mevcut stoktan fazla olamaz.");
+        return;
+      }
+    }
+    
+    setSaving(true);
+    const updates = {
+      is_b2b_visible: b2bQuickForm.is_b2b_visible,
+      b2b_package_title: b2bQuickForm.is_b2b_visible ? (b2bQuickForm.b2b_package_title.trim() || null) : null,
+      b2b_package_description: b2bQuickForm.is_b2b_visible ? (b2bQuickForm.b2b_package_description.trim() || null) : null,
+      b2b_min_quantity: b2bQuickForm.is_b2b_visible ? minQty : null,
+      b2b_package_price: b2bQuickForm.is_b2b_visible ? (b2bQuickForm.b2b_package_price.trim() !== "" ? Number(b2bQuickForm.b2b_package_price) : null) : null,
+    };
+    
+    const { data, error } = await updateProduct(b2bQuickProduct.id, updates);
+    setSaving(false);
+    
+    if (error || !data) {
+      setB2bQuickError(error ? error.message : "Beklenmeyen hata.");
+      return;
+    }
+    
+    setProducts((prev) => prev.map((p) => p.id === b2bQuickProduct.id ? data : p));
+    setB2bQuickProduct(null);
+    showStatus("success", "B2B ayarları başarıyla güncellendi.");
+  };
+
   const totalProductsCount = products.length;
   const totalStockCount = products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+
+  const b2bProductsCount = products.filter(p => p.is_b2b_visible).length;
+  const b2bTotalStockCount = products.filter(p => p.is_b2b_visible).reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
 
   const phoneStockCount = products
     .filter(p => isDeviceCategory(p.category || "") && normalizeText(p.category || "").includes("telefon"))
@@ -712,6 +777,21 @@ export default function UrunlerPage() {
       return;
     }
 
+    const minQty = form.is_b2b_visible ? Number(form.b2b_min_quantity) : 0;
+    const currentStock = Number(form.stock) || 0;
+    if (form.is_b2b_visible) {
+      if (isNaN(minQty) || minQty <= 0) {
+        setSaving(false);
+        showStatus("error", "Minimum toptan adet en az 1 olmalıdır.");
+        return;
+      }
+      if (minQty > currentStock) {
+        setSaving(false);
+        showStatus("error", "Minimum toptan adet mevcut stoktan fazla olamaz.");
+        return;
+      }
+    }
+
     let devCat = 'other';
     const normCat = normalizeText(catTrim);
     if (normCat.includes('telefon') || normCat.includes('phone')) devCat = 'phone';
@@ -875,6 +955,21 @@ export default function UrunlerPage() {
       setSaving(false);
       showStatus("error", "Telefon, tablet ve bilgisayar stoklarında IMEI 1 / Seri No alanı zorunludur.");
       return;
+    }
+
+    const minQty = editForm.is_b2b_visible ? Number(editForm.b2b_min_quantity) : 0;
+    const currentStock = Number(editForm.stock) || 0;
+    if (editForm.is_b2b_visible) {
+      if (isNaN(minQty) || minQty <= 0) {
+        setSaving(false);
+        showStatus("error", "Minimum toptan adet en az 1 olmalıdır.");
+        return;
+      }
+      if (minQty > currentStock) {
+        setSaving(false);
+        showStatus("error", "Minimum toptan adet mevcut stoktan fazla olamaz.");
+        return;
+      }
     }
 
     let devEditCat = 'other';
@@ -2165,6 +2260,14 @@ export default function UrunlerPage() {
                 <span className="text-[10px] font-semibold text-rose-600 uppercase tracking-wider">Stoku Biten</span>
                 <span className="text-xl font-bold text-rose-700 mt-1">{outOfStockProductsCount}</span>
               </div>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">B2B’ye Açık Ürün</span>
+                <span className="text-xl font-bold text-blue-700 mt-1">{b2bProductsCount}</span>
+              </div>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Toptan Stok Adedi</span>
+                <span className="text-xl font-bold text-blue-700 mt-1">{b2bTotalStockCount}</span>
+              </div>
             </div>
           </div>
 
@@ -2233,20 +2336,41 @@ export default function UrunlerPage() {
                             })()}
                           </div>
                         )}
+                        {p.is_b2b_visible && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">Toptanda</span>
+                            <span className="text-[9px] text-slate-500 font-medium">
+                              (Min: {p.b2b_min_quantity || 1} • {p.b2b_package_price != null ? formatCurrencyTRY(p.b2b_package_price) : "Teklif"})
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-2.5 text-center font-bold text-slate-700">{p.stock}</td>
                       <td className="py-2.5 text-right font-bold text-slate-900">{formatCurrencyTRY(p.sell_price)}</td>
                       <td className="py-2.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleStartEdit(p);
-                            setShowAllProductsModal(true);
-                          }}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 cursor-pointer"
-                        >
-                          Düzenle
-                        </button>
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenB2bQuickModal(p)}
+                            className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition cursor-pointer ${
+                              p.is_b2b_visible
+                                ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            {p.is_b2b_visible ? "Toptan Ayarları" : "Toptana Aç"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleStartEdit(p);
+                              setShowAllProductsModal(true);
+                            }}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 cursor-pointer"
+                          >
+                            Düzenle
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -2772,7 +2896,12 @@ export default function UrunlerPage() {
                                           <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 font-medium">{product.category}</span>
                                         )}
                                         {product.is_b2b_visible && (
-                                          <span className="rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">B2B</span>
+                                          <div className="inline-flex flex-wrap items-center gap-1">
+                                            <span className="rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">Toptanda</span>
+                                            <span className="text-[9px] text-slate-500 font-semibold">
+                                              (Min: {product.b2b_min_quantity || 1} • B2B: {product.b2b_package_price != null ? formatCurrencyTRY(product.b2b_package_price) : "Teklif"})
+                                            </span>
+                                          </div>
                                         )}
                                         {product.device_condition_type && (() => {
                                           switch (product.device_condition_type) {
@@ -2822,6 +2951,17 @@ export default function UrunlerPage() {
                                     </button>
                                     <button
                                       type="button"
+                                      onClick={() => handleOpenB2bQuickModal(product)}
+                                      className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition cursor-pointer ${
+                                        product.is_b2b_visible
+                                          ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                      }`}
+                                    >
+                                      {product.is_b2b_visible ? "Toptan Ayarları" : "Toptana Aç"}
+                                    </button>
+                                    <button
+                                      type="button"
                                       onClick={() => handleStartEdit(product)}
                                       className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 transition cursor-pointer"
                                     >
@@ -2858,6 +2998,163 @@ export default function UrunlerPage() {
                 className="rounded-2xl bg-slate-900 hover:bg-slate-800 px-5 py-2.5 text-xs font-bold text-white transition cursor-pointer"
               >
                 Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* B2B HIZLI AYARLAR MODALI */}
+      {b2bQuickProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Ürünü B2B / Toptan Satışa Aç</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Ürünün toptan satış görünürlüğünü ve paket ayarlarını yapın.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setB2bQuickProduct(null)}
+                className="rounded-full bg-slate-100 hover:bg-rose-50 hover:text-rose-600 p-2 text-slate-400 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {b2bQuickError && (
+              <div className="mx-6 mt-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold">
+                ⚠️ {b2bQuickError}
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+              {/* Salt Okunur Bilgiler */}
+              <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-2 text-xs text-slate-600">
+                <p className="font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1">Cihaz / Ürün Bilgisi</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <div>
+                    <span className="font-semibold text-slate-400">Ürün Adı:</span>
+                    <p className="font-bold text-slate-800 truncate" title={b2bQuickProduct.name}>{b2bQuickProduct.name}</p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-400">Barkod:</span>
+                    <p className="font-mono text-slate-800">#{b2bQuickProduct.barcode || "—"}</p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-400">Mevcut Stok:</span>
+                    <p className="font-bold text-slate-800">{b2bQuickProduct.stock} adet</p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-400">Satış Fiyatı:</span>
+                    <p className="font-bold text-slate-800">{formatCurrencyTRY(b2bQuickProduct.sell_price)}</p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-400">Webde Görünür mü?</span>
+                    <p className="mt-0.5">
+                      {b2bQuickProduct.is_web_visible ? (
+                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">✓ Evet</span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 border border-slate-200">Hayır</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-400">B2B'de Görünür mü?</span>
+                    <p className="mt-0.5">
+                      {b2bQuickProduct.is_b2b_visible ? (
+                        <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">✓ Evet</span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 border border-slate-200">Hayır</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Düzenlenebilir Alanlar */}
+              <div className="space-y-4">
+                <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={b2bQuickForm.is_b2b_visible}
+                    onChange={(e) => setB2bQuickForm(prev => ({ ...prev, is_b2b_visible: e.target.checked }))}
+                    className="h-5 w-5 rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  <span className="font-semibold text-slate-800">B2B / Toptanda Gösterilsin mi?</span>
+                </label>
+
+                {b2bQuickForm.is_b2b_visible && (
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/30 space-y-4 w-full animate-in fade-in duration-200">
+                    <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                      B2B Paket Başlığı
+                      <input
+                        type="text"
+                        placeholder="Örn: 10'lu Apple USB-C Paket"
+                        value={b2bQuickForm.b2b_package_title}
+                        onChange={(e) => setB2bQuickForm(prev => ({ ...prev, b2b_package_title: e.target.value }))}
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                      B2B Paket Açıklaması
+                      <input
+                        type="text"
+                        placeholder="Paket detayları..."
+                        value={b2bQuickForm.b2b_package_description}
+                        onChange={(e) => setB2bQuickForm(prev => ({ ...prev, b2b_package_description: e.target.value }))}
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                        Minimum Toptan Adet
+                        <input
+                          type="number"
+                          min="1"
+                          value={b2bQuickForm.b2b_min_quantity}
+                          onChange={(e) => setB2bQuickForm(prev => ({ ...prev, b2b_min_quantity: e.target.value }))}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                        B2B Paket Fiyatı (TL)
+                        <input
+                          type="text"
+                          placeholder="Teklif Alın için boş bırakın"
+                          value={b2bQuickForm.b2b_package_price}
+                          onChange={(e) => setB2bQuickForm(prev => ({ ...prev, b2b_package_price: formatAmount(e.target.value) }))}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-slate-100 px-6 py-4 bg-slate-50/50 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setB2bQuickProduct(null)}
+                className="rounded-2xl border border-slate-300 bg-white hover:bg-slate-50 px-5 py-2.5 text-xs font-bold text-slate-700 transition cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveB2bQuickSettings}
+                disabled={saving}
+                className="rounded-2xl bg-slate-900 hover:bg-slate-800 px-5 py-2.5 text-xs font-bold text-white transition cursor-pointer disabled:opacity-50"
+              >
+                {saving ? "Kaydediliyor..." : "B2B Ayarlarını Kaydet"}
               </button>
             </div>
           </div>

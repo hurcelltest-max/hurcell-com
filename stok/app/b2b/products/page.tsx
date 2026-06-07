@@ -220,17 +220,29 @@ export default function B2bProductsPage() {
                   {/* Price Block & Action Info */}
                   <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                        B2B Paket Fiyatı
-                      </p>
                       {hasPrice ? (
-                        <p className="text-lg font-black text-slate-900 mt-0.5">
-                          {formatCurrencyTRY(p.b2b_package_price)}
-                        </p>
+                        <>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            Paket Fiyatı
+                          </p>
+                          <p className="text-lg font-black text-slate-900 mt-0.5">
+                            {formatCurrencyTRY(p.b2b_package_price)}
+                          </p>
+                          {p.b2b_min_quantity && Number(p.b2b_min_quantity) > 1 && (
+                            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                              Yaklaşık adet fiyatı: {formatCurrencyTRY(Number(p.b2b_package_price) / Number(p.b2b_min_quantity))}
+                            </p>
+                          )}
+                        </>
                       ) : (
-                        <span className="inline-flex items-center rounded-lg bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200 mt-1">
-                          Teklif Alın
-                        </span>
+                        <>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            B2B Paket Fiyatı
+                          </p>
+                          <span className="inline-flex items-center rounded-lg bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200 mt-1">
+                            Teklif Alın
+                          </span>
+                        </>
                       )}
                     </div>
                     

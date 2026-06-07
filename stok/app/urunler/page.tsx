@@ -2011,15 +2011,16 @@ export default function UrunlerPage() {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
-                    B2B Paket Fiyatı (TL)
+                    B2B Paket Fiyatı (Toplam)
                     <input
                       type="text"
                       name="b2b_package_price"
-                      placeholder="Teklif Alın için boş bırakın"
+                      placeholder="Örn: 499"
                       value={form.b2b_package_price}
                       onChange={(e) => handleFormChange("b2b_package_price", formatAmount(e.target.value))}
                       className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                     />
+                    <span className="text-[10px] text-slate-400 font-normal mt-0.5">Örn: 4’lü paket için toplam bayi fiyatı.</span>
                   </label>
                   <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
                     B2B Paket Açıklaması
@@ -2340,7 +2341,7 @@ export default function UrunlerPage() {
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">Toptanda</span>
                             <span className="text-[9px] text-slate-500 font-medium">
-                              (Min: {p.b2b_min_quantity || 1} • {p.b2b_package_price != null ? formatCurrencyTRY(p.b2b_package_price) : "Teklif"})
+                              (Min: {p.b2b_min_quantity || 1} • Paket: {p.b2b_package_price != null ? formatCurrencyTRY(p.b2b_package_price) : "Teklif"})
                             </span>
                           </div>
                         )}
@@ -2824,7 +2825,7 @@ export default function UrunlerPage() {
                                           />
                                         </label>
                                         <label className="grid gap-1 text-[11px] text-slate-700">
-                                          <span>B2B Paket Fiyatı (TL)</span>
+                                          <span>B2B Paket Fiyatı (Toplam)</span>
                                           <input
                                             type="text"
                                             value={editForm.b2b_package_price}
@@ -2899,7 +2900,7 @@ export default function UrunlerPage() {
                                           <div className="inline-flex flex-wrap items-center gap-1">
                                             <span className="rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">Toptanda</span>
                                             <span className="text-[9px] text-slate-500 font-semibold">
-                                              (Min: {product.b2b_min_quantity || 1} • B2B: {product.b2b_package_price != null ? formatCurrencyTRY(product.b2b_package_price) : "Teklif"})
+                                              (Min: {product.b2b_min_quantity || 1} • Paket: {product.b2b_package_price != null ? formatCurrencyTRY(product.b2b_package_price) : "Teklif"})
                                             </span>
                                           </div>
                                         )}
@@ -3124,14 +3125,15 @@ export default function UrunlerPage() {
                       </label>
 
                       <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
-                        B2B Paket Fiyatı (TL)
+                        B2B Paket Fiyatı (Toplam)
                         <input
                           type="text"
-                          placeholder="Teklif Alın için boş bırakın"
+                          placeholder="Örn: 499"
                           value={b2bQuickForm.b2b_package_price}
                           onChange={(e) => setB2bQuickForm(prev => ({ ...prev, b2b_package_price: formatAmount(e.target.value) }))}
                           className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2"
                         />
+                        <span className="text-[10px] text-slate-400 font-normal mt-0.5">Bu fiyat, minimum toptan adet için toplam paket fiyatıdır.</span>
                       </label>
                     </div>
                   </div>

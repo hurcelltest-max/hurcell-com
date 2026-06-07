@@ -13,6 +13,7 @@ const navItems = [
   { href: "/satis", label: "Satış" },
   { href: "/iade", label: "İade" },
   { href: "/hareketler", label: "Hareketler" },
+  { href: "/ayarlar/bayiler", label: "B2B Bayiler" },
   { href: "/ayarlar", label: "Ayarlar" },
 ];
 
@@ -24,9 +25,44 @@ export default function LayoutClient({
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'dealer_approved' | 'dealer_pending' | 'dealer_rejected' | 'dealer_passive' | 'unknown' | null>(null);
   const [loading, setLoading] = useState(true);
 
   const isLoginPage = pathname === '/login';
+  const isB2bPath = pathname.startsWith('/b2b');
+
+  const fetchUserRole = async (userId: string) => {
+    if (!supabase) return 'unknown';
+
+    try {
+      // 1. Check if admin
+      const { data: adminData } = await (supabase as any)
+        .from('admin_users')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (adminData) {
+        return 'admin';
+      }
+
+      // 2. Check if dealer
+      const { data: dealerData } = await (supabase as any)
+        .from('b2b_dealers')
+        .select('status')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (dealerData) {
+        return `dealer_${dealerData.status}` as any;
+      }
+
+      return 'unknown';
+    } catch (err) {
+      console.error('Error fetching user role:', err);
+      return 'unknown';
+    }
+  };
 
   useEffect(() => {
     if (!supabase) {
@@ -34,41 +70,114 @@ export default function LayoutClient({
       return;
     }
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      setLoading(false);
+    let active = true;
 
-      // Perform initial routing check
-      if (!initialSession && !isLoginPage) {
-        router.push('/login');
-      } else if (initialSession && isLoginPage) {
-        router.push('/');
+    const checkAuthAndRole = async (currSession: Session | null) => {
+      if (!currSession) {
+        if (active) {
+          setSession(null);
+          setUserRole(null);
+          setLoading(false);
+        }
+        return;
       }
+
+      if (active) {
+        setSession(currSession);
+      }
+
+      try {
+        const role = await fetchUserRole(currSession.user.id);
+        if (active) {
+          setUserRole(role);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Auth role check error:", err);
+        if (active) {
+          setUserRole('unknown');
+          setLoading(false);
+        }
+      }
+    };
+
+    // Initial check
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      checkAuthAndRole(initialSession);
     });
 
-    // Listen for auth changes
+    // Listen to changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      
-      if (!newSession && !isLoginPage) {
-        router.push('/login');
-      } else if (newSession && isLoginPage) {
-        router.push('/');
-      }
+      checkAuthAndRole(newSession);
     });
 
     return () => {
+      active = false;
       subscription.unsubscribe();
     };
-  }, [isLoginPage, router]);
+  }, []);
+
+  // Re-fetch role on pathname changes for dynamic transitions (e.g. after register)
+  useEffect(() => {
+    if (session && (userRole === 'unknown' || userRole === 'dealer_pending')) {
+      fetchUserRole(session.user.id).then((role) => {
+        setUserRole(role);
+      });
+    }
+  }, [pathname, session]);
+
+  // Protected Route Redirections
+  useEffect(() => {
+    if (loading) return;
+
+    // Guest Routing
+    if (!session) {
+      if (isB2bPath) {
+        if (pathname !== '/b2b/login' && pathname !== '/b2b/register') {
+          router.push('/b2b/login');
+        }
+      } else {
+        if (pathname !== '/login') {
+          router.push('/login');
+        }
+      }
+      return;
+    }
+
+    // Authenticated Routing based on Role
+    if (userRole === 'admin') {
+      if (pathname === '/login' || pathname === '/b2b/login' || pathname === '/b2b/register') {
+        router.push('/');
+      }
+    } else if (userRole === 'dealer_approved') {
+      if (!pathname.startsWith('/b2b/products') && pathname !== '/b2b/products') {
+        router.push('/b2b/products');
+      }
+    } else if (userRole === 'dealer_pending') {
+      if (pathname !== '/b2b/pending') {
+        router.push('/b2b/pending');
+      }
+    } else if (userRole === 'dealer_rejected' || userRole === 'dealer_passive') {
+      if (pathname !== '/b2b/rejected') {
+        router.push('/b2b/rejected');
+      }
+    } else if (userRole === 'unknown') {
+      if (pathname !== '/b2b/register') {
+        router.push('/b2b/register');
+      }
+    }
+  }, [pathname, session, userRole, loading, router, isB2bPath]);
 
   // Handle Logout
   const handleLogout = async () => {
     if (!supabase) return;
     try {
       await supabase.auth.signOut();
-      router.push('/login');
+      if (isB2bPath) {
+        router.push('/b2b/login');
+      } else {
+        router.push('/login');
+      }
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -104,16 +213,45 @@ export default function LayoutClient({
   }
 
   // 3. Prevent rendering protected page if user is not logged in and not on login page
-  if (!session && !isLoginPage) {
+  if (!session && !isLoginPage && pathname !== '/b2b/login' && pathname !== '/b2b/register') {
     return null;
   }
 
-  // 4. Clean layout for Login page (no header, no sidebar)
-  if (isLoginPage) {
+  // 4. Clean layout for Login/Register pages
+  if (isLoginPage || pathname === '/b2b/login' || pathname === '/b2b/register') {
     return <>{children}</>;
   }
 
-  // 5. Standard Dashboard layout with Header & Sidebar
+  // 5. Clean layout for B2B Portal pages (pending, rejected, products)
+  if (isB2bPath) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <header className="border-b border-slate-200 bg-white/95 backdrop-blur shadow-sm">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-600">
+                HurCELL B2B
+              </p>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                Toptan Satış Portalı
+              </h1>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="rounded-2xl bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-100 active:scale-95 cursor-pointer"
+            >
+              Çıkış Yap
+            </button>
+          </div>
+        </header>
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // 6. Standard Dashboard layout with Header & Sidebar
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white/95 backdrop-blur">

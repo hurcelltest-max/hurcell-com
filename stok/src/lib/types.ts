@@ -59,6 +59,29 @@ export type Sale = {
   created_at: string;
 };
 
+export type AdminUser = {
+  id: string;
+  user_id: string;
+  email: string;
+  role: string;
+  created_at: string;
+};
+
+export type B2bDealer = {
+  id: string;
+  user_id: string;
+  company_name: string;
+  contact_name: string;
+  phone: string | null;
+  email: string;
+  tax_number: string | null;
+  city: string | null;
+  note: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'passive';
+  created_at: string;
+  updated_at: string;
+};
+
 export interface SupabaseTableDefinitions {
   products: {
     Row: Product;
@@ -76,6 +99,18 @@ export interface SupabaseTableDefinitions {
     Row: Sale;
     Insert: Omit<Sale, 'id' | 'created_at'>;
     Update: Partial<Omit<Sale, 'id' | 'created_at'>>;
+    Relationships: [];
+  };
+  admin_users: {
+    Row: AdminUser;
+    Insert: Omit<AdminUser, 'id' | 'created_at'>;
+    Update: Partial<Omit<AdminUser, 'id' | 'created_at'>>;
+    Relationships: [];
+  };
+  b2b_dealers: {
+    Row: B2bDealer;
+    Insert: Omit<B2bDealer, 'id' | 'created_at' | 'updated_at'>;
+    Update: Partial<Omit<B2bDealer, 'id' | 'created_at' | 'updated_at'>>;
     Relationships: [];
   };
 }

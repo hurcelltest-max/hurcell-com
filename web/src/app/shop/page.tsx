@@ -18,6 +18,7 @@ import {
 import type { Product } from '@/types'
 import Link from 'next/link'
 import { Search, ShoppingBag, AlertCircle, X } from 'lucide-react'
+import { ProductCard } from '@/components/product/product-card'
 
 // ─────────────────────────────────────────────────────────────────
 // URL Parametre Çözümleme
@@ -217,7 +218,7 @@ function ShopPageContent() {
       </div>
 
       {/* Filtre + Arama Paneli */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-5 shadow-sm">
+      <div className="bg-white border border-slate-200/80 rounded-3xl p-5 space-y-5 shadow-sm">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
           {/* Arama */}
@@ -310,17 +311,17 @@ function ShopPageContent() {
         <div className="flex flex-wrap gap-2 pt-2.5 border-t border-slate-100">
           {CHIP_ORDER.map((groupId) => {
             const label =
-              groupId === 'All' ? 'TÜM ÜRÜNLER' : CATEGORY_CHIP_LABELS[groupId].toUpperCase()
+              groupId === 'All' ? 'Tüm Ürünler' : CATEGORY_CHIP_LABELS[groupId]
             const isActive = selectedCategory === groupId
             return (
               <button
                 key={groupId}
                 id={`chip-${groupId}`}
                 onClick={() => setSelectedCategory(groupId)}
-                className={`px-4 py-1.5 rounded-full text-xs font-mono tracking-wider transition-all cursor-pointer ${
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all cursor-pointer border ${
                   isActive
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-600 hover:text-slate-800 border border-slate-200/60'
+                    ? 'bg-blue-600 text-white border-transparent shadow-sm'
+                    : 'bg-white text-slate-600 hover:text-slate-800 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 {label}
@@ -332,7 +333,7 @@ function ShopPageContent() {
           {activeFilterCount > 0 && (
             <button
               onClick={resetFilters}
-              className="ml-2 px-4 py-1.5 rounded-full text-xs font-mono tracking-wider bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-all cursor-pointer flex items-center gap-1"
+              className="ml-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 hover:text-slate-700 transition-all cursor-pointer flex items-center gap-1"
             >
               <X size={10} />
               Temizle ({activeFilterCount})
@@ -343,13 +344,13 @@ function ShopPageContent() {
 
       {/* Ürün Listesi */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
               className="animate-pulse flex flex-col space-y-3 bg-white border border-slate-200 rounded-3xl p-4"
             >
-              <div className="aspect-[4/5] rounded-2xl bg-slate-100" />
+              <div className="aspect-square rounded-2xl bg-slate-100" />
               <div className="h-3 w-1/3 bg-slate-100 rounded" />
               <div className="h-5 w-3/4 bg-slate-100 rounded" />
               <div className="h-3.5 w-1/2 bg-slate-100 rounded" />
@@ -377,96 +378,10 @@ function ShopPageContent() {
             Toplam {sortedProducts.length} ürün listeleniyor
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {sortedProducts.map((product) => {
-              const isSingleLeft = product.stock === 1
-              // Kart kategori rozeti: formatCategoryName, "Teknoloji" → anlamlı grup ismi
-              const displayCategory = formatCategoryName(product)
-              // Kart başlığı: sadece marka adından oluşan isimler engellenir
-              const displayTitle = getPublicProductTitle(product)
-
-              return (
-                <div
-                  key={product.id}
-                  className="group flex flex-col h-full bg-white hover:shadow-md border border-slate-200/80 hover:border-slate-300 rounded-3xl p-4 transition-all duration-300 hover:-translate-y-1 shadow-sm"
-                >
-                  {/* Görsel */}
-                  <div className="aspect-[4/5] relative overflow-hidden bg-slate-50 rounded-2xl mb-4 border border-slate-100">
-                    <img
-                      src={product.image_url || getFallbackImage(product.category)}
-                      alt={displayTitle}
-                      className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                      onError={(e) => {
-                        ;(e.target as HTMLImageElement).src = getFallbackImage(product.category)
-                      }}
-                    />
-                    {product.device_condition_type && (
-                      <span className="absolute left-3 top-3 px-2 py-0.5 rounded-lg bg-white/95 border border-slate-200 text-[9px] font-bold uppercase tracking-wider text-slate-700 shadow-sm">
-                        {product.device_condition_type === 'new_sealed' ? 'Sıfır' : 'İkinci El'}
-                      </span>
-                    )}
-                    {isSingleLeft && (
-                      <span className="absolute right-3 top-3 px-2 py-0.5 rounded-lg bg-rose-500 text-white text-[9px] font-bold uppercase tracking-wider animate-pulse">
-                        Son 1 Adet
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Bilgiler */}
-                  <div className="flex flex-col flex-1">
-                    {/* Kategori rozeti — müşteri dostu görünüm */}
-                    <span className="text-[10px] uppercase tracking-wider font-mono text-slate-500 mb-1">
-                      {displayCategory}
-                    </span>
-
-                    <h3
-                      className="text-sm font-bold text-slate-800 mb-1.5 leading-snug line-clamp-2"
-                      title={displayTitle}
-                    >
-                      {displayTitle}
-                    </h3>
-
-                    <p className="text-[11px] text-slate-500 font-light mb-3.5 line-clamp-1">
-                      {(() => {
-                        const parts: string[] = []
-                        if (product.brand)  parts.push(product.brand)
-                        if (product.model)  parts.push(product.model)
-                        if (product.memory) parts.push(product.memory)
-                        if (product.color)  parts.push(product.color)
-                        return parts.join(' • ') || 'Özellik belirtilmemiş'
-                      })()}
-                    </p>
-
-                    <div className="mt-auto mb-4 flex items-baseline justify-between">
-                      <span className="text-base font-extrabold text-slate-900 tracking-tight">
-                        {formatPriceTRY(product.sell_price)}
-                      </span>
-                      <span className="text-[9px] text-slate-500 font-mono">
-                        Stok: {product.stock} adet
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
-                      <Link
-                        href={`/urun/${product.id}`}
-                        className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl text-center transition-colors border border-slate-200"
-                      >
-                        Detaylar
-                      </Link>
-                      <a
-                        href={getWhatsAppLink(product.name, product.barcode, product.sell_price)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl text-center transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:shadow"
-                      >
-                        <ShoppingBag size={11} />
-                        Sor
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {sortedProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         </div>
       )}

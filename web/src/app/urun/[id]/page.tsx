@@ -97,6 +97,20 @@ export default function ProductDetailPage() {
     { label: 'Barkod', value: product.barcode },
   ].filter(spec => spec.value && spec.value.trim() !== '')
 
+  // Stock badge styling for detail page
+  let stockLabel = ''
+  let stockBadgeClass = ''
+  if (product.stock > 5) {
+    stockLabel = `Stokta · ${product.stock} adet`
+    stockBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  } else if (product.stock <= 5 && product.stock > 1) {
+    stockLabel = `Az kaldı · ${product.stock} adet`
+    stockBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200'
+  } else if (product.stock === 1) {
+    stockLabel = 'Son 1 adet'
+    stockBadgeClass = 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-850 font-sans pt-28 pb-16 flex flex-col">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-6 space-y-6 flex-1">
@@ -104,30 +118,30 @@ export default function ProductDetailPage() {
         {/* Back navigation */}
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-xs font-mono tracking-widest text-slate-500 hover:text-slate-800 transition-colors uppercase group cursor-pointer"
+          className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider text-slate-550 hover:text-slate-800 transition-colors uppercase group cursor-pointer"
         >
           <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-1" />
-          GERİ DÖN
+          Geri Dön
         </button>
 
         {/* Product view container */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
           
-          {/* Column Left: Image Preview */}
+          {/* Column Left: Image Preview (Object-contain, padded square) */}
           <div className="md:col-span-5 flex flex-col items-center">
-            <div className="w-full aspect-[4/5] relative overflow-hidden bg-slate-50 rounded-2xl border border-slate-200/60 shadow-inner">
+            <div className="w-full aspect-square relative overflow-hidden bg-slate-50/50 rounded-2xl border border-slate-200/60 shadow-inner flex items-center justify-center p-6">
               <img
                 src={product.image_url || getFallbackImage(product.category)}
                 alt={publicTitle}
-                className="w-full h-full object-cover object-center"
+                className="max-w-full max-h-full object-contain"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = getFallbackImage(product.category)
                 }}
               />
               
-              {/* Son 1 adet badge */}
+              {/* Son 1 adet badge overlay */}
               {isSingleLeft && (
-                <span className="absolute right-4 top-4 px-3 py-1 rounded-xl bg-rose-500 text-white text-xs font-bold uppercase tracking-wider animate-pulse">
+                <span className="absolute right-4 top-4 px-3 py-1 rounded-xl bg-rose-500 text-white text-xs font-bold uppercase tracking-wider animate-pulse z-10">
                   Son 1 Adet
                 </span>
               )}
@@ -139,7 +153,7 @@ export default function ProductDetailPage() {
             
             {/* Main title & category */}
             <div className="space-y-1.5">
-              <span className="text-xs uppercase tracking-wider font-mono text-slate-400">
+              <span className="text-xs uppercase tracking-wider font-semibold text-blue-600">
                 {displayCat}
               </span>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 leading-tight">
@@ -156,10 +170,12 @@ export default function ProductDetailPage() {
                 </p>
               </div>
               
-              <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-100 px-4 py-2.5 rounded-2xl self-start sm:self-auto shadow-sm">
-                <CheckCircle size={15} />
-                <span className="text-xs font-semibold">Stokta Var ({product.stock} adet)</span>
-              </div>
+              {stockLabel && (
+                <div className={`flex items-center gap-2 border px-4 py-2.5 rounded-2xl self-start sm:self-auto shadow-sm text-xs font-bold ${stockBadgeClass}`}>
+                  <CheckCircle size={15} />
+                  <span>{stockLabel}</span>
+                </div>
+              )}
             </div>
 
             {/* Product Description */}
@@ -201,7 +217,7 @@ export default function ProductDetailPage() {
             {/* WhatsApp Purchase CTA */}
             <div className="pt-3">
               <a
-                href={getWhatsAppLink(product.name, product.barcode, product.sell_price)}
+                href={getWhatsAppLink(publicTitle, product.barcode, product.sell_price)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-2xl transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow cursor-pointer"

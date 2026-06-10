@@ -7,6 +7,7 @@ import { ChevronRight, ShoppingBag, MessageSquare, ArrowRight, ShieldCheck, Cpu,
 import { createClient } from '@/lib/supabase'
 import { getWhatsAppLink, getFallbackImage, formatPriceTRY, B2B_LOGIN_URL, WHATSAPP_NUMBER, getPublicProductTitle, formatCategoryName } from '@/lib/constants'
 import type { Product } from '@/types'
+import { ProductCard } from '@/components/product/product-card'
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
@@ -161,10 +162,10 @@ export default function Home() {
 
           {loading ? (
             /* Loading Skeleton */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="animate-pulse flex flex-col space-y-3 bg-white border border-slate-200 rounded-3xl p-4">
-                  <div className="aspect-[4/5] rounded-2xl bg-slate-100" />
+                  <div className="aspect-square rounded-2xl bg-slate-100" />
                   <div className="h-3 w-1/3 bg-slate-100 rounded" />
                   <div className="h-5 w-3/4 bg-slate-100 rounded" />
                   <div className="h-3.5 w-1/2 bg-slate-100 rounded" />
@@ -179,98 +180,10 @@ export default function Home() {
               <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Webde gösterilecek ürün bulunamadı. Lütfen daha sonra tekrar kontrol edin.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {products.map((product) => {
-                const isSingleLeft = product.stock === 1;
-                const displayTitle = getPublicProductTitle(product);
-                const displayCategory = formatCategoryName(product);
-                
-                return (
-                  <div key={product.id} className="group flex flex-col h-full bg-white hover:shadow-md border border-slate-200/80 hover:border-slate-300 rounded-3xl p-4 transition-all duration-350 hover:-translate-y-1 shadow-sm">
-                    
-                    {/* Image Box */}
-                    <div className="aspect-[4/5] relative overflow-hidden bg-slate-50 rounded-2xl mb-4 border border-slate-100">
-                      <img
-                        src={product.image_url || getFallbackImage(product.category)}
-                        alt={product.name}
-                        className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-103"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = getFallbackImage(product.category)
-                        }}
-                      />
-                      
-                      {/* Condition Badge */}
-                      {product.device_condition_type && (
-                        <span className="absolute left-3 top-3 px-2 py-0.5 rounded-lg bg-white/95 border border-slate-200 text-[9px] font-bold uppercase tracking-wider text-slate-700 shadow-sm">
-                          {product.device_condition_type === 'new_sealed' ? 'Sıfır' : 'İkinci El'}
-                        </span>
-                      )}
-                      
-                      {isSingleLeft && (
-                        <span className="absolute right-3 top-3 px-2 py-0.5 rounded-lg bg-rose-500 text-white text-[9px] font-bold uppercase tracking-wider animate-pulse">
-                          Son 1 Adet
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex flex-col flex-1">
-                      {/* Category */}
-                      <span className="text-[10px] uppercase tracking-wider font-mono text-slate-450 mb-1.5 block">
-                        {displayCategory}
-                      </span>
-
-                      {/* Title */}
-                      <h3 className="text-sm font-bold text-slate-800 mb-1 leading-snug line-clamp-2" title={displayTitle}>
-                        {displayTitle}
-                      </h3>
-
-                      {/* Specs Subtitle */}
-                      <p className="text-[11px] text-slate-500 font-light mb-3.5 line-clamp-1">
-                        {(() => {
-                          const parts = []
-                          if (product.brand) parts.push(product.brand)
-                          if (product.model) parts.push(product.model)
-                          if (product.memory) parts.push(product.memory)
-                          if (product.color) parts.push(product.color)
-                          return parts.join(' • ') || 'Özellik belirtilmemiş'
-                        })()}
-                      </p>
-
-                      {/* Price & Stock info */}
-                      <div className="mt-auto mb-4 flex items-baseline justify-between">
-                        <span className="text-base font-extrabold text-slate-900 tracking-tight">
-                          {formatPriceTRY(product.sell_price)}
-                        </span>
-                        <span className="text-[9px] text-emerald-600 font-semibold bg-emerald-50 border border-emerald-100/60 px-2 py-0.5 rounded-lg">
-                          Stokta Var ({product.stock} adet)
-                        </span>
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
-                        <Link
-                          href={`/urun/${product.id}`}
-                          className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-850 text-xs font-semibold rounded-xl text-center transition-colors border border-slate-200"
-                        >
-                          Detaylar
-                        </Link>
-                        
-                        <a
-                          href={getWhatsAppLink(product.name, product.barcode, product.sell_price)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl text-center transition-colors flex items-center justify-center gap-1 shadow-sm hover:shadow"
-                        >
-                          <ShoppingBag size={11} />
-                          WhatsApp
-                        </a>
-                      </div>
-
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
             </div>
           )}
 

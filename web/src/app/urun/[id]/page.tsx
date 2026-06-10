@@ -16,6 +16,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
   
   const supabase = createClient()
 
@@ -27,7 +28,7 @@ export default function ProductDetailPage() {
         setLoading(true)
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price, is_web_visible, device_condition_type, location, created_at')
+          .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, image_url_2, image_url_3, stock, sell_price, is_web_visible, device_condition_type, location, created_at')
           .eq('id', id)
           .single()
 
@@ -151,13 +152,13 @@ export default function ProductDetailPage() {
         {/* Product view container */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
           
-          {/* Column Left: Image Preview (Object-contain, padded square) */}
-          <div className="md:col-span-5 flex flex-col items-center">
+          {/* Column Left: Image Preview & Gallery */}
+          <div className="md:col-span-5 flex flex-col items-center gap-4">
             <div className="w-full aspect-square relative overflow-hidden bg-slate-50/50 rounded-2xl border border-slate-200/60 shadow-inner flex items-center justify-center p-6">
               <img
-                src={product.image_url || getFallbackImage(product.category)}
+                src={selectedImage || product.image_url || getFallbackImage(product.category)}
                 alt={publicTitle}
-                className="max-w-full max-h-full object-contain"
+                className="max-w-full max-h-full object-contain transition-all duration-300"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = getFallbackImage(product.category)
                 }}
@@ -170,6 +171,39 @@ export default function ProductDetailPage() {
                 </span>
               )}
             </div>
+
+            {/* Thumbnail Gallery */}
+            {(() => {
+              const images = [product.image_url, product.image_url_2, product.image_url_3].filter(Boolean) as string[];
+              if (images.length <= 1) return null;
+              return (
+                <div className="flex gap-2.5 justify-center w-full overflow-x-auto py-1">
+                  {images.map((imgUrl, index) => {
+                    const isSelected = (selectedImage || product.image_url) === imgUrl;
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedImage(imgUrl)}
+                        className={`w-20 h-20 rounded-xl overflow-hidden border-2 bg-white flex items-center justify-center p-2 transition-all cursor-pointer ${
+                          isSelected 
+                            ? 'border-blue-600 shadow-sm scale-105' 
+                            : 'border-slate-200 hover:border-slate-350 opacity-80 hover:opacity-100'
+                        }`}
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={`${publicTitle} - Görsel ${index + 1}`}
+                          className="max-w-full max-h-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = getFallbackImage(product.category)
+                          }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Column Right: Details & specs */}

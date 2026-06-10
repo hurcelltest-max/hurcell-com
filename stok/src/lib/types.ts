@@ -11,6 +11,8 @@ export type Product = {
   created_at: string;
   description: string | null;
   image_url: string | null;
+  image_url_2?: string | null;
+  image_url_3?: string | null;
   is_web_visible: boolean;
   is_b2b_visible: boolean;
   b2b_package_title?: string | null;

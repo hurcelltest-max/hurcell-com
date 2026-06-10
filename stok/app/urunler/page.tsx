@@ -450,6 +450,8 @@ const initialFormState = {
   location: "",
   description: "",
   image_url: "",
+  image_url_2: "",
+  image_url_3: "",
   is_web_visible: false as boolean,
   is_b2b_visible: false as boolean,
   b2b_package_title: "",
@@ -1040,6 +1042,8 @@ export default function UrunlerPage() {
       location: form.location.trim() || null,
       description: form.description.trim() || null,
       image_url: form.image_url.trim() || null,
+      image_url_2: form.image_url_2.trim() || null,
+      image_url_3: form.image_url_3.trim() || null,
       is_web_visible: form.is_web_visible === true,
       is_b2b_visible: form.is_b2b_visible === true,
       b2b_package_title: form.is_b2b_visible ? (form.b2b_package_title.trim() || null) : null,
@@ -1101,6 +1105,8 @@ export default function UrunlerPage() {
       location: product.location || "",
       description: product.description || "",
       image_url: product.image_url || "",
+      image_url_2: product.image_url_2 || "",
+      image_url_3: product.image_url_3 || "",
       is_web_visible: product.is_web_visible || false,
       is_b2b_visible: product.is_b2b_visible || false,
       b2b_package_title: product.b2b_package_title || "",
@@ -1232,6 +1238,8 @@ export default function UrunlerPage() {
       location: editForm.location.trim() || null,
       description: editForm.description.trim() || null,
       image_url: editForm.image_url.trim() || null,
+      image_url_2: editForm.image_url_2.trim() || null,
+      image_url_3: editForm.image_url_3.trim() || null,
       is_web_visible: editForm.is_web_visible === true,
       is_b2b_visible: editForm.is_b2b_visible === true,
       b2b_package_title: editForm.is_b2b_visible ? (editForm.b2b_package_title.trim() || null) : null,
@@ -2129,14 +2137,64 @@ export default function UrunlerPage() {
               />
             </label>
 
-            {/* 9. Ürün Fotoğrafı */}
-            <div className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">Ürün Fotoğrafı</span>
-              <ProductImageUploader
-                imageUrl={form.image_url}
-                onUploadSuccess={(url) => handleFormChange("image_url", url)}
-                idPrefix="new-product"
-              />
+            {/* 9. Ürün Fotoğrafları */}
+            <div className="grid gap-4 text-sm text-slate-700">
+              <span className="font-medium">Ürün Fotoğrafları (Maksimum 3 Görsel)</span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <span className="text-xs text-slate-500 font-medium">Ana Görsel</span>
+                  <ProductImageUploader
+                    imageUrl={form.image_url}
+                    onUploadSuccess={(url) => handleFormChange("image_url", url)}
+                    idPrefix="new-product-img1"
+                  />
+                  {form.image_url && (
+                    <button
+                      type="button"
+                      onClick={() => handleFormChange("image_url", "")}
+                      className="text-xs text-rose-500 hover:text-rose-700 font-semibold"
+                    >
+                      Kaldır
+                    </button>
+                  )}
+                </div>
+                
+                <div className="space-y-1">
+                  <span className="text-xs text-slate-500 font-medium">Ek Görsel 1</span>
+                  <ProductImageUploader
+                    imageUrl={form.image_url_2}
+                    onUploadSuccess={(url) => handleFormChange("image_url_2", url)}
+                    idPrefix="new-product-img2"
+                  />
+                  {form.image_url_2 && (
+                    <button
+                      type="button"
+                      onClick={() => handleFormChange("image_url_2", "")}
+                      className="text-xs text-rose-500 hover:text-rose-700 font-semibold"
+                    >
+                      Kaldır
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-xs text-slate-500 font-medium">Ek Görsel 2</span>
+                  <ProductImageUploader
+                    imageUrl={form.image_url_3}
+                    onUploadSuccess={(url) => handleFormChange("image_url_3", url)}
+                    idPrefix="new-product-img3"
+                  />
+                  {form.image_url_3 && (
+                    <button
+                      type="button"
+                      onClick={() => handleFormChange("image_url_3", "")}
+                      className="text-xs text-rose-500 hover:text-rose-700 font-semibold"
+                    >
+                      Kaldır
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* 9. Stok Adedi */}
@@ -3057,6 +3115,64 @@ export default function UrunlerPage() {
                                         className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
                                       />
                                     </label>
+                                    <div className="grid gap-4 text-[11px] text-slate-700 sm:col-span-2">
+                                       <span className="font-medium">Ürün Fotoğrafları (Maksimum 3 Görsel)</span>
+                                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                         <div className="space-y-1">
+                                           <span className="text-[10px] text-slate-500 font-medium">Ana Görsel</span>
+                                           <ProductImageUploader
+                                             imageUrl={editForm.image_url}
+                                             onUploadSuccess={(url) => handleEditFormChange("image_url", url)}
+                                             idPrefix="edit-product-img1"
+                                           />
+                                           {editForm.image_url && (
+                                             <button
+                                               type="button"
+                                               onClick={() => handleEditFormChange("image_url", "")}
+                                               className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold"
+                                             >
+                                               Kaldır
+                                             </button>
+                                           )}
+                                         </div>
+                                         
+                                         <div className="space-y-1">
+                                           <span className="text-[10px] text-slate-500 font-medium">Ek Görsel 1</span>
+                                           <ProductImageUploader
+                                             imageUrl={editForm.image_url_2}
+                                             onUploadSuccess={(url) => handleEditFormChange("image_url_2", url)}
+                                             idPrefix="edit-product-img2"
+                                           />
+                                           {editForm.image_url_2 && (
+                                             <button
+                                               type="button"
+                                               onClick={() => handleEditFormChange("image_url_2", "")}
+                                               className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold"
+                                             >
+                                               Kaldır
+                                             </button>
+                                           )}
+                                         </div>
+
+                                         <div className="space-y-1">
+                                           <span className="text-[10px] text-slate-500 font-medium">Ek Görsel 2</span>
+                                           <ProductImageUploader
+                                             imageUrl={editForm.image_url_3}
+                                             onUploadSuccess={(url) => handleEditFormChange("image_url_3", url)}
+                                             idPrefix="edit-product-img3"
+                                           />
+                                           {editForm.image_url_3 && (
+                                             <button
+                                               type="button"
+                                               onClick={() => handleEditFormChange("image_url_3", "")}
+                                               className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold"
+                                             >
+                                               Kaldır
+                                             </button>
+                                           )}
+                                         </div>
+                                       </div>
+                                     </div>
                                     <label className="grid gap-2 text-[11px] text-slate-700 sm:col-span-2">
                                       <span>Ürün Açıklaması</span>
                                       <textarea

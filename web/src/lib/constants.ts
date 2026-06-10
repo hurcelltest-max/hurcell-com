@@ -158,3 +158,140 @@ export const getFallbackImage = (category: string | null | undefined): string =>
   
   return `data:image/svg+xml;utf8,${svg}`;
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Category Normalization Helpers
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Display labels shown in chip buttons and the category select dropdown.
+ * Key = internal group ID used in state / URL params.
+ */
+export const CATEGORY_CHIP_LABELS: Record<string, string> = {
+  All:         'Tüm Ürünler',
+  telefon:     'Telefon',
+  tablet:      'Tablet',
+  bilgisayar:  'Bilgisayar',
+  aksesuar:    'Aksesuar',
+  akilli_saat: 'Akıllı Saat',
+  sarj_kablo:  'Şarj & Kablo',
+};
+
+/**
+ * Keywords matched against product.category (Turkish lowercase, trimmed).
+ * ORDER IS IMPORTANT: sarj_kablo is checked before aksesuar to correctly
+ * assign şarj/kablo/adaptör categories to the more specific group first.
+ */
+const CATEGORY_GROUP_KEYS: Record<string, string[]> = {
+  telefon:     ['telefon', 'phone', 'iphone', 'android telefon', 'cep telefonu'],
+  tablet:      ['tablet', 'ipad'],
+  bilgisayar:  ['bilgisayar', 'laptop', 'notebook', 'macbook', 'computer'],
+  akilli_saat: ['akıllı saat', 'akilli saat', 'smartwatch'],
+  // sarj_kablo BEFORE aksesuar — its keywords are a subset of potential aksesuar keywords
+  sarj_kablo:  ['şarj aleti', 'sarj aleti', 'şarj & kablo', 'sarj & kablo', 'kablo', 'adaptör', 'adaptor', 'charger', 'power adapter'],
+  aksesuar:    ['aksesuar', 'genel aksesuar', 'kulaklık', 'kulaklik', 'kılıf', 'kilif', 'powerbank', 'stand', 'ekran koruyucu', 'koruyucu', 'magsafe'],
+};
+
+/**
+ * Keywords for fallback name/model/description matching.
+ * Used when the product.category doesn't match any known group (e.g. "Teknoloji").
+ * sarj_kablo keywords are checked FIRST to keep charging products in the right group.
+ */
+const SARJ_KABLO_NAME_KEYS = [
+  'şarj', 'sarj', 'charger', 'adaptör', 'adaptor', 'adapter',
+  'kablo', 'cable', 'usb-c', 'type-c', 'lightning', 'power adapter',
+  'watt', 'magsafe charger', 'usb c kablo', 'c kablo',
+];
+
+const AKSESUAR_NAME_KEYS = [
+  'kılıf', 'kilif', 'kulaklık', 'kulaklik', 'stand', 'ekran koruyucu',
+  'magsafe', 'case', 'cover', 'holder', 'kalem', 'pencil',
+  'airpods', 'earpods', 'band', 'kordon', 'dock', 'hub',
+  'mouse', 'klavye', 'keyboard', 'powerbank', 'cam koruyucu',
+];
+
+/**
+ * Returns a normalized lowercase key for a category string (tr-TR locale).
+ */
+export function normalizeCategoryKey(category: string | null | undefined): string {
+  if (!category) return '';
+  return category.trim().toLocaleLowerCase('tr-TR');
+}
+
+/**
+ * Determines the primary category group for a product.
+ *
+ * Resolution order:
+ * 1. Match product.category against CATEGORY_GROUP_KEYS (sarj_kablo before aksesuar)
+ * 2. If category is unrecognized (e.g. "Teknoloji"), scan name + model + description
+ *    for SARJ_KABLO_NAME_KEYS first, then AKSESUAR_NAME_KEYS
+ * 3. Returns null if no group can be determined (only shows under "Tüm Ürünler")
+ */
+export function getCategoryGroup(product: {
+  category?: string | null;
+  name?: string | null;
+  model?: string | null;
+  description?: string | null;
+}): string | null {
+  const catKey = normalizeCategoryKey(product.category);
+
+  // Step 1 — category field keyword match (checked in priority order)
+  const groupOrder = ['telefon', 'tablet', 'bilgisayar', 'akilli_saat', 'sarj_kablo', 'aksesuar'];
+  for (const groupId of groupOrder) {
+    if (CATEGORY_GROUP_KEYS[groupId].some((k) => catKey.includes(k))) {
+      return groupId;
+    }
+  }
+
+  // Step 2 — category didn't match; try name / model / description keywords
+  const contentKey = [
+    product.name || '',
+    product.model || '',
+    product.description || '',
+  ]
+    .join(' ')
+    .toLocaleLowerCase('tr-TR');
+
+  if (SARJ_KABLO_NAME_KEYS.some((k) => contentKey.includes(k))) return 'sarj_kablo';
+  if (AKSESUAR_NAME_KEYS.some((k) => contentKey.includes(k))) return 'aksesuar';
+
+  return null; // Unknown — only visible under "Tüm Ürünler"
+}
+
+/**
+ * Returns true if a product belongs to the selected category group.
+ *
+ * Special rule: selecting "aksesuar" also includes "sarj_kablo" products
+ * (şarj/kablo/adaptör ürünleri are accessories by nature).
+ */
+export function matchesCategoryGroup(
+  selectedGroupId: string,
+  product: {
+    category?: string | null;
+    name?: string | null;
+    model?: string | null;
+    description?: string | null;
+  }
+): boolean {
+  if (selectedGroupId === 'All') return true;
+  const group = getCategoryGroup(product);
+  if (!group) return false;
+  // "aksesuar" chip is a superset — it includes sarj_kablo products too
+  if (selectedGroupId === 'aksesuar') return group === 'aksesuar' || group === 'sarj_kablo';
+  return group === selectedGroupId;
+}
+
+/**
+ * Returns a user-friendly category display string for a product card.
+ * Uses getCategoryGroup + CATEGORY_CHIP_LABELS; falls back to the raw category value.
+ */
+export function formatCategoryName(product: {
+  category?: string | null;
+  name?: string | null;
+  model?: string | null;
+  description?: string | null;
+}): string {
+  const group = getCategoryGroup(product);
+  if (group && CATEGORY_CHIP_LABELS[group]) return CATEGORY_CHIP_LABELS[group];
+  return product.category || 'Teknoloji';
+}

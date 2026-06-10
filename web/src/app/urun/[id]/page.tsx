@@ -104,6 +104,9 @@ export default function ProductDetailPage() {
     return 'İkinci El / Diğer'
   }
 
+  const catGroup = getCategoryGroup(product)
+  const isAksesuar = catGroup === 'aksesuar' || catGroup === 'sarj_kablo'
+
   const specs = [
     { label: 'Kategori', value: product.category },
     { label: 'Marka', value: product.brand },
@@ -114,7 +117,7 @@ export default function ProductDetailPage() {
     { label: 'Depolama', value: product.storage },
     { label: 'İşlemci', value: product.processor },
     { label: 'Ekran Boyutu', value: product.screen_size },
-    { label: 'Cihaz Durumu', value: getConditionLabel() },
+    ...(!isAksesuar ? [{ label: 'Cihaz Durumu', value: getConditionLabel() }] : []),
     { label: 'Barkod', value: product.barcode },
   ].filter(spec => spec.value && spec.value.trim() !== '')
 

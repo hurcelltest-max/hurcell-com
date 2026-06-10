@@ -12,7 +12,9 @@ import {
   CATEGORY_CHIP_LABELS,
   matchesCategoryGroup,
   formatCategoryName,
+  getPublicProductTitle,
 } from '@/lib/constants'
+
 import type { Product } from '@/types'
 import Link from 'next/link'
 import { Search, ShoppingBag, AlertCircle, X } from 'lucide-react'
@@ -380,6 +382,8 @@ function ShopPageContent() {
               const isSingleLeft = product.stock === 1
               // Kart kategori rozeti: formatCategoryName, "Teknoloji" → anlamlı grup ismi
               const displayCategory = formatCategoryName(product)
+              // Kart başlığı: sadece marka adından oluşan isimler engellenir
+              const displayTitle = getPublicProductTitle(product)
 
               return (
                 <div
@@ -390,7 +394,7 @@ function ShopPageContent() {
                   <div className="aspect-[4/5] relative overflow-hidden bg-slate-50 rounded-2xl mb-4 border border-slate-100">
                     <img
                       src={product.image_url || getFallbackImage(product.category)}
-                      alt={product.name}
+                      alt={displayTitle}
                       className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                       onError={(e) => {
                         ;(e.target as HTMLImageElement).src = getFallbackImage(product.category)
@@ -417,9 +421,9 @@ function ShopPageContent() {
 
                     <h3
                       className="text-sm font-bold text-slate-800 mb-1.5 leading-snug line-clamp-2"
-                      title={product.name}
+                      title={displayTitle}
                     >
-                      {product.name}
+                      {displayTitle}
                     </h3>
 
                     <p className="text-[11px] text-slate-500 font-light mb-3.5 line-clamp-1">

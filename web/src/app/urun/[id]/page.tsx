@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { getWhatsAppLink, getFallbackImage, formatPriceTRY } from '@/lib/constants'
+import { getWhatsAppLink, getFallbackImage, formatPriceTRY, getPublicProductTitle, formatCategoryName } from '@/lib/constants'
 import type { Product } from '@/types'
 import { ArrowLeft, ShoppingBag, CheckCircle, AlertCircle } from 'lucide-react'
 
@@ -79,6 +79,8 @@ export default function ProductDetailPage() {
   }
 
   const isSingleLeft = product.stock === 1;
+  const publicTitle   = getPublicProductTitle(product);
+  const displayCat    = formatCategoryName(product);
 
   // Technical specifications to display
   const specs = [
@@ -116,7 +118,7 @@ export default function ProductDetailPage() {
             <div className="w-full aspect-[4/5] relative overflow-hidden bg-slate-50 rounded-2xl border border-slate-200/60 shadow-inner">
               <img
                 src={product.image_url || getFallbackImage(product.category)}
-                alt={product.name}
+                alt={publicTitle}
                 className="w-full h-full object-cover object-center"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = getFallbackImage(product.category)
@@ -138,10 +140,10 @@ export default function ProductDetailPage() {
             {/* Main title & category */}
             <div className="space-y-1.5">
               <span className="text-xs uppercase tracking-wider font-mono text-slate-400">
-                {product.category || 'Kategori belirtilmemiş'}
+                {displayCat}
               </span>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 leading-tight">
-                {product.name}
+                {publicTitle}
               </h1>
             </div>
 

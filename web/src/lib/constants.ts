@@ -295,3 +295,89 @@ export function formatCategoryName(product: {
   if (group && CATEGORY_CHIP_LABELS[group]) return CATEGORY_CHIP_LABELS[group];
   return product.category || 'Teknoloji';
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Public Product Title Helper
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Detects whether a string is essentially just a brand name
+ * (e.g. "APPLE", "Apple", "SAMSUNG", "samsung").
+ *
+ * Checks:
+ *  1. Exact match against keys of BRAND_DISPLAY_OVERRIDES (lowercased)
+ *  2. Case-insensitive match against a provided brandValue
+ */
+function isJustBrandName(
+  name: string,
+  brandValue: string | null | undefined
+): boolean {
+  const trimmedLower = name.trim().toLocaleLowerCase('tr-TR');
+
+  // Check BRAND_DISPLAY_OVERRIDES dictionary
+  if (Object.prototype.hasOwnProperty.call(BRAND_DISPLAY_OVERRIDES, trimmedLower)) {
+    return true;
+  }
+
+  // Check against the product's own brand field
+  if (brandValue) {
+    const brandLower = brandValue.trim().toLocaleLowerCase('tr-TR');
+    if (trimmedLower === brandLower) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Builds a meaningful public-facing product title.
+ *
+ * Priority order:
+ * 1. If `name` is non-empty AND not just a bare brand name → use `name` as-is
+ * 2. If `name` is just a brand name → build from `brand + model + memory + color`
+ * 3. If `name` is empty → same build from available fields
+ * 4. Fallback: first 80 chars of description → or brand → or "Ürün"
+ *
+ * Examples:
+ *   name="APPLE", brand="Apple", model="A2166", color="Beyaz"
+ *     → "Apple A2166 Beyaz"
+ *   name="Apple 20W USB-C Power Adapter"
+ *     → "Apple 20W USB-C Power Adapter"
+ *   name="", brand="Samsung", model="Galaxy S24", memory="256GB", color="Siyah"
+ *     → "Samsung Galaxy S24 256GB Siyah"
+ */
+export function getPublicProductTitle(product: {
+  name?: string | null;
+  brand?: string | null;
+  model?: string | null;
+  memory?: string | null;
+  color?: string | null;
+  description?: string | null;
+}): string {
+  const rawName   = (product.name   || '').trim();
+  const brand     = (product.brand  || '').trim();
+  const model     = (product.model  || '').trim();
+  const memory    = (product.memory || '').trim();
+  const color     = (product.color  || '').trim();
+
+  // Step 1 — use name if it's meaningful (not just a brand word)
+  if (rawName && !isJustBrandName(rawName, product.brand)) {
+    return rawName;
+  }
+
+  // Step 2 — build from available structured fields
+  const parts: string[] = [];
+  if (brand)  parts.push(brand);
+  if (model)  parts.push(model);
+  if (memory) parts.push(memory);
+  if (color)  parts.push(color);
+
+  if (parts.length > 0) return parts.join(' ');
+
+  // Step 3 — description excerpt (first 80 chars)
+  const desc = (product.description || '').trim();
+  if (desc) return desc.slice(0, 80) + (desc.length > 80 ? '...' : '');
+
+  // Step 4 — last resort
+  return brand || 'Ürün';
+}
+

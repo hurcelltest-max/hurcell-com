@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, ShoppingBag, MessageSquare, ArrowRight, ShieldCheck, Cpu, Zap, Search, Phone, Smartphone, Tablet, Laptop, Watch, Cable } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { getWhatsAppLink, getFallbackImage, formatPriceTRY, B2B_LOGIN_URL, WHATSAPP_NUMBER } from '@/lib/constants'
+import { getWhatsAppLink, getFallbackImage, formatPriceTRY, B2B_LOGIN_URL, WHATSAPP_NUMBER, getPublicProductTitle, formatCategoryName } from '@/lib/constants'
 import type { Product } from '@/types'
 
 export default function Home() {
@@ -181,7 +181,9 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map((product) => {
-                const isSingleLeft = product.stock === 1
+                const isSingleLeft = product.stock === 1;
+                const displayTitle = getPublicProductTitle(product);
+                const displayCategory = formatCategoryName(product);
                 
                 return (
                   <div key={product.id} className="group flex flex-col h-full bg-white hover:shadow-md border border-slate-200/80 hover:border-slate-300 rounded-3xl p-4 transition-all duration-350 hover:-translate-y-1 shadow-sm">
@@ -215,12 +217,12 @@ export default function Home() {
                     <div className="flex flex-col flex-1">
                       {/* Category */}
                       <span className="text-[10px] uppercase tracking-wider font-mono text-slate-450 mb-1.5 block">
-                        {product.category || 'Teknoloji'}
+                        {displayCategory}
                       </span>
 
                       {/* Title */}
-                      <h3 className="text-sm font-bold text-slate-800 mb-1 leading-snug line-clamp-2" title={product.name}>
-                        {product.name}
+                      <h3 className="text-sm font-bold text-slate-800 mb-1 leading-snug line-clamp-2" title={displayTitle}>
+                        {displayTitle}
                       </h3>
 
                       {/* Specs Subtitle */}

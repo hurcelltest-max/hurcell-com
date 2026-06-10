@@ -29,6 +29,10 @@ export interface Product {
   supplier_invoice_no?: string | null;
   service_report_no?: string | null;
   device_metadata?: any | null;
+  sell_price?: number | null;
+  barcode?: string | null;
+  is_web_visible?: boolean | null;
+  location?: string | null;
 }
 
 export interface Profile {

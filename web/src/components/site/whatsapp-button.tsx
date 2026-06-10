@@ -3,17 +3,17 @@
 import React, { useState, useEffect } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { WHATSAPP_NUMBER } from '@/lib/constants'
 
 export const WhatsAppButton = () => {
   const [currentUrl, setCurrentUrl] = useState('')
-  const phoneNumber = '905322362242'
   
   useEffect(() => {
     setCurrentUrl(window.location.href)
   }, [])
 
-  const message = encodeURIComponent(`Merhaba, bu ürünle ilgili bilgi almak istiyorum. \n\nLink: ${currentUrl}`)
-  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`
+  const message = encodeURIComponent(`Merhaba, HurCELL perakende sitesini inceliyordum ve iletişime geçmek istedim. \n\nSayfa: ${currentUrl}`)
+  const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`
 
   return (
     <motion.a

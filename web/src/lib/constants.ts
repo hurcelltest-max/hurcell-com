@@ -359,25 +359,49 @@ export function getPublicProductTitle(product: {
   const memory    = (product.memory || '').trim();
   const color     = (product.color  || '').trim();
 
+  let title = '';
+
   // Step 1 — use name if it's meaningful (not just a brand word)
   if (rawName && !isJustBrandName(rawName, product.brand)) {
-    return rawName;
+    title = rawName;
+  } else {
+    // Step 2 — build from available structured fields
+    const parts: string[] = [];
+    if (brand)  parts.push(brand);
+    if (model)  parts.push(model);
+    if (memory) parts.push(memory);
+    if (color)  parts.push(color);
+
+    if (parts.length > 0) {
+      title = parts.join(' ');
+    } else {
+      // Step 3 — description excerpt (first 80 chars)
+      const desc = (product.description || '').trim();
+      if (desc) {
+        title = desc.slice(0, 80) + (desc.length > 80 ? '...' : '');
+      } else {
+        // Step 4 — last resort
+        title = brand || 'Ürün';
+      }
+    }
   }
 
-  // Step 2 — build from available structured fields
-  const parts: string[] = [];
-  if (brand)  parts.push(brand);
-  if (model)  parts.push(model);
-  if (memory) parts.push(memory);
-  if (color)  parts.push(color);
+  // Clean consecutive duplicate words at the very beginning
+  const words = title.split(/\s+/);
+  if (words.length >= 2) {
+    let cleanedWords = [...words];
+    while (cleanedWords.length >= 2) {
+      const w1 = cleanedWords[0].toLocaleLowerCase('tr-TR');
+      const w2 = cleanedWords[1].toLocaleLowerCase('tr-TR');
+      if (w1 === w2) {
+        cleanedWords.shift();
+      } else {
+        break;
+      }
+    }
+    title = cleanedWords.join(' ');
+  }
 
-  if (parts.length > 0) return parts.join(' ');
-
-  // Step 3 — description excerpt (first 80 chars)
-  const desc = (product.description || '').trim();
-  if (desc) return desc.slice(0, 80) + (desc.length > 80 ? '...' : '');
-
-  // Step 4 — last resort
-  return brand || 'Ürün';
+  return title;
 }
 

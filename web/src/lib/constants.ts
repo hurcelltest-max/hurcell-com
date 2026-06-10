@@ -1,6 +1,102 @@
 export const WHATSAPP_NUMBER = '905322362242';
 export const B2B_LOGIN_URL = 'https://stok.hurcell.com/b2b/login';
 
+// ─────────────────────────────────────────────────────────────────
+// Brand Normalization Helpers
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Canonical display names for known brands.
+ * Key: lower-case variant(s) | Value: preferred display form.
+ */
+export const BRAND_DISPLAY_OVERRIDES: Record<string, string> = {
+  samsung: 'Samsung',
+  apple: 'Apple',
+  ttec: 'TTEC',
+  esr: 'ESR',
+  xiaomi: 'Xiaomi',
+  huawei: 'Huawei',
+  oppo: 'OPPO',
+  vivo: 'vivo',
+  realme: 'realme',
+  oneplus: 'OnePlus',
+  'one plus': 'OnePlus',
+  motorola: 'Motorola',
+  nokia: 'Nokia',
+  sony: 'Sony',
+  lg: 'LG',
+  asus: 'ASUS',
+  lenovo: 'Lenovo',
+  hp: 'HP',
+  dell: 'Dell',
+  acer: 'Acer',
+  msi: 'MSI',
+  jbl: 'JBL',
+  anker: 'Anker',
+  baseus: 'Baseus',
+  ugreen: 'UGREEN',
+  reeder: 'Reeder',
+  casper: 'Casper',
+  turkcell: 'Turkcell',
+  vestel: 'Vestel',
+  philips: 'Philips',
+  belkin: 'Belkin',
+  spigen: 'Spigen',
+  benq: 'BenQ',
+  logitech: 'Logitech',
+  microsoft: 'Microsoft',
+  google: 'Google',
+  amazon: 'Amazon',
+};
+
+/**
+ * Returns a normalised key for a brand name (Turkish lowercase, trimmed).
+ * Used for case-insensitive comparisons.
+ */
+export function normalizeBrandKey(brand: string | null | undefined): string {
+  if (!brand) return '';
+  return brand.trim().toLocaleLowerCase('tr-TR');
+}
+
+/**
+ * Returns the correctly-capitalised display name for a brand.
+ * Checks BRAND_DISPLAY_OVERRIDES first; otherwise Title-cases the input.
+ */
+export function formatBrandName(brand: string | null | undefined): string {
+  if (!brand) return '';
+  const trimmed = brand.trim();
+  const key = normalizeBrandKey(trimmed);
+  if (BRAND_DISPLAY_OVERRIDES[key]) return BRAND_DISPLAY_OVERRIDES[key];
+  // Title-case fallback
+  return trimmed.charAt(0).toLocaleUpperCase('tr-TR') + trimmed.slice(1);
+}
+
+/**
+ * Given an input brand string and the list of brands already in the system,
+ * resolves it to the existing canonical form (case-insensitive match)
+ * or formats it via formatBrandName if it's truly new.
+ *
+ * Returns { resolved, wasNormalized } so callers can show a toast when needed.
+ */
+export function resolveExistingBrand(
+  inputBrand: string | null | undefined,
+  existingBrands: (string | null | undefined)[]
+): { resolved: string; wasNormalized: boolean } {
+  if (!inputBrand?.trim()) return { resolved: '', wasNormalized: false };
+  const inputKey = normalizeBrandKey(inputBrand);
+  const existing = existingBrands.find(
+    (b) => b && normalizeBrandKey(b) === inputKey
+  );
+  if (existing) {
+    const resolved = existing;
+    const wasNormalized = resolved.trim() !== inputBrand.trim();
+    return { resolved, wasNormalized };
+  }
+  const resolved = formatBrandName(inputBrand);
+  const wasNormalized = resolved !== inputBrand.trim();
+  return { resolved, wasNormalized };
+}
+
 export const formatPriceTRY = (price: number | string | null | undefined): string => {
   if (price === null || price === undefined || price === '') return 'Teklif Alın';
   const num = Number(price);

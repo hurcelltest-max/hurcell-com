@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatBrandName } from '@/lib/constants'
 
 export default function BulkUploadPage() {
   const [loading, setLoading] = useState(false)
@@ -48,7 +49,7 @@ export default function BulkUploadPage() {
       return {
         id: crypto.randomUUID(),
         name: name || "Adsız Ürün", // Fallback to avoid NOT NULL constraint
-        brand,
+        brand: brand ? formatBrandName(brand) : null, // Normalize brand casing
         sku,
         price: isNaN(price) ? 0 : price,
         stock: isNaN(stock) ? 0 : stock,

@@ -21,6 +21,83 @@ import {
 } from "@/lib/productCatalog";
 import Scanner from "@/components/Scanner";
 
+// ─────────────────────────────────────────────────────────────────
+// Marka Normalizasyon Yardımcıları (Brand Normalization Helpers)
+// ─────────────────────────────────────────────────────────────────
+
+const BRAND_DISPLAY_OVERRIDES: Record<string, string> = {
+  samsung: 'Samsung',
+  apple: 'Apple',
+  ttec: 'TTEC',
+  esr: 'ESR',
+  xiaomi: 'Xiaomi',
+  huawei: 'Huawei',
+  oppo: 'OPPO',
+  vivo: 'vivo',
+  realme: 'realme',
+  oneplus: 'OnePlus',
+  'one plus': 'OnePlus',
+  motorola: 'Motorola',
+  nokia: 'Nokia',
+  sony: 'Sony',
+  lg: 'LG',
+  asus: 'ASUS',
+  lenovo: 'Lenovo',
+  hp: 'HP',
+  dell: 'Dell',
+  acer: 'Acer',
+  msi: 'MSI',
+  jbl: 'JBL',
+  anker: 'Anker',
+  baseus: 'Baseus',
+  ugreen: 'UGREEN',
+  reeder: 'Reeder',
+  casper: 'Casper',
+  turkcell: 'Turkcell',
+  vestel: 'Vestel',
+  philips: 'Philips',
+  belkin: 'Belkin',
+  spigen: 'Spigen',
+  benq: 'BenQ',
+  logitech: 'Logitech',
+  microsoft: 'Microsoft',
+  google: 'Google',
+  amazon: 'Amazon',
+};
+
+function normalizeBrandKey(brand: string | null | undefined): string {
+  if (!brand) return '';
+  return brand.trim().toLocaleLowerCase('tr-TR');
+}
+
+function formatBrandName(brand: string | null | undefined): string {
+  if (!brand) return '';
+  const trimmed = brand.trim();
+  const key = normalizeBrandKey(trimmed);
+  if (BRAND_DISPLAY_OVERRIDES[key]) return BRAND_DISPLAY_OVERRIDES[key];
+  return trimmed.charAt(0).toLocaleUpperCase('tr-TR') + trimmed.slice(1);
+}
+
+function resolveExistingBrand(
+  inputBrand: string | null | undefined,
+  existingBrands: (string | null | undefined)[]
+): { resolved: string; wasNormalized: boolean } {
+  if (!inputBrand?.trim()) return { resolved: '', wasNormalized: false };
+  const inputKey = normalizeBrandKey(inputBrand);
+  const existing = existingBrands.find(
+    (b) => b && normalizeBrandKey(b) === inputKey
+  );
+  if (existing) {
+    const resolved = existing;
+    const wasNormalized = resolved.trim() !== inputBrand.trim();
+    return { resolved, wasNormalized };
+  }
+  const resolved = formatBrandName(inputBrand);
+  const wasNormalized = resolved !== inputBrand.trim();
+  return { resolved, wasNormalized };
+}
+
+
 // İstemci tarafında görsel optimizasyonu yapan yardımcı fonksiyon (Maks 1600px, 0.85 JPEG sıkıştırma)
 const optimizeImage = async (file: File): Promise<Blob> => {
   return new Promise((resolve) => {
@@ -887,6 +964,13 @@ export default function UrunlerPage() {
     const manualName = form.name.trim();
     const finalName = manualName || buildProductName(form.brand, form.model, form.color, memoryValue, form.ram, form.storage, form.processor, form.screen_size, isLaptop) || "İsimsiz Ürün";
 
+    // Marka normalizasyonu: mevcut ürünlerin markalarıyla karşılaştır ve standart forma getir
+    const existingBrandsList = products.map((p) => p.brand);
+    const { resolved: resolvedBrand, wasNormalized: brandWasNormalized } = resolveExistingBrand(
+      form.brand.trim(),
+      existingBrandsList
+    );
+
     const safeDeviceMetadata = isDevice
       ? {
           imei_1: form.imei_1.trim() || '',
@@ -918,7 +1002,7 @@ export default function UrunlerPage() {
       b2b_package_description: form.is_b2b_visible ? (form.b2b_package_description.trim() || null) : null,
       b2b_min_quantity: form.is_b2b_visible ? (form.b2b_min_quantity.trim() !== "" ? Number(form.b2b_min_quantity) : null) : null,
       b2b_package_price: form.is_b2b_visible ? (form.b2b_package_price.trim() !== "" ? Number(form.b2b_package_price) : null) : null,
-      brand: form.brand.trim() || null,
+      brand: resolvedBrand || null,
       model: form.model.trim() || null,
       color: form.color.trim() || null,
       memory: isLaptop ? null : (memoryValue.trim() || null),
@@ -952,8 +1036,13 @@ export default function UrunlerPage() {
     resetForm();
     // focus barcode for quick entry
     barcodeRef.current?.focus();
-    showStatus("success", "Ürün başarıyla eklendi.");
+    if (brandWasNormalized && resolvedBrand) {
+      showStatus("success", `Ürün eklendi. Marka otomatik düzenlendi: "${form.brand.trim()}" → "${resolvedBrand}"`);
+    } else {
+      showStatus("success", "Ürün başarıyla eklendi.");
+    }
   };
+
 
   const handleStartEdit = (product: Product) => {
     setEditingId(product.id);
@@ -1067,6 +1156,13 @@ export default function UrunlerPage() {
     const isEditLaptop = normEditCat.includes("bilgisayar") || normEditCat.includes("laptop") || normEditCat.includes("computer");
     const finalName = manualName || buildProductName(editForm.brand, editForm.model, editForm.color, editForm.memory, editForm.ram, editForm.storage, editForm.processor, editForm.screen_size, isEditLaptop) || "İsimsiz Ürün";
 
+    // Marka normalizasyonu (düzenleme)
+    const existingBrandsListEdit = products.map((p) => p.brand);
+    const { resolved: resolvedEditBrand, wasNormalized: editBrandWasNormalized } = resolveExistingBrand(
+      editForm.brand.trim(),
+      existingBrandsListEdit
+    );
+
     const safeEditDeviceMetadata = isEditDevice
       ? {
           imei_1: editForm.imei_1.trim() || '',
@@ -1098,7 +1194,7 @@ export default function UrunlerPage() {
       b2b_package_description: editForm.is_b2b_visible ? (editForm.b2b_package_description.trim() || null) : null,
       b2b_min_quantity: editForm.is_b2b_visible ? (editForm.b2b_min_quantity.trim() !== "" ? Number(editForm.b2b_min_quantity) : null) : null,
       b2b_package_price: editForm.is_b2b_visible ? (editForm.b2b_package_price.trim() !== "" ? Number(editForm.b2b_package_price) : null) : null,
-      brand: editForm.brand.trim() || null,
+      brand: resolvedEditBrand || null,
       model: editForm.model.trim() || null,
       color: editForm.color.trim() || null,
       memory: editForm.category.trim().toLowerCase() === "bilgisayar" ? null : (editForm.memory.trim() || null),
@@ -1134,7 +1230,11 @@ export default function UrunlerPage() {
       });
     });
     setEditingId(null);
-    showStatus("success", "Ürün başarıyla güncellendi.");
+    if (editBrandWasNormalized && resolvedEditBrand) {
+      showStatus("success", `Ürün güncellendi. Marka otomatik düzenlendi: "${editForm.brand.trim()}" → "${resolvedEditBrand}"`);
+    } else {
+      showStatus("success", "Ürün başarıyla güncellendi.");
+    }
   };
 
   const handleDelete = async (productId: string) => {

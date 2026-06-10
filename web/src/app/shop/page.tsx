@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { getWhatsAppLink, getFallbackImage, formatPriceTRY, B2B_LOGIN_URL, WHATSAPP_NUMBER } from '@/lib/constants'
+import { getWhatsAppLink, getFallbackImage, formatPriceTRY, B2B_LOGIN_URL, WHATSAPP_NUMBER, normalizeBrandKey, formatBrandName } from '@/lib/constants'
 import type { Product } from '@/types'
 import Link from 'next/link'
 import { Search, ShoppingBag, AlertCircle, X } from 'lucide-react'
@@ -68,7 +68,17 @@ function ShopPageContent() {
 
   // Get unique categories and brands for filter dropdowns
   const categories = ['All', ...Array.from(new Set(products.map(p => p.category).filter((c): c is string => !!c)))]
-  const brands = ['All', ...Array.from(new Set(products.map(p => p.brand).filter((b): b is string => !!b)))]
+
+  // Deduplicate brands case-insensitively (tr-TR) and use the formatted display name
+  const brands = ['All', ...(() => {
+    const seen = new Map<string, string>(); // key -> display name
+    for (const p of products) {
+      if (!p.brand) continue;
+      const key = normalizeBrandKey(p.brand);
+      if (!seen.has(key)) seen.set(key, formatBrandName(p.brand));
+    }
+    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, 'tr-TR'));
+  })()]
 
   // Filter & Sort Logic
   const filteredProducts = products.filter((p) => {
@@ -86,10 +96,10 @@ function ShopPageContent() {
       selectedCategory === 'All' || 
       (p.category && p.category.toLowerCase() === selectedCategory.toLowerCase())
 
-    // Brand filter match
-    const matchesBrand = 
-      selectedBrand === 'All' || 
-      (p.brand && p.brand.toLowerCase() === selectedBrand.toLowerCase())
+    // Brand filter match (case-insensitive, tr-TR locale)
+    const matchesBrand =
+      selectedBrand === 'All' ||
+      (p.brand && normalizeBrandKey(p.brand) === normalizeBrandKey(selectedBrand))
 
     // Condition filter match
     const matchesCondition = 

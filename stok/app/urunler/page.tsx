@@ -420,6 +420,24 @@ const isDeviceCategory = (category?: string) => {
   );
 };
 
+const isAksesuarCategory = (category?: string) => {
+  const normalized = normalizeText(category);
+  return (
+    normalized.includes('aksesuar') ||
+    normalized.includes('kulaklık') ||
+    normalized.includes('kulaklik') ||
+    normalized.includes('şarj') ||
+    normalized.includes('sarj') ||
+    normalized.includes('kablo') ||
+    normalized.includes('cable') ||
+    normalized.includes('kılıf') ||
+    normalized.includes('kilif') ||
+    normalized.includes('adaptör') ||
+    normalized.includes('adaptor') ||
+    normalized.includes('charger')
+  );
+};
+
 
 const initialFormState = {
   barcode: "",
@@ -777,6 +795,32 @@ export default function UrunlerPage() {
   const lastAddedProducts = [...products]
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
     .slice(0, 5);
+
+  const [quickSearchQuery, setQuickSearchQuery] = useState("");
+
+  const normalizeForSearch = (str: string) => {
+    return (str || '')
+      .toLocaleLowerCase('tr-TR')
+      .replace(/ı/g, 'i')
+      .replace(/ş/g, 's')
+      .replace(/ğ/g, 'g')
+      .replace(/ç/g, 'c')
+      .replace(/ö/g, 'o')
+      .replace(/ü/g, 'u')
+      .trim();
+  };
+
+  const quickFilteredProducts = products.filter((p) => {
+    const q = normalizeForSearch(quickSearchQuery);
+    if (!q) return false;
+    return (
+      normalizeForSearch(p.name || "").includes(q) ||
+      normalizeForSearch(p.barcode || "").includes(q) ||
+      normalizeForSearch(p.brand || "").includes(q) ||
+      normalizeForSearch(p.model || "").includes(q) ||
+      normalizeForSearch(p.description || "").includes(q)
+    );
+  });
   // -------------------------------------------------------------
 
   // Akıllı açılır liste (dropdown) ve "Diğer" seçeneği için local stateler
@@ -1010,7 +1054,7 @@ export default function UrunlerPage() {
       storage: isLaptop ? (form.storage.trim() || null) : null,
       processor: isLaptop ? (form.processor.trim() || null) : null,
       screen_size: isLaptop ? (form.screen_size.trim() || null) : null,
-      device_condition_type: isDevice ? (form.device_condition_type || null) : null,
+      device_condition_type: isDevice ? (form.device_condition_type || null) : (isAksesuarCategory(catTrim) ? "new_sealed" : null),
       device_category: isDevice ? devCat : (form.category.trim() || null),
       imei_1: isDevice ? (form.imei_1.trim() || null) : '',
       imei_2: isDevice ? (form.imei_2.trim() || null) : '',
@@ -1202,7 +1246,7 @@ export default function UrunlerPage() {
       storage: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.storage.trim() || null) : null,
       processor: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.processor.trim() || null) : null,
       screen_size: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.screen_size.trim() || null) : null,
-      device_condition_type: isEditDevice ? (editForm.device_condition_type || null) : null,
+      device_condition_type: isEditDevice ? (editForm.device_condition_type || null) : (isAksesuarCategory(catEditTrim) ? "new_sealed" : null),
       device_category: isEditDevice ? devEditCat : (editForm.category.trim() || null),
       imei_1: isEditDevice ? (editForm.imei_1.trim() || null) : '',
       imei_2: isEditDevice ? (editForm.imei_2.trim() || null) : '',
@@ -1358,16 +1402,32 @@ export default function UrunlerPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
               Ürünler
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-900">Ürün yönetimi</h2>
           </div>
-          <p className="max-w-2xl text-sm leading-6 text-slate-600">
-            Ürünleri buradan listeleyebilir, stok miktarlarını güncelleyebilir ve yeni ürün ekleyebilirsiniz.
-          </p>
+          <div className="relative w-full sm:max-w-xs">
+            <input
+              type="text"
+              placeholder="Ürün adı, marka, model veya barkod ara..."
+              value={quickSearchQuery}
+              onChange={(e) => setQuickSearchQuery(e.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 pl-9 pr-8 text-xs shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+            />
+            <span className="absolute left-3 top-3 text-slate-400 text-xs select-none pointer-events-none">🔍</span>
+            {quickSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setQuickSearchQuery("")}
+                className="absolute right-3 top-2.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-800 text-xs px-1.5 py-0.5"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1496,22 +1556,24 @@ export default function UrunlerPage() {
             </div>
 
             {/* Cihaz Durumu */}
-            <div className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">Cihaz Durumu {isDevice && "*"}</span>
-              <select
-                value={form.device_condition_type}
-                onChange={(e) => handleFormChange("device_condition_type", e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              >
-                <option value="">Seçiniz</option>
-                <option value="new_sealed">Sıfır Kapalı Kutu</option>
-                <option value="new_open_box">Sıfır Açık Kutu</option>
-                <option value="display">Teşhir Ürünü</option>
-                <option value="used">İkinci El</option>
-                <option value="refurbished">Yenilenmiş</option>
-                <option value="authorized_refurbished">Yetkili Onarıcı Raporlu</option>
-              </select>
-            </div>
+            {!isAksesuarCategory(form.category) && (
+              <div className="grid gap-2 text-sm text-slate-700">
+                <span className="font-medium">Cihaz Durumu {isDevice && "*"}</span>
+                <select
+                  value={form.device_condition_type}
+                  onChange={(e) => handleFormChange("device_condition_type", e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                >
+                  <option value="">Seçiniz</option>
+                  <option value="new_sealed">Sıfır Kapalı Kutu</option>
+                  <option value="new_open_box">Sıfır Açık Kutu</option>
+                  <option value="display">Teşhir Ürünü</option>
+                  <option value="used">İkinci El</option>
+                  <option value="refurbished">Yenilenmiş</option>
+                  <option value="authorized_refurbished">Yetkili Onarıcı Raporlu</option>
+                </select>
+              </div>
+            )}
 
             {/* Cihaz Durumuna Göre Spesifik Kabul/Kayıt Girişleri */}
             {isDevice && form.device_condition_type && (
@@ -2506,8 +2568,12 @@ export default function UrunlerPage() {
           {/* Son Eklenen 5 Ürün */}
           <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Son Eklenen Ürünler</h3>
-              <span className="text-xs text-slate-400 font-medium">Son 5 Ürün</span>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
+                {quickSearchQuery ? `Arama Sonuçları (${quickFilteredProducts.length})` : "Son Eklenen Ürünler"}
+              </h3>
+              <span className="text-xs text-slate-400 font-medium">
+                {quickSearchQuery ? "Bulunan Ürünler" : "Son 5 Ürün"}
+              </span>
             </div>
 
             <div className="overflow-x-auto">
@@ -2521,7 +2587,7 @@ export default function UrunlerPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {lastAddedProducts.map((p) => (
+                  {(quickSearchQuery ? quickFilteredProducts : lastAddedProducts).map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/50 transition">
                       <td className="py-2.5 pr-2">
                         <div className="font-semibold text-slate-800 truncate max-w-[150px]" title={p.name}>
@@ -2767,6 +2833,26 @@ export default function UrunlerPage() {
                                         className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
                                       />
                                     </label>
+                                    
+                                    {!isAksesuarCategory(editForm.category) && (
+                                      <label className="grid gap-2 text-[11px] text-slate-700">
+                                        <span>Cihaz Durumu</span>
+                                        <select
+                                          value={editForm.device_condition_type}
+                                          onChange={(event) => handleEditFormChange("device_condition_type", event.target.value)}
+                                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none font-semibold text-sky-600"
+                                        >
+                                          <option value="">Seçiniz</option>
+                                          <option value="new_sealed">Sıfır Kapalı Kutu</option>
+                                          <option value="new_open_box">Sıfır Açık Kutu</option>
+                                          <option value="display">Teşhir Ürünü</option>
+                                          <option value="used">İkinci El</option>
+                                          <option value="refurbished">Yenilenmiş</option>
+                                          <option value="authorized_refurbished">Yetkili Onarıcı Raporlu</option>
+                                        </select>
+                                      </label>
+                                    )}
+
                                     <label className="grid gap-2 text-[11px] text-slate-700">
                                       <span>Renk</span>
                                       <input
@@ -2774,23 +2860,6 @@ export default function UrunlerPage() {
                                         onChange={(event) => handleEditFormChange("color", event.target.value)}
                                         className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
                                       />
-                                    </label>
-
-                                    <label className="grid gap-2 text-[11px] text-slate-700">
-                                      <span>Cihaz Durumu</span>
-                                      <select
-                                        value={editForm.device_condition_type}
-                                        onChange={(event) => handleEditFormChange("device_condition_type", event.target.value)}
-                                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none font-semibold text-sky-600"
-                                      >
-                                        <option value="">Seçiniz</option>
-                                        <option value="new_sealed">Sıfır Kapalı Kutu</option>
-                                        <option value="new_open_box">Sıfır Açık Kutu</option>
-                                        <option value="display">Teşhir Ürünü</option>
-                                        <option value="used">İkinci El</option>
-                                        <option value="refurbished">Yenilenmiş</option>
-                                        <option value="authorized_refurbished">Yetkili Onarıcı Raporlu</option>
-                                      </select>
                                     </label>
 
                                     {isEditDevice && editForm.device_condition_type && (

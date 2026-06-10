@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { getWhatsAppLink, getFallbackImage, formatPriceTRY, getPublicProductTitle, formatCategoryName } from '@/lib/constants'
+import { getWhatsAppLink, getFallbackImage, formatPriceTRY, getPublicProductTitle, formatCategoryName, getCategoryGroup } from '@/lib/constants'
 import type { Product } from '@/types'
 import { ArrowLeft, ShoppingBag, CheckCircle, AlertCircle } from 'lucide-react'
 
@@ -83,6 +83,27 @@ export default function ProductDetailPage() {
   const displayCat    = formatCategoryName(product);
 
   // Technical specifications to display
+  const getConditionLabel = () => {
+    const catGroup = getCategoryGroup(product)
+    const isAksesuar = catGroup === 'aksesuar' || catGroup === 'sarj_kablo'
+    
+    if (isAksesuar) {
+      if (product.device_condition_type === 'new_sealed' || product.device_condition_type === 'new_open_box') {
+        return 'Sıfır Kapalı Kutu'
+      }
+      return 'Sıfır Ürün'
+    }
+    
+    if (product.device_condition_type === 'new_sealed') return 'Sıfır Kapalı Kutu'
+    if (product.device_condition_type === 'new_open_box') return 'Sıfır Açık Kutu'
+    if (product.device_condition_type === 'display') return 'Teşhir Ürünü'
+    if (product.device_condition_type === 'used') return 'İkinci El'
+    if (product.device_condition_type === 'refurbished') return 'Yenilenmiş'
+    if (product.device_condition_type === 'authorized_refurbished') return 'Yetkili Onarıcı Raporlu'
+    
+    return 'İkinci El / Diğer'
+  }
+
   const specs = [
     { label: 'Kategori', value: product.category },
     { label: 'Marka', value: product.brand },
@@ -93,7 +114,7 @@ export default function ProductDetailPage() {
     { label: 'Depolama', value: product.storage },
     { label: 'İşlemci', value: product.processor },
     { label: 'Ekran Boyutu', value: product.screen_size },
-    { label: 'Cihaz Durumu', value: product.device_condition_type === 'new_sealed' ? 'Sıfır Kapalı Kutu' : 'İkinci El / Diğer' },
+    { label: 'Cihaz Durumu', value: getConditionLabel() },
     { label: 'Barkod', value: product.barcode },
   ].filter(spec => spec.value && spec.value.trim() !== '')
 

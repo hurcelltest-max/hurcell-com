@@ -9,7 +9,8 @@ import {
   getFallbackImage,
   formatPriceTRY,
   formatCategoryName,
-  getPublicProductTitle
+  getPublicProductTitle,
+  getCategoryGroup
 } from '@/lib/constants'
 
 interface ProductCardProps {
@@ -70,11 +71,18 @@ export function ProductCard({
         />
         
         {/* Condition Badge */}
-        {product.device_condition_type && (
-          <span className="absolute left-3 top-3 px-2 py-0.5 rounded-lg bg-white/95 border border-slate-200 text-[9px] font-bold uppercase tracking-wider text-slate-700 shadow-sm z-10">
-            {product.device_condition_type === 'new_sealed' ? 'Sıfır' : 'İkinci El'}
-          </span>
-        )}
+        {(() => {
+          const catGroup = getCategoryGroup(product);
+          const isAksesuar = catGroup === 'aksesuar' || catGroup === 'sarj_kablo';
+          if (product.device_condition_type && !isAksesuar) {
+            return (
+              <span className="absolute left-3 top-3 px-2 py-0.5 rounded-lg bg-white/95 border border-slate-200 text-[9px] font-bold uppercase tracking-wider text-slate-700 shadow-sm z-10">
+                {product.device_condition_type === 'new_sealed' ? 'Sıfır' : 'İkinci El'}
+              </span>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       {/* Content Area */}

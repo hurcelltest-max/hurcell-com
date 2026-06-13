@@ -1,7 +1,6 @@
 import React from 'react'
 import { Metadata } from 'next'
-import Link from 'next/link'
-import { Phone, Mail, MapPin, Clock, MessageSquare, Building2, ShieldAlert } from 'lucide-react'
+import { Phone, Mail, MapPin, Clock, MessageSquare, Building2 } from 'lucide-react'
 import { WHATSAPP_NUMBER } from '@/lib/constants'
 
 export const metadata: Metadata = {
@@ -36,7 +35,7 @@ export default function ContactPage() {
               </div>
               <div className="space-y-1">
                 <h3 className="font-bold text-slate-900 text-sm">Mağaza Bilgileri</h3>
-                <p className="text-sm font-medium text-slate-700">HurCELL Teknoloji Mağazası</p>
+                <p className="text-sm font-medium text-slate-700">HurCELL Teknoloji</p>
                 <p className="text-xs text-slate-450 leading-relaxed font-light">
                   En yeni mobil cihazlar, tabletler, bilgisayarlar ve aksesuarlar.
                 </p>
@@ -51,8 +50,8 @@ export default function ContactPage() {
               <div className="space-y-1 w-full">
                 <h3 className="font-bold text-slate-900 text-sm">Telefon & WhatsApp</h3>
                 <div className="flex flex-col gap-2 pt-1">
-                  <a href={`tel:+905322362242`} className="text-sm font-semibold text-slate-800 hover:text-blue-600 transition-colors flex items-center gap-1.5">
-                    +90 532 236 2242
+                  <a href="tel:+902324211314" className="text-sm font-semibold text-slate-800 hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                    0232 421 13 14
                   </a>
                   <a 
                     href={whatsappUrl} 
@@ -61,7 +60,7 @@ export default function ContactPage() {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-xs font-semibold hover:bg-emerald-100/70 transition-all self-start"
                   >
                     <MessageSquare size={13} />
-                    WhatsApp Destek Hattı
+                    0532 226 93 62 (WhatsApp Destek Hattı)
                   </a>
                 </div>
               </div>
@@ -74,8 +73,8 @@ export default function ContactPage() {
               </div>
               <div className="space-y-1">
                 <h3 className="font-bold text-slate-900 text-sm">E-Posta</h3>
-                <a href="mailto:info@hurcell.com" className="text-sm font-semibold text-slate-800 hover:text-blue-600 transition-colors block pt-1">
-                  info@hurcell.com
+                <a href="mailto:hurcell@hurcell.com" className="text-sm font-semibold text-slate-800 hover:text-blue-600 transition-colors block pt-1">
+                  hurcell@hurcell.com
                 </a>
               </div>
             </div>
@@ -88,11 +87,11 @@ export default function ContactPage() {
               <div className="space-y-2">
                 <h3 className="font-bold text-slate-900 text-sm">Adres & Çalışma Saatleri</h3>
                 <p className="text-xs text-slate-650 leading-relaxed font-light">
-                  HurCELL tarafından güncellenecektir (Adres TODO)
+                  1390 Sokak 11/A 35320 Alsancak Konak / İZMİR
                 </p>
                 <div className="flex items-center gap-1 text-slate-500 font-mono text-[11px] pt-1 border-t border-slate-100">
                   <Clock size={12} />
-                  <span>Çalışma Saatleri: HurCELL tarafından güncellenecektir (Saatler TODO)</span>
+                  <span>Çalışma Saatleri: Pazartesi - Cuma: 09:00 - 18:00</span>
                 </div>
               </div>
             </div>
@@ -113,27 +112,27 @@ export default function ContactPage() {
               <div className="space-y-3 pt-2 text-xs border-t border-slate-200/60 font-mono">
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-400 block font-sans">Ticari Ünvan</span>
-                  <span className="text-slate-800 font-medium font-mono">HurCELL tarafından eklenecektir (TODO)</span>
+                  <span className="text-slate-800 font-medium font-mono">HurCELL Teknoloji</span>
                 </div>
 
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-400 block font-sans">Vergi Dairesi</span>
-                  <span className="text-slate-800 font-medium font-mono">HurCELL tarafından eklenecektir (TODO)</span>
+                  <span className="text-slate-800 font-medium font-mono">Kordon</span>
                 </div>
 
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-400 block font-sans">Vergi Numarası</span>
-                  <span className="text-slate-800 font-medium font-mono">HurCELL tarafından eklenecektir (TODO)</span>
+                  <span className="text-slate-800 font-medium font-mono">1590108328</span>
                 </div>
 
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-400 block font-sans">MERSİS Numarası</span>
-                  <span className="text-slate-800 font-medium font-mono">HurCELL tarafından eklenecektir (TODO)</span>
+                  <span className="text-slate-800 font-medium font-mono">Belirtilmedi</span>
                 </div>
 
                 <div className="space-y-1">
                   <span className="text-[10px] text-slate-400 block font-sans">Adres</span>
-                  <span className="text-slate-800 font-medium font-sans font-light leading-relaxed">HurCELL tarafından eklenecektir (TODO)</span>
+                  <span className="text-slate-800 font-medium font-sans font-light leading-relaxed">1390 Sokak 11/A 35320 Alsancak Konak İZMİR</span>
                 </div>
               </div>
             </div>

@@ -19,12 +19,12 @@ export function Footer() {
 
         {/* Security & Trust Text */}
         <p className="text-center max-w-xl mx-auto text-[11px] text-slate-450 leading-relaxed">
-          Online ödeme altyapısı aktif olduğunda ödeme işlemleri BDDK lisanslı güvenli ödeme kuruluşu altyapısı ve 3D Secure güvencesiyle gerçekleştirilecektir.
+          Online ödeme altyapısı aktif olduğunda ödeme işlemleri lisanslı güvenli ödeme kuruluşu altyapısı ve 3D Secure güvencesiyle gerçekleştirilecektir.
         </p>
 
         {/* Copyright */}
         <p className="text-center text-[10px] text-slate-400">
-          © 2026 HurCELL Teknoloji Mağazası. Tüm hakları saklıdır.
+          © 2026 HurCELL Teknoloji. Tüm hakları saklıdır.
         </p>
 
       </div>

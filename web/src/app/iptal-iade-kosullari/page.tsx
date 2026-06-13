@@ -1,6 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ShieldCheck, RefreshCw, AlertTriangle, HelpCircle, PhoneCall } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, RefreshCw, AlertTriangle, PhoneCall } from 'lucide-react'
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -16,7 +16,7 @@ export default function RefundTermsPage() {
         {/* Back link */}
         <Link
           href="/shop"
-          className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider text-slate-500 hover:text-slate-800 transition-colors uppercase group"
+          className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider text-slate-550 hover:text-slate-800 transition-colors uppercase group"
         >
           <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-1" />
           Mağazaya Geri Dön
@@ -27,17 +27,6 @@ export default function RefundTermsPage() {
           <div className="border-b border-slate-100 pb-5">
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">İptal ve İade Koşulları</h1>
             <p className="text-xs text-slate-400 mt-1.5 font-mono">Son Güncelleme: 13 Haziran 2026</p>
-          </div>
-
-          {/* Draft Notice */}
-          <div className="bg-blue-50/75 border border-blue-100/80 rounded-2xl p-4 text-xs text-blue-800 space-y-1.5 leading-relaxed font-light">
-            <p className="font-bold flex items-center gap-1.5">
-              <HelpCircle size={14} className="text-blue-600" />
-              Taslak ve Bilgilendirme Notu
-            </p>
-            <p>
-              İşbu metin, Sanal POS denetim gereksinimleri çerçevesinde hazırlanmış bir **taslak metindir**. Şirket resmi unvan ve tescil bilgileri tamamlandıktan sonra hukuki kesinlik kazanarak güncellenecektir.
-            </p>
           </div>
 
           <div className="space-y-6 text-sm leading-relaxed text-slate-650 font-light">
@@ -66,7 +55,7 @@ export default function RefundTermsPage() {
                 Tüketicinin Korunması Hakkında Kanun kapsamında, satın aldığınız ürünleri teslim aldığınız tarihten itibaren **14 (ondört) gün** içerisinde herhangi bir gerekçe göstermeksizin ve cezai şart ödemeksizin iade edebilir veya değişimini talep edebilirsiniz.
               </p>
               <p>
-                İade veya değişim sürecini başlatmak için üye panelinizden ya da `/iade-talebi` sayfası üzerinden sipariş numaranız ve güvenlik tokenınızla başvuru yapmanız gerekmektedir.
+                İade veya değişim sürecini başlatmak için `/iade-talebi` sayfası üzerinden sipariş numaranız ve güvenlik tokenınızla başvuru yapmanız gerekmektedir.
               </p>
             </section>
 
@@ -102,10 +91,10 @@ export default function RefundTermsPage() {
                 4. Geri Ödemeler ve POS Süreci
               </h2>
               <p>
-                Gönderilen iade ürünlerinin ön fiziki kontrolleri ve iade şartlarına uygunluğu mağaza yetkililerimiz tarafından onaylandıktan sonra geri ödeme talimatı verilir. Geri ödemeler, ödeme kuruluşunun (sanal POS sağlayıcı) ve ilgili bankaların işlem prosedürlerine göre yasal süreler dahilinde kartınıza iade edilir.
+                Gönderilen iade ürünlerinin ön fiziki kontrolleri ve iade şartlarına uygunluğu mağaza yetkililerimiz tarafından onaylandıktan sonra geri ödeme talimatı verilir. Geri ödeme işlemleri, ödemenin alındığı ödeme yöntemi ve ilgili ödeme kuruluşu prosedürlerine göre tamamlanır.
               </p>
-              <p className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 font-mono">
-                [TODO: Firma Yetkilisi Bilgisi ve İade Adresi Buraya Eklenecektir]
+              <p className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-650 font-mono">
+                <strong>İade Adresi:</strong> 1390 Sokak 11/A 35320 Alsancak Konak / İZMİR
                 <br />
                 <strong>ÖNEMLİ:</strong> Bankaların iç süreçleri sebebiyle taksitli yapılan alışverişlerin iadesi kartınıza bankanız tarafından taksitler halinde yansıtılabilir. Bu süreç tamamen bankaların sorumluluğundadır.
               </p>
@@ -121,9 +110,9 @@ export default function RefundTermsPage() {
                 İptal, iade ve değişim süreçlerinizle ilgili her türlü sorunuz için aşağıdaki kanallardan bize ulaşabilirsiniz:
               </p>
               <ul className="list-disc pl-5 text-xs sm:text-sm">
-                <li><strong>E-posta:</strong> info@hurcell.com</li>
-                <li><strong>Müşteri Hizmetleri:</strong> +90 532 236 2242</li>
-                <li><strong>WhatsApp Destek:</strong> +90 532 236 2242</li>
+                <li><strong>E-posta:</strong> hurcell@hurcell.com</li>
+                <li><strong>Müşteri Hizmetleri:</strong> 0232 421 13 14</li>
+                <li><strong>WhatsApp Destek:</strong> 0532 226 93 62</li>
               </ul>
             </section>
 

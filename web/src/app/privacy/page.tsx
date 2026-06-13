@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
         <div className="bg-white rounded-3xl p-8 md:p-12 shadow-sm border border-slate-200/60 space-y-8">
           <div className="border-b border-slate-100 pb-6 text-center md:text-left">
             <h1 className="text-4xl font-light text-slate-900 tracking-tight">Gizlilik Politikası</h1>
-            <p className="text-sm text-slate-500 font-mono mt-2">Son Güncelleme: 17 Mayıs 2026</p>
+            <p className="text-sm text-slate-500 font-mono mt-2">Son Güncelleme: 13 Haziran 2026</p>
           </div>
 
           {/* Sözleşme Maddeleri */}
@@ -30,23 +30,23 @@ export default function PrivacyPolicy() {
             </p>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-medium text-slate-900 tracking-tight">1. Toplanan Veriler Modülü</h2>
+              <h2 className="text-xl font-medium text-slate-900 tracking-tight">1. Toplanan Veriler</h2>
               <p>
-                Uygulamamız içerisinde sunulan üyelik sistemleri, avantajlı paketler ve güvenli ödeme kanallarının (Iyzico) sağlıklı çalışabilmesi adına ad, soyad, e-posta adresi ve iletişim bilgileri işlenebilmektedir. Bu veriler tamamen sipariş süreçlerinizin takibi amacıyla kullanılır.
+                Web sitemiz üzerinden sipariş süreçlerinin takibi, teslimat işlemlerinin gerçekleştirilmesi ve müşteri hizmetleri desteğinin sunulabilmesi amacıyla ad, soyad, e-posta adresi, telefon numarası ve teslimat/fatura adresi bilgileri işlenebilmektedir. Bu veriler tamamen sipariş süreçlerinizin yönetimi amacıyla kullanılır.
               </p>
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-medium text-slate-900 tracking-tight">2. Anlık Bildirimler (Push Notifications)</h2>
+              <h2 className="text-xl font-medium text-slate-900 tracking-tight">2. İletişim Bildirimleri</h2>
               <p>
-                Mağazamızdaki en yeni ürün ve aksesuar kampanyalarından, avantajlı paketlerden anında haberdar olabilmeniz için telefonunuza anlık bildirimler gönderilebilmektedir. Dilediğiniz zaman cihazınızın ayarlar bölümünden bu bildirim izinlerini kapatabilirsiniz.
+                Mağazamızdaki sipariş durum güncellemeleriniz ve onay bildirimleriniz ile siparişlerinize özel üretilen güvenlik tokenları tarafınıza e-posta, SMS veya WhatsApp kanalları aracılığıyla iletilmektedir.
               </p>
             </section>
 
             <section className="space-y-3">
               <h2 className="text-xl font-medium text-slate-900 tracking-tight">3. Ödeme Güvenliği Altyapısı</h2>
               <p>
-                Alışverişleriniz esnasında kullanılan kredi kartı ve ödeme bilgileri doğrudan lisanslı ödeme kuruluşu olan <strong className="text-slate-900 font-medium">Iyzico</strong> altyapısı tarafından güvenli sunucularda işlenir. HurCELL, kart bilgilerinizi asla kendi sunucularında saklamaz.
+                Alışverişleriniz sırasında kullanılacak kredi kartı ve ödeme bilgileri, online ödeme altyapısı aktif olduğunda lisanslı güvenli ödeme kuruluşu altyapısı üzerinden işlenecektir. HurCELL, kart bilgilerinizi kendi sunucularında saklamaz.
               </p>
             </section>
 

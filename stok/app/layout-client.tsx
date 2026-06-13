@@ -12,6 +12,8 @@ const navItems = [
   { href: "/stok-sayim", label: "Stok Sayımı" },
   { href: "/satis", label: "Satış" },
   { href: "/iade", label: "İade" },
+  { href: "/iade-talepleri", label: "İade Talepleri" },
+  { href: "/kampanyalar", label: "Kampanyalar" },
   { href: "/hareketler", label: "Hareketler" },
   { href: "/ayarlar/bayiler", label: "B2B Bayiler" },
   { href: "/ayarlar", label: "Ayarlar" },

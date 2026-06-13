@@ -215,6 +215,20 @@ function OrderTrackingContent() {
           </span>
         </div>
 
+        {/* Cancellation and Refund Button */}
+        <div className="pt-4 border-t border-slate-100">
+          <Link
+            href={`/iade-talebi?order=${order.order_number}&token=${token}`}
+            className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-2xl transition-colors flex items-center justify-center gap-2 border border-slate-200 cursor-pointer"
+          >
+            <ShieldAlert size={14} className="text-amber-600" />
+            İade / İptal Talebi Oluştur
+          </Link>
+          <p className="text-[10px] text-slate-450 font-light mt-2.5 text-center leading-relaxed">
+            * 14 gün mesafeli satış mevzuatı kapsamında bu sipariş için iptal, iade veya değişim talebi oluşturabilirsiniz.
+          </p>
+        </div>
+
       </div>
     </div>
   )

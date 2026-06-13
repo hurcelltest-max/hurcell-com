@@ -77,7 +77,7 @@ export default async function SaleContractDetailPage({ params }: PageProps) {
         {/* Actions bar */}
         <div className="mb-6 flex items-center justify-between print:hidden">
           <Link
-            href="/satis-sozlesmesi"
+            href="/cihaz-kabul-protokolu"
             className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" /> Geri Dön

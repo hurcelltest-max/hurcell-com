@@ -58,13 +58,63 @@ export async function POST(req: Request) {
       );
     }
 
+    // Fetch active campaigns linked to the selected product IDs
+    const { data: dbCampaignProducts, error: campaignError } = await supabaseAdmin
+      .from('campaign_products')
+      .select(`
+        product_id,
+        campaigns:campaign_id (
+          id,
+          name,
+          description,
+          campaign_type,
+          discount_type,
+          discount_value,
+          buy_quantity,
+          discounted_quantity,
+          is_active,
+          starts_at,
+          ends_at
+        )
+      `)
+      .in('product_id', productIds);
+
+    if (campaignError) {
+      console.error('Error querying campaigns during checkout:', campaignError);
+      return NextResponse.json(
+        { error: 'Kampanya bilgileri doğrulanırken sunucu hatası oluştu.' },
+        { status: 500 }
+      );
+    }
+
+    // Map of product_id to list of active campaigns
+    const productCampaignsMap = new Map<string, any[]>();
+    if (dbCampaignProducts) {
+      dbCampaignProducts.forEach((row: any) => {
+        const camp: any = row.campaigns;
+        if (camp && camp.is_active) {
+          const startsAt = new Date(camp.starts_at);
+          const endsAt = camp.ends_at ? new Date(camp.ends_at) : null;
+          const currentDate = new Date();
+          if (startsAt <= currentDate && (!endsAt || endsAt >= currentDate)) {
+            if (!productCampaignsMap.has(row.product_id)) {
+              productCampaignsMap.set(row.product_id, []);
+            }
+            productCampaignsMap.get(row.product_id)!.push(camp);
+          }
+        }
+      });
+    }
+
     // Map DB products by ID for fast lookup
     const productsMap = new Map<string, typeof dbProducts[number]>();
     dbProducts.forEach((p) => productsMap.set(p.id, p));
 
     // Verify all request items exist, are visible, and have sufficient stock
-    let totalAmount = 0;
+    let orderSubtotal = 0;
+    let orderTotalDiscount = 0;
     const validatedItems = [];
+    const appliedCampaignsSummary: any[] = [];
 
     for (const item of items) {
       const dbProduct = productsMap.get(item.product_id);
@@ -98,18 +148,78 @@ export async function POST(req: Request) {
         );
       }
 
-      const itemTotal = dbProduct.sell_price * reqQuantity;
-      totalAmount += itemTotal;
+      const itemOriginalPrice = dbProduct.sell_price;
+      const itemSubtotal = itemOriginalPrice * reqQuantity;
+      orderSubtotal += itemSubtotal;
+
+      // Find the best campaign for this product
+      const applicableCampaigns = productCampaignsMap.get(dbProduct.id) || [];
+      let bestCampaign: any = null;
+      let maxCampaignDiscount = 0;
+
+      for (const camp of applicableCampaigns) {
+        if (camp.campaign_type === 'same_product_quantity_discount') {
+          const buyQty = camp.buy_quantity || 2;
+          const discQty = camp.discounted_quantity || 1;
+          
+          if (reqQuantity >= buyQty) {
+            const discountedSets = Math.floor(reqQuantity / buyQty);
+            const discountedItemsCount = discountedSets * discQty;
+            
+            let itemUnitDiscount = 0;
+            if (camp.discount_type === 'percent') {
+              itemUnitDiscount = itemOriginalPrice * (camp.discount_value / 100);
+            } else if (camp.discount_type === 'fixed_amount') {
+              itemUnitDiscount = camp.discount_value;
+            }
+            
+            if (itemUnitDiscount > itemOriginalPrice) {
+              itemUnitDiscount = itemOriginalPrice;
+            }
+            
+            const totalDiscountForCamp = discountedItemsCount * itemUnitDiscount;
+            if (totalDiscountForCamp > maxCampaignDiscount) {
+              maxCampaignDiscount = totalDiscountForCamp;
+              bestCampaign = camp;
+            }
+          }
+        }
+      }
+
+      const rowDiscount = maxCampaignDiscount;
+      const finalRowTotal = Math.max(0, itemSubtotal - rowDiscount);
+      orderTotalDiscount += rowDiscount;
+
+      const originalUnitPrice = itemOriginalPrice;
+      const discountAmountSnapshot = rowDiscount;
+      const finalUnitPrice = parseFloat((finalRowTotal / reqQuantity).toFixed(2));
 
       validatedItems.push({
         product_id: dbProduct.id,
         product_title_snapshot: dbProduct.name,
         barcode_snapshot: dbProduct.barcode,
-        unit_price_snapshot: dbProduct.sell_price,
+        unit_price_snapshot: finalUnitPrice,
+        original_unit_price_snapshot: originalUnitPrice,
+        discount_amount_snapshot: discountAmountSnapshot,
+        final_unit_price_snapshot: finalUnitPrice,
+        applied_campaign_id: bestCampaign ? bestCampaign.id : null,
+        applied_campaign_name_snapshot: bestCampaign ? bestCampaign.name : null,
         quantity: reqQuantity,
-        line_total: itemTotal,
+        line_total: finalRowTotal,
       });
+
+      if (bestCampaign) {
+        appliedCampaignsSummary.push({
+          campaign_id: bestCampaign.id,
+          campaign_name: bestCampaign.name,
+          discount_type: bestCampaign.discount_type,
+          discount_value: bestCampaign.discount_value,
+          saved_amount: rowDiscount
+        });
+      }
     }
+
+    const orderFinalTotal = Math.max(0, orderSubtotal - orderTotalDiscount);
 
     // 4. Create pending order in database
     const { data: order, error: orderError } = await supabaseAdmin
@@ -120,7 +230,10 @@ export async function POST(req: Request) {
         customer_phone: customer_phone.trim(),
         billing_address: billing_address.trim(),
         shipping_address: shipping_address.trim(),
-        total_amount: totalAmount,
+        subtotal_amount: orderSubtotal,
+        discount_amount: orderTotalDiscount,
+        total_amount: orderFinalTotal,
+        campaign_summary: appliedCampaignsSummary,
         currency: 'TRY',
         status: 'pending',
       })
@@ -147,7 +260,6 @@ export async function POST(req: Request) {
 
     if (itemsError) {
       console.error('Error inserting order items:', itemsError);
-      // Clean up order to keep DB clean
       await supabaseAdmin.from('orders').delete().eq('id', order.id);
       return NextResponse.json(
         { error: 'Sipariş detayları kaydedilemedi.' },

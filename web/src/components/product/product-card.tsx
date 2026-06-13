@@ -18,16 +18,24 @@ interface ProductCardProps {
   compact?: boolean
   showCategory?: boolean
   showActions?: boolean
+  campaign?: {
+    id: string;
+    name: string;
+    discount_type: string;
+    discount_value: number;
+  } | null;
 }
 
 export function ProductCard({
   product,
   compact = false,
   showCategory = true,
-  showActions = true
+  showActions = true,
+  campaign = null
 }: ProductCardProps) {
   const displayTitle = getPublicProductTitle(product)
   const displayCategory = formatCategoryName(product)
+
   
   // Stock display rules:
   // - stock > 5: “Stokta · X adet” (Green theme)
@@ -103,9 +111,22 @@ export function ProductCard({
         </h3>
 
         {/* Specs Satırı */}
-        <p className="text-[11px] text-slate-500 font-light mb-3 line-clamp-1">
+        <p className="text-[11px] text-slate-500 font-light mb-2 line-clamp-1">
           {specText}
         </p>
+
+        {/* Campaign Badge */}
+        {campaign && (
+          <div className="mb-3">
+            <span className="text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100 rounded-lg px-2 py-0.5 inline-block">
+              {campaign.discount_type === 'percent'
+                ? `2. Ürüne %${Math.round(campaign.discount_value)} İndirim`
+                : `2. Ürüne ${formatPriceTRY(campaign.discount_value)} İndirim`
+              }
+            </span>
+          </div>
+        )}
+
 
         {/* Price & Stock status */}
         <div className="mt-auto mb-4 flex items-center justify-between gap-2 flex-wrap">

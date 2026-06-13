@@ -14,6 +14,7 @@ export default function ProductDetailPage() {
   const id = params.id as string
 
   const [product, setProduct] = useState<Product | null>(null)
+  const [campaign, setCampaign] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
@@ -41,6 +42,41 @@ export default function ProductDetailPage() {
         }
 
         setProduct(data)
+
+        // Check if there are active campaigns for this product
+        const { data: campaignProdData, error: campError } = await supabase
+          .from('campaign_products')
+          .select(`
+            campaigns:campaign_id (
+              id,
+              name,
+              description,
+              discount_type,
+              discount_value,
+              is_active,
+              starts_at,
+              ends_at
+            )
+          `)
+          .eq('product_id', id);
+
+        if (!campError && campaignProdData) {
+          const now = new Date()
+          let bestCamp: any = null
+          campaignProdData.forEach((row: any) => {
+            const camp: any = row.campaigns;
+            if (camp && camp.is_active) {
+              const startsAt = new Date(camp.starts_at)
+              const endsAt = camp.ends_at ? new Date(camp.ends_at) : null
+              if (startsAt <= now && (!endsAt || endsAt >= now)) {
+                if (!bestCamp || camp.discount_value > bestCamp.discount_value) {
+                  bestCamp = camp
+                }
+              }
+            }
+          })
+          setCampaign(bestCamp)
+        }
       } catch (err: any) {
         console.error('Error fetching product details:', err)
         setErrorMsg('Ürün bulunamadı veya bir hata oluştu.')
@@ -235,6 +271,24 @@ export default function ProductDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Campaign details */}
+            {campaign && (
+              <div className="bg-rose-50/70 border border-rose-100/80 rounded-2xl p-4 space-y-1.5 shadow-sm">
+                <div className="flex items-center gap-2 text-rose-700 font-bold text-xs">
+                  <span className="px-2 py-0.5 rounded bg-rose-500 text-white text-[10px] uppercase tracking-wider">Kampanya</span>
+                  <span>{campaign.name}</span>
+                </div>
+                {campaign.description && (
+                  <p className="text-slate-650 text-xs font-light">
+                    {campaign.description}
+                  </p>
+                )}
+                <div className="text-[11px] text-rose-600 font-semibold pt-1">
+                  * Sepette otomatik uygulanır
+                </div>
+              </div>
+            )}
 
             {/* Product Description */}
             {product.description && (

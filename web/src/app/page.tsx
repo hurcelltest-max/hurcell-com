@@ -11,6 +11,7 @@ import { ProductCard } from '@/components/product/product-card'
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
+  const [campaignsMap, setCampaignsMap] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
@@ -29,6 +30,41 @@ export default function Home() {
 
         if (error) throw error
         setProducts(data || [])
+
+        // Aktif kampanyaları çek
+        const { data: campaignProdData, error: campError } = await supabase
+          .from('campaign_products')
+          .select(`
+            product_id,
+            campaigns:campaign_id (
+              id,
+              name,
+              discount_type,
+              discount_value,
+              is_active,
+              starts_at,
+              ends_at
+            )
+          `);
+
+        if (!campError && campaignProdData) {
+          const mapping: Record<string, any> = {}
+          const now = new Date()
+          campaignProdData.forEach((row: any) => {
+            const camp: any = row.campaigns;
+            if (camp && camp.is_active) {
+              const startsAt = new Date(camp.starts_at)
+              const endsAt = camp.ends_at ? new Date(camp.ends_at) : null
+              if (startsAt <= now && (!endsAt || endsAt >= now)) {
+                const existing = mapping[row.product_id]
+                if (!existing || camp.discount_value > existing.discount_value) {
+                  mapping[row.product_id] = camp
+                }
+              }
+            }
+          })
+          setCampaignsMap(mapping)
+        }
       } catch (err) {
         console.error('Error loading showcase products:', err)
       } finally {
@@ -182,7 +218,7 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product} campaign={campaignsMap[product.id]} />
               ))}
             </div>
           )}

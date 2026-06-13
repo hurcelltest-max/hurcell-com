@@ -1,4 +1,21 @@
 User-agent: *
-Allow: /
 
-Sitemap: https://hurcell.com/sitemap.xml
+# Block internal, admin, api, and debug endpoints
+Disallow: /api/
+Disallow: /admin/
+Disallow: /stok/
+Disallow: /odeme/
+Disallow: /checkout/
+Disallow: /*?token=
+
+# Explicitly allow primary public routes for visibility
+Allow: /
+Allow: /shop
+Allow: /urun/
+Allow: /iletisim
+Allow: /iptal-iade-kosullari
+Allow: /gizlilik-politikasi
+Allow: /satis-sozlesmesi
+
+# Sitemap Location
+Sitemap: https://www.hurcell.com/sitemap.xml

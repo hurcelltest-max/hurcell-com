@@ -221,6 +221,19 @@ function ReturnRequestFormContent() {
             </p>
           </div>
 
+          <div className="bg-amber-50/70 border border-amber-105/80 rounded-2xl p-4 text-[11px] text-amber-800 space-y-1.5 leading-relaxed font-medium">
+            <p className="font-bold flex items-center gap-1 text-xs">
+              <ShieldAlert size={14} className="text-amber-600" />
+              Önemli Bilgilendirme
+            </p>
+            <ul className="list-disc pl-4 space-y-1 font-light text-slate-600">
+              <li>Talep oluşturmak, kartınıza veya hesabınıza **otomatik/anlık para iadesi** yapıldığı anlamına gelmez.</li>
+              <li>İlettiğiniz talep mağaza yetkililerimiz tarafından detaylıca incelenir.</li>
+              <li>Talebin onaylanması halinde; iade/iptal süreci ödeme kuruluşu ve mağaza prosedürlerine göre yasal süreler içerisinde tamamlanır.</li>
+              <li>Talep oluşturulduğunda sistemdeki ürün stoğu ve ödeme durumu otomatik olarak değişmemektedir.</li>
+            </ul>
+          </div>
+
           {errorMsg && (
             <div className="bg-rose-55 text-rose-800 border border-rose-100 rounded-2xl p-4 text-xs font-semibold flex items-start gap-2.5">
               <ShieldAlert size={16} className="shrink-0" />
@@ -297,8 +310,12 @@ function ReturnRequestFormContent() {
 }
 
 export default function ReturnRequestPage() {
+  useEffect(() => {
+    document.title = 'İade / İptal Talebi | HurCELL Teknoloji Mağazası'
+  }, [])
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-850 font-sans pt-28 pb-16 flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-855 font-sans pt-28 pb-16 flex flex-col">
       <div className="max-w-[800px] mx-auto px-4 w-full py-6 space-y-6 flex-1">
         <Suspense fallback={
           <div className="flex justify-center items-center py-20">
@@ -311,11 +328,6 @@ export default function ReturnRequestPage() {
           <ReturnRequestFormContent />
         </Suspense>
       </div>
-      
-      {/* Footer */}
-      <footer className="py-8 bg-slate-100 border-t border-slate-200 text-center text-[10px] text-slate-400 font-light mt-auto">
-        <p>© 2026 HurCELL Teknoloji Mağazası. Tüm hakları saklıdır.</p>
-      </footer>
     </div>
   );
 }

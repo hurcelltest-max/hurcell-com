@@ -93,6 +93,10 @@ function ShopPageContent() {
   const [selectedCondition, setSelectedCondition] = useState('All')
   const [sortBy, setSortBy]                   = useState<'default' | 'price-asc' | 'price-desc'>('default')
 
+  useEffect(() => {
+    document.title = 'Ürün Kataloğu | HurCELL Teknoloji Mağazası'
+  }, [])
+
   const supabase = createClient()
 
   // URL parametrelerinden filtre durumunu başlat
@@ -447,21 +451,6 @@ export default function ShopPage() {
       >
         <ShopPageContent />
       </Suspense>
-
-      {/* Footer */}
-      <footer className="py-10 bg-slate-100 border-t border-slate-200 text-center text-xs text-slate-500 font-light mt-auto">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 space-y-2.5">
-          <p>© 2026 HurCELL Teknoloji Mağazası. Tüm hakları saklıdır.</p>
-          <div className="flex justify-center gap-5 text-slate-400">
-            <Link href="/privacy" className="hover:text-blue-600 transition-colors">
-              Gizlilik Politikası
-            </Link>
-            <Link href="/satis-sozlesmesi" className="hover:text-blue-600 transition-colors">
-              Mesafeli Satış Sözleşmesi
-            </Link>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

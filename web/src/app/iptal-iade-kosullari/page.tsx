@@ -1,6 +1,12 @@
 import React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, RefreshCw, AlertTriangle, HelpCircle, PhoneCall } from 'lucide-react'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'İptal ve İade Koşulları | HurCELL Teknoloji Mağazası',
+  description: 'HurCELL Teknoloji Mağazası iptal, iade, değişim şartları ve tüketici hakları bilgilendirme sayfası.',
+}
 
 export default function RefundTermsPage() {
   return (
@@ -20,62 +26,111 @@ export default function RefundTermsPage() {
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-5">
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">İptal ve İade Koşulları</h1>
-            <p className="text-xs text-slate-400 mt-1.5">Son Güncelleme: 13 Haziran 2026</p>
+            <p className="text-xs text-slate-400 mt-1.5 font-mono">Son Güncelleme: 13 Haziran 2026</p>
+          </div>
+
+          {/* Draft Notice */}
+          <div className="bg-blue-50/75 border border-blue-100/80 rounded-2xl p-4 text-xs text-blue-800 space-y-1.5 leading-relaxed font-light">
+            <p className="font-bold flex items-center gap-1.5">
+              <HelpCircle size={14} className="text-blue-600" />
+              Taslak ve Bilgilendirme Notu
+            </p>
+            <p>
+              İşbu metin, Sanal POS denetim gereksinimleri çerçevesinde hazırlanmış bir **taslak metindir**. Şirket resmi unvan ve tescil bilgileri tamamlandıktan sonra hukuki kesinlik kazanarak güncellenecektir.
+            </p>
           </div>
 
           <div className="space-y-6 text-sm leading-relaxed text-slate-650 font-light">
+            
+            {/* 1. İptal Talebi */}
             <section className="space-y-2.5">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <ShieldCheck size={18} className="text-blue-600" />
-                1. Cayma Hakkı (Tüketici Kanunu 14 Gün Mesafeli Satış)
+                1. İptal Talebi Prosedürü
               </h2>
               <p>
-                Alıcı, satın aldığı ürünün kendisine veya gösterdiği adresteki kişi/kuruluşa teslim tarihinden itibaren **14 (ondört) gün** içinde, herhangi bir gerekçe göstermeksizin ve cezai şart ödemeksizin cayma hakkını kullanarak iade edebilir.
+                Sipariş ettiğiniz ürünlerin henüz kargoya teslim edilmemiş olması durumunda iptal talebinde bulunabilirsiniz. İptal talebi için web sitemizdeki **İade / İptal Talebi** sayfasından talep oluşturabilir ya da destek kanallarımız üzerinden bizimle irtibata geçebilirsiniz.
               </p>
               <p>
-                Cayma hakkının kullanılması için bu süre içinde satıcıya yazılı olarak veya web sitesindeki **İade / İptal Talebi** portalı üzerinden bildirimde bulunulması gerekmektedir.
+                Kargoya verilmiş olan siparişler için iptal prosedürü uygulanamaz; bu durumda ürün teslim alındıktan sonra iade prosedürü başlatılmalıdır.
               </p>
             </section>
 
+            {/* 2. İade ve Değişim Talebi */}
+            <section className="space-y-2.5">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <ShieldCheck size={18} className="text-blue-600" />
+                2. İade ve Değişim Talebi Prosedürü
+              </h2>
+              <p>
+                Tüketicinin Korunması Hakkında Kanun kapsamında, satın aldığınız ürünleri teslim aldığınız tarihten itibaren **14 (ondört) gün** içerisinde herhangi bir gerekçe göstermeksizin ve cezai şart ödemeksizin iade edebilir veya değişimini talep edebilirsiniz.
+              </p>
+              <p>
+                İade veya değişim sürecini başlatmak için üye panelinizden ya da `/iade-talebi` sayfası üzerinden sipariş numaranız ve güvenlik tokenınızla başvuru yapmanız gerekmektedir.
+              </p>
+            </section>
+
+            {/* 3. Ürün İade Şartları ve Hijyen/Kullanım Kısıtlamaları */}
             <section className="space-y-2.5">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <AlertTriangle size={18} className="text-amber-500" />
-                2. Cayma Hakkının Geçerli Olmadığı İstisnalar
+                3. Ürün İade Şartları & Özel Kısıtlamalar
               </h2>
               <p>
-                Aşağıdaki ürün gruplarında kanunen cayma hakkı kullanılamaz:
+                İade edilecek ürünün tekrar satılabilirlik özelliğini kaybetmemiş olması, ambalajının hasar görmemiş olması ve varsa tüm standart aksesuarları ile birlikte eksiksiz gönderilmesi zorunludur.
               </p>
-              <ul className="list-disc pl-5 space-y-1 text-xs sm:text-sm">
-                <li>Alıcının istekleri veya açıkça kişisel ihtiyaçları doğrultusunda hazırlanan ürünler.</li>
-                <li>Ambalajı, bandı, mührü veya paketi açılmış ve hijyen/sağlık açısından iadesi uygun olmayan ürünler (Kulak içi kulaklıklar vb.).</li>
-                <li>Tesliminden sonra başka ürünlerle karışan ve doğası gereği ayrıştırılması mümkün olmayan ürünler.</li>
-                <li>Kullanılmış, fiziksel hasar görmüş, kutusu yırtılmış veya aksesuarları eksik olan teknolojik cihazlar.</li>
-              </ul>
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 text-xs text-slate-700 font-light">
+                <h4 className="font-bold text-slate-800 uppercase tracking-wider">Dikkat Edilmesi Gereken Ürün Grupları:</h4>
+                <ul className="list-disc pl-4 space-y-1.5">
+                  <li>
+                    <strong>Kulak İçi Kulaklıklar ve Hijyenik Ürünler:</strong> Ambalajı, bandı, mührü veya paketi açılmış olan kulak içi kulaklıklar, kişisel bakım ürünleri ve hijyen riski barındıran diğer sarf malzemeleri cayma hakkı kapsamında **iade alınamaz**.
+                  </li>
+                  <li>
+                    <strong>Ambalajı Açılmış Teknolojik Cihazlar:</strong> Jelatini veya mühür etiketi sökülmüş cep telefonu, tablet ve bilgisayarlar, kurulumu yapılmış veya kullanıcı hesabı (Apple ID, Google vb.) tanımlanmış cihazlar ancak yetkili teknik servis raporu doğrultusunda kusurlu bulunması halinde iade veya değişim sürecine dahil edilebilir.
+                  </li>
+                  <li>
+                    <strong>Aksesuar ve Sarf Ürünleri:</strong> Şarj cihazları, şarj kabloları, kılıflar ve koruyucu camlar gibi aksesuarların kutularının yırtılmamış, ürünlerin kullanılmamış ve fiziki hasar görmemiş olması durumunda iade değerlendirmesi koşullu olarak yapılır.
+                  </li>
+                </ul>
+              </div>
             </section>
 
+            {/* 4. Geri Ödeme Süreci */}
             <section className="space-y-2.5">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <RefreshCw size={18} className="text-emerald-600" />
-                3. İade ve Geri Ödeme Süreci
+                4. Geri Ödemeler ve POS Süreci
               </h2>
               <p>
-                İade talebiniz mağazamız tarafından incelenip onaylandıktan sonra, iade edilen ürünlerin fiziksel kontrolleri sağlanır. Ürünün iade şartlarına uygunluğu doğrulandıktan sonra geri ödeme süreci başlatılır.
+                Gönderilen iade ürünlerinin ön fiziki kontrolleri ve iade şartlarına uygunluğu mağaza yetkililerimiz tarafından onaylandıktan sonra geri ödeme talimatı verilir. Geri ödemeler, ödeme kuruluşunun (sanal POS sağlayıcı) ve ilgili bankaların işlem prosedürlerine göre yasal süreler dahilinde kartınıza iade edilir.
               </p>
               <p className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 font-mono">
-                [TODO: Firma Yetkilisi Bilgisi ve Adres Buraya Eklenecektir]
+                [TODO: Firma Yetkilisi Bilgisi ve İade Adresi Buraya Eklenecektir]
                 <br />
-                <strong>ÖNEMLI:</strong> Geri ödemeler, ödeme kuruluşunun ve bankaların işlem süreçlerine bağlı olarak yasal süreler içerisinde kartınıza iade edilir. POS sağlayıcı veya banka kaynaklı gecikmelerden satıcı sorumlu tutulamaz.
+                <strong>ÖNEMLİ:</strong> Bankaların iç süreçleri sebebiyle taksitli yapılan alışverişlerin iadesi kartınıza bankanız tarafından taksitler halinde yansıtılabilir. Bu süreç tamamen bankaların sorumluluğundadır.
               </p>
             </section>
+
+            {/* 5. İletişim Kanalları */}
+            <section className="space-y-2.5 border-t border-slate-100 pt-5">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <PhoneCall size={18} className="text-slate-700" />
+                5. Destek ve İletişim Kanallarımız
+              </h2>
+              <p>
+                İptal, iade ve değişim süreçlerinizle ilgili her türlü sorunuz için aşağıdaki kanallardan bize ulaşabilirsiniz:
+              </p>
+              <ul className="list-disc pl-5 text-xs sm:text-sm">
+                <li><strong>E-posta:</strong> info@hurcell.com</li>
+                <li><strong>Müşteri Hizmetleri:</strong> +90 532 236 2242</li>
+                <li><strong>WhatsApp Destek:</strong> +90 532 236 2242</li>
+              </ul>
+            </section>
+
           </div>
         </div>
 
       </div>
-      
-      {/* Footer */}
-      <footer className="py-8 bg-slate-100 border-t border-slate-200 text-center text-[10px] text-slate-400 font-light mt-auto">
-        <p>© 2026 HurCELL Teknoloji Mağazası. Tüm hakları saklıdır.</p>
-      </footer>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/site/navbar";
+import { Footer } from "@/components/site/footer";
 import { Toaster } from "@/components/ui/sonner";
 import { WhatsAppButton } from "@/components/site/whatsapp-button";
 
@@ -27,9 +28,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-background font-sans`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-background font-sans flex flex-col`}>
         <Navbar />
-        {children}
+        <main className="flex-1 flex flex-col">
+          {children}
+        </main>
+        <Footer />
         <Toaster />
         <WhatsAppButton />
       </body>

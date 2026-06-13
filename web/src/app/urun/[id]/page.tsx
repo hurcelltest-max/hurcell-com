@@ -119,6 +119,12 @@ export default function ProductDetailPage() {
   const publicTitle   = getPublicProductTitle(product);
   const displayCat    = formatCategoryName(product);
 
+  useEffect(() => {
+    if (publicTitle) {
+      document.title = `${publicTitle} | HurCELL Teknoloji Mağazası`
+    }
+  }, [publicTitle])
+
   // Technical specifications to display
   const getConditionLabel = () => {
     const catGroup = getCategoryGroup(product)
@@ -172,8 +178,33 @@ export default function ProductDetailPage() {
     stockBadgeClass = 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
   }
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: publicTitle,
+    image: product.image_url || getFallbackImage(product.category),
+    description: product.description || `${publicTitle} teknoloji ürünü.`,
+    sku: product.barcode || undefined,
+    mpn: product.barcode || undefined,
+    brand: {
+      '@type': 'Brand',
+      name: product.brand || 'HurCELL',
+    },
+    offers: {
+      '@type': 'Offer',
+      price: product.sell_price,
+      priceCurrency: 'TRY',
+      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      url: `https://www.hurcell.com/urun/${product.id}`,
+    },
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-850 font-sans pt-28 pb-16 flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-6 space-y-6 flex-1">
         
         {/* Back navigation */}
@@ -347,17 +378,6 @@ export default function ProductDetailPage() {
         </div>
 
       </div>
-
-      {/* Footer */}
-      <footer className="py-10 bg-slate-100 border-t border-slate-200 text-center text-xs text-slate-500 font-light mt-auto">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 space-y-2.5">
-          <p>© 2026 HurCELL Teknoloji Mağazası. Tüm hakları saklıdır.</p>
-          <div className="flex justify-center gap-5 text-slate-400">
-            <Link href="/privacy" className="hover:text-blue-650 transition-colors">Gizlilik Politikası</Link>
-            <Link href="/satis-sozlesmesi" className="hover:text-blue-650 transition-colors">Mesafeli Satış Sözleşmesi</Link>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

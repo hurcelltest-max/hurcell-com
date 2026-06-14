@@ -60,11 +60,11 @@ export default function ProductDetailPage() {
           `)
           .eq('product_id', id);
 
-        if (!campError && campaignProdData) {
+        if (!campError && Array.isArray(campaignProdData)) {
           const now = new Date()
           let bestCamp: any = null
           campaignProdData.forEach((row: any) => {
-            const camp: any = row.campaigns;
+            const camp: any = row ? row.campaigns : null;
             if (camp && camp.is_active) {
               const startsAt = new Date(camp.starts_at)
               const endsAt = camp.ends_at ? new Date(camp.ends_at) : null
@@ -115,9 +115,9 @@ export default function ProductDetailPage() {
     )
   }
 
-  const isSingleLeft = product.stock === 1;
-  const publicTitle   = getPublicProductTitle(product);
-  const displayCat    = formatCategoryName(product);
+  const isSingleLeft = product ? product.stock === 1 : false;
+  const publicTitle   = product ? getPublicProductTitle(product) : '';
+  const displayCat    = product ? formatCategoryName(product) : '';
 
   useEffect(() => {
     if (publicTitle) {
@@ -127,6 +127,7 @@ export default function ProductDetailPage() {
 
   // Technical specifications to display
   const getConditionLabel = () => {
+    if (!product) return 'İkinci El / Diğer';
     const catGroup = getCategoryGroup(product)
     const isAksesuar = catGroup === 'aksesuar' || catGroup === 'sarj_kablo'
     
@@ -147,10 +148,10 @@ export default function ProductDetailPage() {
     return 'İkinci El / Diğer'
   }
 
-  const catGroup = getCategoryGroup(product)
+  const catGroup = product ? getCategoryGroup(product) : null
   const isAksesuar = catGroup === 'aksesuar' || catGroup === 'sarj_kablo'
 
-  const specs = [
+  const specs = product ? [
     { label: 'Kategori', value: product.category },
     { label: 'Marka', value: product.brand },
     { label: 'Model', value: product.model },
@@ -162,23 +163,29 @@ export default function ProductDetailPage() {
     { label: 'Ekran Boyutu', value: product.screen_size },
     ...(!isAksesuar ? [{ label: 'Cihaz Durumu', value: getConditionLabel() }] : []),
     { label: 'Barkod', value: product.barcode },
-  ].filter(spec => spec.value && spec.value.trim() !== '')
+  ].filter(spec => {
+    if (spec.value === null || spec.value === undefined) return false;
+    const strVal = String(spec.value).trim();
+    return strVal !== '';
+  }) : []
 
   // Stock badge styling for detail page
   let stockLabel = ''
   let stockBadgeClass = ''
-  if (product.stock > 5) {
-    stockLabel = `Stokta · ${product.stock} adet`
-    stockBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200'
-  } else if (product.stock <= 5 && product.stock > 1) {
-    stockLabel = `Az kaldı · ${product.stock} adet`
-    stockBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200'
-  } else if (product.stock === 1) {
-    stockLabel = 'Son 1 adet'
-    stockBadgeClass = 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+  if (product && typeof product.stock === 'number') {
+    if (product.stock > 5) {
+      stockLabel = `Stokta · ${product.stock} adet`
+      stockBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    } else if (product.stock <= 5 && product.stock > 1) {
+      stockLabel = `Az kaldı · ${product.stock} adet`
+      stockBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200'
+    } else if (product.stock === 1) {
+      stockLabel = 'Son 1 adet'
+      stockBadgeClass = 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+    }
   }
 
-  const jsonLd = {
+  const jsonLd = product ? {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: publicTitle,
@@ -197,14 +204,16 @@ export default function ProductDetailPage() {
       availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       url: `https://www.hurcell.com/urun/${product.id}`,
     },
-  }
+  } : null;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-850 font-sans pt-28 pb-16 flex flex-col">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-6 space-y-6 flex-1">
         
         {/* Back navigation */}

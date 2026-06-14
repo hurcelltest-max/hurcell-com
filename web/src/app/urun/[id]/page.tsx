@@ -88,6 +88,14 @@ export default function ProductDetailPage() {
     fetchProductDetails()
   }, [id])
 
+  const publicTitle = product ? getPublicProductTitle(product) : '';
+
+  useEffect(() => {
+    if (publicTitle) {
+      document.title = `${publicTitle} | HurCELL Teknoloji Mağazası`
+    }
+  }, [publicTitle])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 pt-32 flex justify-center items-center">
@@ -116,14 +124,7 @@ export default function ProductDetailPage() {
   }
 
   const isSingleLeft = product ? product.stock === 1 : false;
-  const publicTitle   = product ? getPublicProductTitle(product) : '';
   const displayCat    = product ? formatCategoryName(product) : '';
-
-  useEffect(() => {
-    if (publicTitle) {
-      document.title = `${publicTitle} | HurCELL Teknoloji Mağazası`
-    }
-  }, [publicTitle])
 
   // Technical specifications to display
   const getConditionLabel = () => {

@@ -2779,7 +2779,11 @@ const [products, setProducts] = useState<Product[]>([]);
               </h3>
               <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto scrollbar-thin pr-2">
                 {lowStockWarnings.slice(0, 10).map((p) => (
-                  <div key={p.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+                  <div 
+                    key={p.id} 
+                    className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4 cursor-pointer hover:bg-amber-50/50 px-2 -mx-2 rounded-xl transition-colors"
+                    onClick={() => handleStartEdit(p)}
+                  >
                     <span className="text-xs font-bold text-slate-800 truncate" title={p.name}>{p.name}</span>
                     <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black shrink-0 ${p.stock === 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
                       {p.stock} Adet Kaldı

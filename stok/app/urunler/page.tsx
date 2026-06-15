@@ -675,6 +675,20 @@ export default function UrunlerPage() {
   const [campEnds, setCampEnds] = useState("");
   const [campIsActive, setCampIsActive] = useState(true);
   const [isCampSaving, setIsCampSaving] = useState(false);
+  const [selectedDiscountedProducts, setSelectedDiscountedProducts] = useState<Product[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  useEffect(() => {
+    if (campaignModalProduct) {
+      setSelectedDiscountedProducts([]);
+      setSearchQuery("");
+      setIsSearchFocused(false);
+      setCampType("cross_product");
+      setCampBuyQty(1);
+      setCampDiscQty(1);
+    }
+  }, [campaignModalProduct]);
 
   useEffect(() => {
     if (campaignModalProduct) {
@@ -713,15 +727,14 @@ export default function UrunlerPage() {
       const { data: newCamp, error } = await (supabase as any).from("campaigns").insert([payload]).select("id").single();
       if (error) throw error;
 
-      let rows = [];
+      let rows: any[] = [];
       if (campType === "cross_product") {
-         rows = [
-           { campaign_id: (newCamp as any).id, product_id: campaignModalProduct.id, product_role: "trigger" }
-         ];
+         rows.push({ campaign_id: (newCamp as any).id, product_id: campaignModalProduct.id, product_role: "trigger" });
+         selectedDiscountedProducts.forEach(dp => {
+           rows.push({ campaign_id: (newCamp as any).id, product_id: dp.id, product_role: "discounted" });
+         });
       } else {
-         rows = [
-           { campaign_id: (newCamp as any).id, product_id: campaignModalProduct.id, product_role: "eligible" }
-         ];
+         rows.push({ campaign_id: (newCamp as any).id, product_id: campaignModalProduct.id, product_role: "eligible" });
       }
       
       const { error: relError } = await supabase!.from("campaign_products").insert(rows as any);
@@ -2760,16 +2773,16 @@ const [products, setProducts] = useState<Product[]>([]);
 
           {/* Düşük Stok Uyarıları (Varsa) */}
           {lowStockWarnings.length > 0 && (
-            <div className="rounded-3xl border border-amber-200 bg-amber-50/30 p-5 space-y-3 animate-in fade-in duration-200">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                ⚠️ Düşük Stok Uyarıları
-              </h4>
-              <div className="divide-y divide-amber-100 max-h-40 overflow-y-auto scrollbar-thin">
-                {lowStockWarnings.slice(0, 5).map((p) => (
-                  <div key={p.id} className="py-2 first:pt-0 last:pb-0 flex items-center justify-between text-xs">
-                    <span className="font-medium text-slate-800 truncate max-w-[200px]" title={p.name}>{p.name}</span>
-                    <span className={`px-2 py-0.5 rounded-full font-bold ${p.stock === 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {p.stock} adet kaldı
+            <div className="rounded-3xl border border-amber-200 bg-white/95 p-6 shadow-sm shadow-amber-900/5 space-y-4 animate-in fade-in duration-200">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-600 flex items-center gap-2">
+                <span className="text-lg">⚠️</span> Düşük Stok Uyarıları
+              </h3>
+              <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto scrollbar-thin pr-2">
+                {lowStockWarnings.slice(0, 10).map((p) => (
+                  <div key={p.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+                    <span className="text-xs font-bold text-slate-800 truncate" title={p.name}>{p.name}</span>
+                    <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black shrink-0 ${p.stock === 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                      {p.stock} Adet Kaldı
                     </span>
                   </div>
                 ))}
@@ -3812,75 +3825,165 @@ const [products, setProducts] = useState<Product[]>([]);
           <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <div>
-                <h3 className="font-bold text-lg text-slate-900">Yeni Kampanya Oluştur</h3>
-                <p className="text-xs text-slate-500 mt-1">{campaignModalProduct.name}</p>
+                <h3 className="font-bold text-lg text-slate-900">{campaignModalProduct.name} için kampanya oluştur</h3>
               </div>
               <button onClick={() => setCampaignModalProduct(null)} className="text-slate-400 hover:text-slate-600 font-bold">
                 Kapat
               </button>
             </div>
             <div className="p-6 overflow-y-auto space-y-4">
+              
+              <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4">
+                <p className="text-xs font-bold text-blue-900">Seçilen şart ürün: {campaignModalProduct.name}</p>
+                <p className="text-xs text-blue-700 mt-1">Bu ürün kampanyayı başlatır, değiştirilemez.</p>
+              </div>
+
               <div>
                 <label className="text-xs font-bold text-slate-700">Kampanya Adı</label>
-                <input type="text" placeholder="Örn: 2. Ürüne %50 İndirim" value={campName} onChange={e => setCampName(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white" />
+                <input type="text" placeholder="Örn: Kılıf alana ekran koruyucu 1 TL" value={campName} onChange={e => setCampName(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white text-slate-900" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-700">Açıklama</label>
-                <textarea placeholder="Müşterilere gösterilecek açıklama..." value={campDesc} onChange={e => setCampDesc(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white" />
+                <textarea placeholder="Müşterilere gösterilecek açıklama..." value={campDesc} onChange={e => setCampDesc(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white text-slate-900" />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-700">Kampanya Tipi</label>
-                  <select value={campType} onChange={e => setCampType(e.target.value as any)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white">
-                    <option value="direct_discount">Direkt İndirim</option>
-                    <option value="quantity_discount">Adet Bazlı İndirim</option>
-                    <option value="buy_x_pay_y">Al X Öde Y</option>
-                    <option value="cross_product">Çapraz Kampanya (Tetikleyici)</option>
+                  <select value={campType} onChange={e => setCampType(e.target.value as any)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white text-slate-900">
+                    <option value="direct_discount">Bu ürüne direkt indirim yap</option>
+                    <option value="quantity_discount">Bu üründen belirli adet alınca indirim yap</option>
+                    <option value="cross_product">Bu ürün alınırsa başka üründe indirim yap</option>
+                    <option value="buy_x_pay_y">Bu ürün veya seçili ürünlerde Al X Öde Y kampanyası yap</option>
                   </select>
+                  {campType === "cross_product" && (
+                  <div className="mt-4 p-4 border border-blue-100 bg-blue-50/50 rounded-xl">
+                    <label className="text-xs font-bold text-slate-700 block mb-2">İndirim Uygulanacak Ürünleri Seç (Zorunlu)</label>
+                    <div className="flex gap-2 mb-2 flex-wrap">
+                      {selectedDiscountedProducts.map(dp => (
+                        <span key={dp.id} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-md flex items-center gap-1">
+                          {dp.name} 
+                          <button type="button" onClick={() => setSelectedDiscountedProducts(prev => prev.filter(p => p.id !== dp.id))} className="text-blue-500 hover:text-blue-900 ml-1">x</button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="relative">
+                       <input 
+                         type="text" 
+                         placeholder="Ürün adı, barkod ya da marka arayın..." 
+                         value={searchQuery} 
+                         onChange={e => setSearchQuery(e.target.value)}
+                         onFocus={() => setIsSearchFocused(true)}
+                         onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                         className="w-full border border-slate-200 rounded-xl p-3 text-xs bg-white text-slate-900"
+                       />
+                       {(isSearchFocused || searchQuery.length > 0) && (
+                         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 shadow-2xl rounded-xl max-h-64 overflow-y-auto z-[110]">
+                           {(() => {
+                             const q = searchQuery.trim().toLowerCase();
+                             const filtered = products.filter(p => {
+                               if (p.id === campaignModalProduct.id) return false;
+                               if (selectedDiscountedProducts.find(sp => sp.id === p.id)) return false;
+                               if (!q) return true;
+                               const searchStr = `${p.name} ${p.barcode || ''} ${p.brand || ''} ${p.model || ''}`.toLowerCase();
+                               return searchStr.includes(q);
+                             }).slice(0, 20); // İlk 20 sonucu göster
+                             
+                             if (filtered.length === 0) {
+                               return <div className="p-4 text-xs text-slate-500 text-center">Ürün bulunamadı.</div>;
+                             }
+                             
+                             return filtered.map(p => (
+                               <div 
+                                 key={p.id} 
+                                 className="flex items-center gap-3 p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0"
+                                 onClick={() => {
+                                   setSelectedDiscountedProducts(prev => [...prev, p]);
+                                   setSearchQuery("");
+                                 }}
+                               >
+                                 <div className="h-10 w-10 shrink-0 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center">
+                                   {p.image_url ? (
+                                     <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
+                                   ) : (
+                                     <span className="text-slate-400 text-lg">
+                                       {p.category?.toLowerCase() === 'telefon' ? '📱' 
+                                          : p.category?.toLowerCase() === 'tablet' ? '💊' 
+                                          : p.category?.toLowerCase() === 'bilgisayar' ? '💻' 
+                                          : p.category?.toLowerCase() === 'aksesuar' ? '🎧' 
+                                          : p.category?.toLowerCase() === 'akıllı saat' ? '⌚' 
+                                          : '📦'}
+                                     </span>
+                                   )}
+                                 </div>
+                                 <div className="flex-1 min-w-0">
+                                   <div className="text-xs font-bold text-slate-900 truncate">{p.name}</div>
+                                   <div className="flex gap-2 mt-1">
+                                     <span className="text-[10px] text-slate-500 font-mono">#{p.barcode || 'Barkodsuz'}</span>
+                                     <span className="text-[10px] text-slate-500">{p.category}</span>
+                                   </div>
+                                 </div>
+                                 <div className="text-xs font-bold text-slate-900 text-right shrink-0">
+                                   {(p.sell_price || 0).toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
+                                 </div>
+                               </div>
+                             ));
+                           })()}
+                         </div>
+                       )}
+                    </div>
+                  </div>
+                )}
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-700">İndirim Türü</label>
-                  <select value={campDiscType} onChange={e => setCampDiscType(e.target.value as any)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white">
-                    <option value="percent">Yüzdesel (%)</option>
-                    <option value="fixed_amount">Sabit Tutar (TRY)</option>
+                  <select value={campDiscType} onChange={e => setCampDiscType(e.target.value as any)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white text-slate-900">
+                    <option value="percent">Yüzde indirim</option>
+                    <option value="fixed_amount">Sabit tutar indirimi</option>
+                    <option value="fixed_price">Sabit son fiyat</option>
                   </select>
                 </div>
               </div>
               
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-700">İndirim Miktarı</label>
-                  <input type="number" value={campDiscValue} onChange={e => setCampDiscValue(Number(e.target.value))} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white" />
+                  <label className="text-xs font-bold text-slate-700">İndirim Miktarı / Değeri</label>
+                  <input type="number" value={campDiscValue} onChange={e => setCampDiscValue(Number(e.target.value))} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white text-slate-900" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-700">Satın Alınacak Adet (Buy Qty)</label>
-                  <input type="number" value={campBuyQty} onChange={e => setCampBuyQty(Number(e.target.value))} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white" />
+                  <label className="text-xs font-bold text-slate-700">
+                    Kaç Adet Alınca?
+                  </label>
+                  {campType === "cross_product" && <p className="text-[9px] text-slate-500 leading-tight mt-0.5">Şart üründen sepette kaç adet olunca kampanya devreye girer?</p>}
+                  <input type="number" min="1" value={campBuyQty} onChange={e => setCampBuyQty(Number(e.target.value))} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white text-slate-900" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-700">İndirimli Adet (Discounted Qty)</label>
-                  <input type="number" value={campDiscQty} onChange={e => setCampDiscQty(Number(e.target.value))} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white" />
+                  <label className="text-xs font-bold text-slate-700">
+                    Kaç Adede İndirim Uygulanacak?
+                  </label>
+                  {campType === "cross_product" && <p className="text-[9px] text-slate-500 leading-tight mt-0.5">Sepetteki indirimli üründen kaç adede indirim uygulanır?</p>}
+                  <input type="number" min="1" value={campDiscQty} onChange={e => setCampDiscQty(Number(e.target.value))} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white text-slate-900" />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-700">Başlangıç Tarihi</label>
-                  <input type="datetime-local" value={campStarts} onChange={e => setCampStarts(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white" />
+                  <input type="datetime-local" value={campStarts} onChange={e => setCampStarts(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white text-slate-900" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-700">Bitiş Tarihi</label>
-                  <input type="datetime-local" value={campEnds} onChange={e => setCampEnds(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white" />
+                  <input type="datetime-local" value={campEnds} onChange={e => setCampEnds(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-xs mt-1 bg-slate-50 focus:bg-white text-slate-900" />
                 </div>
               </div>
               <div className="flex items-center gap-3 mt-4">
                 <input type="checkbox" id="campActive" checked={campIsActive} onChange={e => setCampIsActive(e.target.checked)} className="w-4 h-4 text-blue-600 rounded border-slate-300" />
-                <label htmlFor="campActive" className="text-sm font-semibold text-slate-700">Bu kampanya aktif olarak yayınlansın.</label>
+                <label htmlFor="campActive" className="text-sm font-semibold text-slate-900">Bu kampanya aktif olarak yayınlansın.</label>
               </div>
             </div>
             <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-white">
-              <button onClick={() => setCampaignModalProduct(null)} className="px-6 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold transition-all">İptal</button>
-              <button onClick={handleSaveCampaign} disabled={isCampSaving} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all">{isCampSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+              <button onClick={() => setCampaignModalProduct(null)} className="px-6 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold transition-all text-slate-700">İptal</button>
+              <button onClick={handleSaveCampaign} disabled={isCampSaving || (campType === "cross_product" && selectedDiscountedProducts.length === 0)} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50">{isCampSaving ? "Kaydediliyor..." : "Kaydet"}</button>
             </div>
           </div>
         </div>

@@ -220,6 +220,12 @@ export async function POST(req: Request) {
     }
 
     const orderFinalTotal = Math.max(0, orderSubtotal - orderTotalDiscount);
+    
+    // Shipping fee calculation:
+    // Subtotal <= 999 TL -> Shipping Fee: 125 TL
+    // Subtotal >= 1000 TL -> Shipping Fee: 0 TL
+    const shippingFee = orderFinalTotal <= 999 ? 125 : 0;
+    const orderGrandTotal = orderFinalTotal + shippingFee;
 
     // 4. Create pending order in database
     const { data: order, error: orderError } = await supabaseAdmin
@@ -232,10 +238,17 @@ export async function POST(req: Request) {
         shipping_address: shipping_address.trim(),
         subtotal_amount: orderSubtotal,
         discount_amount: orderTotalDiscount,
-        total_amount: orderFinalTotal,
+        shipping_fee: shippingFee,
+        total_amount: orderGrandTotal,
         campaign_summary: appliedCampaignsSummary,
         currency: 'TRY',
         status: 'pending',
+        payment_method: 'cash_on_delivery',
+        payment_provider: 'dhl',
+        payment_status: 'pending_on_delivery',
+        shipping_provider: 'dhl',
+        shipping_status: 'pending',
+        dhl_status: 'dhl_pending',
       })
       .select('id, order_number, lookup_token, total_amount, currency')
       .single();

@@ -44,9 +44,9 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-xl font-medium text-slate-900 tracking-tight">3. Ödeme Güvenliği Altyapısı</h2>
+              <h2 className="text-xl font-medium text-slate-900 tracking-tight">3. Ödeme ve Teslimat Altyapısı</h2>
               <p>
-                Alışverişleriniz sırasında kullanılacak kredi kartı ve ödeme bilgileri, online ödeme altyapısı aktif olduğunda lisanslı güvenli ödeme kuruluşu altyapısı üzerinden işlenecektir. HurCELL, kart bilgilerinizi kendi sunucularında saklamaz.
+                Siparişlerinizin ödemesi DHL Kapıda Ödeme yöntemiyle, teslimat sırasında kapıda tahsil edilmektedir. Alışverişleriniz sırasında herhangi bir kart bilgisi veya online ödeme alınmamaktadır.
               </p>
             </section>
 

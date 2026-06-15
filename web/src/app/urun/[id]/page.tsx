@@ -367,19 +367,27 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* WhatsApp Purchase CTA */}
-            <div className="pt-3">
+            {/* Purchase CTA Buttons */}
+            <div className="pt-3 space-y-3">
+              <Link
+                href={`/checkout?product_id=${product.id}`}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-2xl transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow cursor-pointer text-center text-sm"
+              >
+                <ShoppingBag size={16} />
+                Hemen Satın Al (Kapıda Ödeme)
+              </Link>
+              
               <a
                 href={getWhatsAppLink(publicTitle, product.barcode, product.sell_price)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-2xl transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow cursor-pointer"
+                className="w-full py-3 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-2xl transition-all flex items-center justify-center gap-2 border border-slate-200 cursor-pointer text-sm shadow-sm"
               >
-                <ShoppingBag size={16} />
-                WhatsApp'tan Bilgi Al & Rezerve Et
+                WhatsApp'tan Sor & Rezerve Et
               </a>
-              <p className="text-[10px] text-slate-450 font-light mt-2.5 text-center">
-                Bu aşamada online ödeme alınmamaktadır. WhatsApp butonuna basarak ürünü sorgulayabilir ve rezerve edebilirsiniz.
+              
+              <p className="text-[10px] text-slate-450 font-light mt-2.5 text-center leading-relaxed">
+                Ödeme teslimat sırasında kapıda alınır. Siparişiniz alındıktan sonra HurCELL tarafından onaylanacaktır. DHL kargo süreci başlatıldığında takip bilgisi paylaşılacaktır.
               </p>
             </div>
 

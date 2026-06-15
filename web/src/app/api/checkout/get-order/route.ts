@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     // 1. Fetch order details from database using service role
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('id, order_number, lookup_token, customer_name, customer_email, customer_phone, billing_address, shipping_address, total_amount, currency, status, created_at')
+      .select('id, order_number, lookup_token, customer_name, customer_email, customer_phone, billing_address, shipping_address, total_amount, currency, status, payment_provider, payment_method, payment_status, shipping_provider, shipping_status, shipping_fee, created_at')
       .eq('order_number', orderNumber)
       .single();
 
@@ -61,6 +61,12 @@ export async function GET(req: Request) {
       total_amount: order.total_amount,
       currency: order.currency,
       status: order.status,
+      payment_provider: order.payment_provider,
+      payment_method: order.payment_method,
+      payment_status: order.payment_status,
+      shipping_provider: order.shipping_provider,
+      shipping_status: order.shipping_status,
+      shipping_fee: order.shipping_fee,
       created_at: order.created_at,
     };
 

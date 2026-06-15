@@ -88,15 +88,15 @@ export default function RefundTermsPage() {
             <section className="space-y-2.5">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <RefreshCw size={18} className="text-emerald-600" />
-                4. Geri Ödemeler ve POS Süreci
+                4. Geri Ödemeler ve İade Süreci
               </h2>
               <p>
-                Gönderilen iade ürünlerinin ön fiziki kontrolleri ve iade şartlarına uygunluğu mağaza yetkililerimiz tarafından onaylandıktan sonra geri ödeme talimatı verilir. Geri ödeme işlemleri, ödemenin alındığı ödeme yöntemi ve ilgili ödeme kuruluşu prosedürlerine göre tamamlanır.
+                Gönderilen iade ürünlerinin ön fiziki kontrolleri ve iade şartlarına uygunluğu mağaza yetkililerimiz tarafından onaylandıktan sonra geri ödeme işlemi başlatılır. Ödemeler DHL Kapıda Ödeme yöntemiyle teslimat sırasında nakit/kart olarak tahsil edildiği için, ürün iadesi onaylandığında geri ödeme alıcının belirteceği banka hesabına (IBAN) havale/EFT yoluyla gerçekleştirilir. (Hukuki danışman kontrol etmelidir.)
               </p>
               <p className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-650 font-mono">
                 <strong>İade Adresi:</strong> 1390 Sokak 11/A 35320 Alsancak Konak / İZMİR
                 <br />
-                <strong>ÖNEMLİ:</strong> Bankaların iç süreçleri sebebiyle taksitli yapılan alışverişlerin iadesi kartınıza bankanız tarafından taksitler halinde yansıtılabilir. Bu süreç tamamen bankaların sorumluluğundadır.
+                <strong>ÖNEMLİ:</strong> Geri ödemenin sağlıklı yapılabilmesi için alıcının kendi adına kayıtlı güncel bir IBAN numarasını mağazamızla paylaşması gerekmektedir.
               </p>
             </section>
 

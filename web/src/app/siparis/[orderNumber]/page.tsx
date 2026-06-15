@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ShoppingBag, ShieldAlert, Clock, CreditCard, XCircle, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ShoppingBag, ShieldAlert, Clock, CreditCard, XCircle, RefreshCw, CheckCircle2, Truck, Info } from 'lucide-react'
 import { formatPriceTRY } from '@/lib/constants'
 
 interface OrderDetails {
@@ -16,6 +16,10 @@ interface OrderDetails {
   total_amount: number
   currency: string
   status: string
+  payment_provider?: string | null
+  payment_method?: string | null
+  shipping_provider?: string | null
+  shipping_fee?: number | null
   created_at: string
 }
 
@@ -110,16 +114,17 @@ function OrderTrackingContent() {
   }
 
   const { order, items } = orderDetails
+  const isCOD = order.payment_method === 'cash_on_delivery' || order.payment_provider === 'dhl'
 
   // Translate and style order status badges
-  let statusLabel = 'Bekliyor'
+  let statusLabel = isCOD ? 'Sipariş Alındı / Onay Bekliyor' : 'Bekliyor'
   let statusColor = 'bg-amber-50 text-amber-700 border-amber-200'
   let StatusIcon = Clock
 
   if (order.status === 'paid') {
-    statusLabel = 'Ödendi / Hazırlanıyor'
+    statusLabel = isCOD ? 'Onaylandı / Hazırlanıyor' : 'Ödendi / Hazırlanıyor'
     statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    StatusIcon = CreditCard
+    StatusIcon = isCOD ? CheckCircle2 : CreditCard
   } else if (order.status === 'failed') {
     statusLabel = 'Ödeme Başarısız'
     statusColor = 'bg-rose-50 text-rose-700 border-rose-200'
@@ -175,6 +180,19 @@ function OrderTrackingContent() {
           </div>
         </div>
 
+        {/* COD Notice Box */}
+        {isCOD && (
+          <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex gap-3 items-start text-xs shadow-inner">
+            <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1 text-slate-700 leading-relaxed">
+              <p className="font-bold text-slate-900">DHL Kapıda Ödeme Bilgilendirmesi</p>
+              <p className="font-light">
+                Ödeme DHL teslimatı sırasında kapıda alınacaktır. Siparişiniz alındıktan sonra HurCELL tarafından onaylanacaktır. DHL kargo süreci başlatıldığında takip bilgisi paylaşılacaktır.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Order items snapshots table */}
         <div className="space-y-4">
           <h3 className="font-semibold text-slate-850 uppercase tracking-wider text-[10px] text-slate-400 font-mono">Sipariş Kalemleri</h3>
@@ -207,13 +225,34 @@ function OrderTrackingContent() {
           </div>
         </div>
 
-        {/* Grand total */}
-        <div className="flex justify-between items-center bg-slate-50 border border-slate-150 rounded-2xl p-4 sm:p-5">
-          <span className="text-xs sm:text-sm font-semibold text-slate-650">Ödenen Toplam Tutar</span>
-          <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            {formatPriceTRY(order.total_amount)}
-          </span>
-        </div>
+        {/* Grand total or detailed pricing breakdown */}
+        {isCOD ? (
+          <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 sm:p-5 space-y-2.5 text-xs text-slate-600">
+            <div className="flex justify-between">
+              <span>Sipariş Alt Toplamı</span>
+              <span className="font-semibold text-slate-850">{formatPriceTRY(order.total_amount - (order.shipping_fee || 0))}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>DHL Kargo ve Kapıda Ödeme Hizmeti</span>
+              <span className="font-semibold text-slate-850">
+                {order.shipping_fee && order.shipping_fee > 0 ? formatPriceTRY(order.shipping_fee) : 'Ücretsiz'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center border-t border-slate-250 pt-3 text-sm font-bold text-slate-900">
+              <span>Kapıda Ödenecek Toplam Tutar</span>
+              <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                {formatPriceTRY(order.total_amount)}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-between items-center bg-slate-50 border border-slate-150 rounded-2xl p-4 sm:p-5">
+            <span className="text-xs sm:text-sm font-semibold text-slate-650">Ödenen Toplam Tutar</span>
+            <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              {formatPriceTRY(order.total_amount)}
+            </span>
+          </div>
+        )}
 
         {/* Cancellation and Refund Button */}
         <div className="pt-4 border-t border-slate-100">

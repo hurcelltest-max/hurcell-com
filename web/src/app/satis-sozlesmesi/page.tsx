@@ -82,7 +82,7 @@ export default function SalesContractPage() {
                 Sözleşme konusu ürünün cinsi, miktarı, satış bedeli ve teslimat detayları alıcının sipariş sonlandırma aşamasındaki seçimine göre belirlenir.
               </p>
               <p>
-                Online ödeme altyapısı aktif olduğunda, ödeme işlemleri lisanslı güvenli ödeme kuruluşu altyapısı ve 3D Secure güvencesiyle gerçekleştirilecektir. HurCELL, kart bilgilerinizi kendi sunucularında saklamaz.
+                Ödeme yöntemi sabit olarak "DHL Kapıda Ödeme" olarak belirlenmiştir. Müşteri alışveriş sırasında online ödeme yapmaz veya kart bilgisi girmez. Sipariş tutarı teslimat anında kapıda DHL kargo görevlisine ödenir. 999 TL altı siparişlerde DHL kargo bedeli 125 TL’dir. 1000 TL ve üzeri siparişlerde kargo ücretsizdir.
               </p>
             </section>
 
@@ -93,7 +93,7 @@ export default function SalesContractPage() {
                 3. Teslimat ve İfa Esasları
               </h2>
               <p>
-                Satıcı, sipariş edilen ürünü alıcının beyan ettiği adrese yasal 30 günlük süreyi aşmamak şartıyla kargo firması aracılığıyla güvenli şekilde teslim etmekle yükümlüdür. Ürünün teslim anına kadar oluşabilecek kargo hasarlarından ve zayiattan satıcı sorumludur.
+                Siparişiniz alındıktan sonra HurCELL tarafından onaylanacaktır. Onaylanan siparişler, alıcının beyan ettiği adrese yasal 30 günlük süreyi aşmamak şartıyla DHL ile teslimat kapsamında güvenli şekilde teslim edilir. DHL kargo süreci başlatıldığında takip bilgisi alıcı ile paylaşılacaktır. Ürünün teslim anına kadar oluşabilecek kargo hasarlarından ve zayiattan satıcı sorumludur.
               </p>
             </section>
 

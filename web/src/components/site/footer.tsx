@@ -19,7 +19,7 @@ export function Footer() {
 
         {/* Security & Trust Text */}
         <p className="text-center max-w-xl mx-auto text-[11px] text-slate-450 leading-relaxed">
-          Online ödeme altyapısı aktif olduğunda ödeme işlemleri lisanslı güvenli ödeme kuruluşu altyapısı ve 3D Secure güvencesiyle gerçekleştirilecektir.
+          Ödemelerimiz DHL Kapıda Ödeme modeli ile teslimat anında gerçekleştirilmektedir. Herhangi bir kart bilgisi veya online ödeme alınmamaktadır.
         </p>
 
         {/* Copyright */}

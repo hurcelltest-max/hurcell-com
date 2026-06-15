@@ -71,6 +71,7 @@ export default function ProductDetailPage() {
         const { data: campaignProdData, error: campError } = await supabase
           .from('campaign_products')
           .select(`
+            product_role,
             campaigns:campaign_id (
               id,
               name,
@@ -88,6 +89,7 @@ export default function ProductDetailPage() {
           const now = new Date()
           let bestCamp: any = null
           campaignProdData.forEach((row: any) => {
+            if (row.product_role === 'trigger') return;
             const camp: any = row ? row.campaigns : null;
             if (camp && camp.is_active) {
               const startsAt = new Date(camp.starts_at)

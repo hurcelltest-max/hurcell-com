@@ -139,6 +139,7 @@ function ShopPageContent() {
           .from('campaign_products')
           .select(`
             product_id,
+            product_role,
             campaigns:campaign_id (
               id,
               name,
@@ -154,6 +155,7 @@ function ShopPageContent() {
           const mapping: Record<string, any> = {}
           const now = new Date()
           campaignProdData.forEach((row: any) => {
+            if (row.product_role === 'trigger') return;
             const camp: any = row.campaigns;
             if (camp && camp.is_active) {
               const startsAt = new Date(camp.starts_at)

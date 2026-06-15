@@ -63,6 +63,7 @@ export async function POST(req: Request) {
       .from('campaign_products')
       .select(`
         product_id,
+        product_role,
         campaigns:campaign_id (
           id,
           name,
@@ -87,8 +88,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Map of product_id to list of active campaigns
-    const productCampaignsMap = new Map<string, any[]>();
+    // Group by campaign_id, and track trigger vs eligible/discounted product sets in the cart
+    const activeCampaigns = new Map<string, {
+      campaign: any;
+      triggers: Set<string>;
+      eligibles: Set<string>;
+    }>();
+
     if (dbCampaignProducts) {
       dbCampaignProducts.forEach((row: any) => {
         const camp: any = row.campaigns;
@@ -97,10 +103,20 @@ export async function POST(req: Request) {
           const endsAt = camp.ends_at ? new Date(camp.ends_at) : null;
           const currentDate = new Date();
           if (startsAt <= currentDate && (!endsAt || endsAt >= currentDate)) {
-            if (!productCampaignsMap.has(row.product_id)) {
-              productCampaignsMap.set(row.product_id, []);
+            if (!activeCampaigns.has(camp.id)) {
+              activeCampaigns.set(camp.id, {
+                campaign: camp,
+                triggers: new Set<string>(),
+                eligibles: new Set<string>()
+              });
             }
-            productCampaignsMap.get(row.product_id)!.push(camp);
+            const entry = activeCampaigns.get(camp.id)!;
+            if (row.product_role === 'trigger') {
+              entry.triggers.add(row.product_id);
+            } else {
+              // eligible or discounted
+              entry.eligibles.add(row.product_id);
+            }
           }
         }
       });
@@ -109,6 +125,15 @@ export async function POST(req: Request) {
     // Map DB products by ID for fast lookup
     const productsMap = new Map<string, typeof dbProducts[number]>();
     dbProducts.forEach((p) => productsMap.set(p.id, p));
+
+    // Map cart quantities for trigger calculations
+    const cartQuantities = new Map<string, number>();
+    items.forEach((item: any) => {
+      const reqQty = parseInt(item.quantity, 10);
+      if (!isNaN(reqQty) && reqQty > 0) {
+        cartQuantities.set(item.product_id, reqQty);
+      }
+    });
 
     // Verify all request items exist, are visible, and have sufficient stock
     let orderSubtotal = 0;
@@ -153,13 +178,17 @@ export async function POST(req: Request) {
       orderSubtotal += itemSubtotal;
 
       // Find the best campaign for this product
-      const applicableCampaigns = productCampaignsMap.get(dbProduct.id) || [];
       let bestCampaign: any = null;
       let maxCampaignDiscount = 0;
 
-      for (const camp of applicableCampaigns) {
+      activeCampaigns.forEach((entry) => {
+        const { campaign: camp, triggers, eligibles } = entry;
+
+        // Product must be eligible/discounted under this campaign
+        if (!eligibles.has(dbProduct.id)) return;
+
         if (camp.campaign_type === 'same_product_quantity_discount') {
-          const buyQty = camp.buy_quantity || 2;
+          const buyQty = camp.buy_quantity || 1;
           const discQty = camp.discounted_quantity || 1;
           
           if (reqQuantity >= buyQty) {
@@ -183,8 +212,35 @@ export async function POST(req: Request) {
               bestCampaign = camp;
             }
           }
+        } else if (camp.campaign_type === 'cross_product_discount') {
+          // Cross product logic: trigger products must be present in cart
+          let totalTriggerQty = 0;
+          triggers.forEach((triggerProdId) => {
+            totalTriggerQty += cartQuantities.get(triggerProdId) || 0;
+          });
+
+          if (totalTriggerQty > 0) {
+            const applicableQty = Math.min(reqQuantity, totalTriggerQty);
+            
+            let itemUnitDiscount = 0;
+            if (camp.discount_type === 'percent') {
+              itemUnitDiscount = itemOriginalPrice * (camp.discount_value / 100);
+            } else if (camp.discount_type === 'fixed_amount') {
+              itemUnitDiscount = camp.discount_value;
+            }
+            
+            if (itemUnitDiscount > itemOriginalPrice) {
+              itemUnitDiscount = itemOriginalPrice;
+            }
+            
+            const totalDiscountForCamp = applicableQty * itemUnitDiscount;
+            if (totalDiscountForCamp > maxCampaignDiscount) {
+              maxCampaignDiscount = totalDiscountForCamp;
+              bestCampaign = camp;
+            }
+          }
         }
-      }
+      });
 
       const rowDiscount = maxCampaignDiscount;
       const finalRowTotal = Math.max(0, itemSubtotal - rowDiscount);

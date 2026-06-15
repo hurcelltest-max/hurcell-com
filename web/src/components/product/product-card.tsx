@@ -119,9 +119,9 @@ export function ProductCard({
         {campaign && (
           <div className="mb-3">
             <span className="text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100 rounded-lg px-2 py-0.5 inline-block">
-              {campaign.discount_type === 'percent'
+              {campaign.name || (campaign.discount_type === 'percent'
                 ? `2. Ürüne %${Math.round(campaign.discount_value)} İndirim`
-                : `2. Ürüne ${formatPriceTRY(campaign.discount_value)} İndirim`
+                : `2. Ürüne ${formatPriceTRY(campaign.discount_value)} İndirim`)
               }
             </span>
           </div>

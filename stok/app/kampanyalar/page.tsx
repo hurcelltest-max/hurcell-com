@@ -184,7 +184,7 @@ export default function CampaignsPage() {
       const payload = {
         name: formName.trim(),
         description: formDesc.trim() || null,
-        campaign_type: "same_product_quantity_discount",
+        campaign_type: "quantity_discount",
         discount_type: formDiscountType,
         discount_value: Number(formDiscountValue),
         buy_quantity: Number(formBuyQty),
@@ -315,12 +315,7 @@ export default function CampaignsPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">KAMPANYA YÖNETİMİ</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Kampanyalar</h2>
           </div>
-          <button
-            onClick={handleOpenCreateModal}
-            className="rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-5 py-3 shadow-sm transition-colors cursor-pointer self-start sm:self-auto"
-          >
-            Yeni Kampanya Oluştur
-          </button>
+          
         </div>
       </div>
 

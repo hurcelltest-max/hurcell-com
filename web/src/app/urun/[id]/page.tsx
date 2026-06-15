@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getWhatsAppLink, getFallbackImage, formatPriceTRY, getPublicProductTitle, formatCategoryName, getCategoryGroup } from '@/lib/constants'
 import type { Product } from '@/types'
-import { ArrowLeft, ShoppingBag, CheckCircle, AlertCircle } from 'lucide-react'
+import { ArrowLeft, ShoppingBag, CheckCircle, AlertCircle, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
 
 export default function ProductDetailPage() {
   const params = useParams()
@@ -18,8 +18,32 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+  const [lightboxImageIndex, setLightboxImageIndex] = useState(0)
   
   const supabase = createClient()
+
+  const activeImages = product
+    ? ([product.image_url, product.image_url_2, product.image_url_3].filter(Boolean) as string[])
+    : []
+  const displayImages = activeImages.length > 0 ? activeImages : (product ? [getFallbackImage(product.category)] : [])
+
+  useEffect(() => {
+    if (!isLightboxOpen || displayImages.length === 0) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsLightboxOpen(false)
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setLightboxImageIndex(prev => (prev + 1) % displayImages.length)
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setLightboxImageIndex(prev => (prev - 1 + displayImages.length) % displayImages.length)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isLightboxOpen, displayImages.length])
 
   useEffect(() => {
     if (!id) return
@@ -231,16 +255,32 @@ export default function ProductDetailPage() {
           
           {/* Column Left: Image Preview & Gallery */}
           <div className="md:col-span-5 flex flex-col items-center gap-4">
-            <div className="w-full aspect-square relative overflow-hidden bg-slate-50/50 rounded-2xl border border-slate-200/60 shadow-inner flex items-center justify-center p-6">
+            <div 
+              className="w-full aspect-square relative overflow-hidden bg-slate-50/50 rounded-2xl border border-slate-200/60 shadow-inner flex items-center justify-center p-6 cursor-zoom-in group"
+              onClick={() => {
+                const currentImg = selectedImage || product.image_url || getFallbackImage(product.category);
+                const currentIdx = displayImages.indexOf(currentImg);
+                setLightboxImageIndex(currentIdx >= 0 ? currentIdx : 0);
+                setIsLightboxOpen(true);
+              }}
+            >
               <img
                 src={selectedImage || product.image_url || getFallbackImage(product.category)}
                 alt={publicTitle}
-                className="max-w-full max-h-full object-contain transition-all duration-300"
+                className="max-w-full max-h-full object-contain transition-all duration-300 group-hover:scale-102"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = getFallbackImage(product.category)
                 }}
               />
               
+              {/* Zoom overlay indicator */}
+              <div className="absolute inset-0 bg-slate-900/0 hover:bg-slate-900/5 transition-colors duration-200 flex items-center justify-center">
+                <div className="opacity-0 group-hover:opacity-100 bg-white/90 backdrop-blur-sm text-slate-800 text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-xl shadow-md border border-slate-200 transition-opacity duration-200 flex items-center gap-1.5 select-none">
+                  <ZoomIn size={12} className="text-blue-600 animate-pulse" />
+                  Görseli Büyüt
+                </div>
+              </div>
+
               {/* Son 1 adet badge overlay */}
               {isSingleLeft && (
                 <span className="absolute right-4 top-4 px-3 py-1 rounded-xl bg-rose-500 text-white text-xs font-bold uppercase tracking-wider animate-pulse z-10">
@@ -396,6 +436,75 @@ export default function ProductDetailPage() {
         </div>
 
       </div>
+
+      {/* Lightbox / Zoom Modal Overlay */}
+      {isLightboxOpen && displayImages.length > 0 && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm transition-opacity duration-300"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          {/* Close button */}
+          <button 
+            className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors z-50 cursor-pointer"
+            onClick={() => setIsLightboxOpen(false)}
+            aria-label="Kapat"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Left Arrow */}
+          {displayImages.length > 1 && (
+            <button 
+              className="absolute left-4 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors z-50 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation()
+                setLightboxImageIndex(prev => (prev - 1 + displayImages.length) % displayImages.length)
+              }}
+              aria-label="Önceki görsel"
+            >
+              <ChevronLeft size={24} />
+            </button>
+          )}
+
+          {/* Large Image container */}
+          <div 
+            className="relative max-w-[90vw] max-h-[80vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={displayImages[lightboxImageIndex]}
+              alt={`${publicTitle} - Büyütülmüş Görsel`}
+              className="max-w-[90vw] max-h-[80vh] object-contain select-none rounded-lg shadow-2xl animate-fade-in"
+              onError={(e) => {
+                if (product) {
+                  (e.target as HTMLImageElement).src = getFallbackImage(product.category)
+                }
+              }}
+            />
+
+            {/* Image indicator count */}
+            {displayImages.length > 1 && (
+              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-white/70 text-xs font-mono select-none">
+                {lightboxImageIndex + 1} / {displayImages.length}
+              </div>
+            )}
+          </div>
+
+          {/* Right Arrow */}
+          {displayImages.length > 1 && (
+            <button 
+              className="absolute right-4 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors z-50 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation()
+                setLightboxImageIndex(prev => (prev + 1) % displayImages.length)
+              }}
+              aria-label="Sonraki görsel"
+            >
+              <ChevronRight size={24} />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

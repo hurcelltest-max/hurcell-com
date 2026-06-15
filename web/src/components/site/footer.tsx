@@ -19,7 +19,7 @@ export function Footer() {
 
         {/* Security & Trust Text */}
         <p className="text-center max-w-xl mx-auto text-[11px] text-slate-450 leading-relaxed">
-          Ödemelerimiz DHL Kapıda Ödeme modeli ile teslimat anında gerçekleştirilmektedir. Herhangi bir kart bilgisi veya online ödeme alınmamaktadır.
+          Ödemelerimiz DHL Kapıda Ödeme modeli ile teslimat anında gerçekleştirilmektedir. Alışverişleriniz sırasında herhangi bir ön ödeme veya tahsilat alınmamaktadır.
         </p>
 
         {/* Copyright */}

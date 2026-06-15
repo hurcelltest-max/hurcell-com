@@ -46,7 +46,7 @@ export default function PrivacyPolicy() {
             <section className="space-y-3">
               <h2 className="text-xl font-medium text-slate-900 tracking-tight">3. Ödeme ve Teslimat Altyapısı</h2>
               <p>
-                Siparişlerinizin ödemesi DHL Kapıda Ödeme yöntemiyle, teslimat sırasında kapıda tahsil edilmektedir. Alışverişleriniz sırasında herhangi bir kart bilgisi veya online ödeme alınmamaktadır.
+                Siparişlerinizin ödemesi DHL Kapıda Ödeme yöntemiyle, teslimat sırasında kapıda tahsil edilmektedir. Alışverişleriniz sırasında herhangi bir ödeme bilgisi alınmakta ve ön tahsilat yapılmamaktadır.
               </p>
             </section>
 

@@ -82,7 +82,7 @@ export default function SalesContractPage() {
                 Sözleşme konusu ürünün cinsi, miktarı, satış bedeli ve teslimat detayları alıcının sipariş sonlandırma aşamasındaki seçimine göre belirlenir.
               </p>
               <p>
-                Ödeme yöntemi sabit olarak "DHL Kapıda Ödeme" olarak belirlenmiştir. Müşteri alışveriş sırasında online ödeme yapmaz veya kart bilgisi girmez. Sipariş tutarı teslimat anında kapıda DHL kargo görevlisine ödenir. 999 TL altı siparişlerde DHL kargo bedeli 125 TL’dir. 1000 TL ve üzeri siparişlerde kargo ücretsizdir.
+                Ödeme yöntemi sabit olarak "DHL Kapıda Ödeme" olarak belirlenmiştir. Müşteri alışveriş sırasında herhangi bir ön ödeme yapmaz. Sipariş tutarı teslimat anında kapıda DHL kargo görevlisine ödenir. 999 TL altı siparişlerde DHL kargo bedeli 125 TL’dir. 1000 TL ve üzeri siparişlerde kargo ücretsizdir.
               </p>
             </section>
 

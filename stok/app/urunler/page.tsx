@@ -799,6 +799,8 @@ export default function UrunlerPage() {
     .slice(0, 5);
 
   const [quickSearchQuery, setQuickSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const normalizeForSearch = (str: string) => {
     return (str || '')
@@ -820,9 +822,36 @@ export default function UrunlerPage() {
       normalizeForSearch(p.barcode || "").includes(q) ||
       normalizeForSearch(p.brand || "").includes(q) ||
       normalizeForSearch(p.model || "").includes(q) ||
+      normalizeForSearch(p.color || "").includes(q) ||
+      normalizeForSearch(p.category || "").includes(q) ||
       normalizeForSearch(p.description || "").includes(q)
     );
   });
+
+  const suggestions = products.filter((p) => {
+    const q = normalizeForSearch(quickSearchQuery);
+    if (!q) return false;
+    return (
+      normalizeForSearch(p.name || "").includes(q) ||
+      normalizeForSearch(p.barcode || "").includes(q) ||
+      normalizeForSearch(p.brand || "").includes(q) ||
+      normalizeForSearch(p.model || "").includes(q) ||
+      normalizeForSearch(p.color || "").includes(q) ||
+      normalizeForSearch(p.category || "").includes(q)
+    );
+  }).slice(0, 10);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
   // -------------------------------------------------------------
 
   // Akıllı açılır liste (dropdown) ve "Diğer" seçeneği için local stateler
@@ -1417,23 +1446,75 @@ export default function UrunlerPage() {
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-900">Ürün yönetimi</h2>
           </div>
-          <div className="relative w-full sm:max-w-xs">
+          <div ref={searchContainerRef} className="relative w-full sm:max-w-xs z-30">
             <input
               type="text"
               placeholder="Ürün adı, marka, model veya barkod ara..."
               value={quickSearchQuery}
-              onChange={(e) => setQuickSearchQuery(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 pl-9 pr-8 text-xs shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              onChange={(e) => {
+                setQuickSearchQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setShowSuggestions(false);
+                  e.currentTarget.blur();
+                } else if (e.key === "Enter") {
+                  if (suggestions.length > 0) {
+                    setQuickSearchQuery(suggestions[0].name || "");
+                    setShowSuggestions(false);
+                    e.preventDefault();
+                  }
+                }
+              }}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 pl-9 pr-8 text-xs text-slate-800 caret-slate-800 shadow-sm outline-none transition focus:border-sky-300 focus:bg-white focus:ring-2 focus:ring-sky-100"
             />
             <span className="absolute left-3 top-3 text-slate-400 text-xs select-none pointer-events-none">🔍</span>
             {quickSearchQuery && (
               <button
                 type="button"
-                onClick={() => setQuickSearchQuery("")}
+                onClick={() => {
+                  setQuickSearchQuery("");
+                  setShowSuggestions(false);
+                }}
                 className="absolute right-3 top-2.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-800 text-xs px-1.5 py-0.5"
               >
                 ✕
               </button>
+            )}
+
+            {/* Suggestions Dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 mt-1 max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-lg z-50 divide-y divide-slate-100">
+                {suggestions.map((p) => (
+                  <div
+                    key={p.id}
+                    onClick={() => {
+                      setQuickSearchQuery(p.name || "");
+                      setShowSuggestions(false);
+                    }}
+                    className="p-2.5 hover:bg-sky-50/50 cursor-pointer text-xs flex flex-col gap-1 rounded-xl transition-all text-slate-800"
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="font-semibold text-slate-900 truncate" title={p.name}>
+                        {p.name}
+                      </span>
+                      <span className="text-sky-600 font-bold shrink-0">
+                        {formatCurrencyTRY(p.sell_price)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 mt-0.5">
+                      <span className="truncate max-w-[150px]">
+                        {p.brand || p.model ? `${p.brand || ''} ${p.model || ''}`.trim() : 'Marka/Model Belirtilmedi'} • {p.barcode}
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded-full font-bold ${p.stock > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                        Stok: {p.stock}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -2645,81 +2726,89 @@ export default function UrunlerPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {(quickSearchQuery ? quickFilteredProducts : lastAddedProducts).map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition">
-                      <td className="py-2.5 pr-2">
-                        <div className="font-semibold text-slate-800 truncate max-w-[150px]" title={p.name}>
-                          {p.name}
-                        </div>
-                        {p.device_condition_type && (
-                          <div className="mt-0.5">
-                            {(() => {
-                              switch (p.device_condition_type) {
-                                case 'new_sealed':
-                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">Sıfır Kapalı Kutu</span>;
-                                case 'new_open_box':
-                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">Açık Kutu</span>;
-                                case 'display':
-                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">Teşhir</span>;
-                                case 'used':
-                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">İkinci El</span>;
-                                case 'refurbished':
-                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-purple-50 text-purple-700 border border-purple-100">Yenilenmiş</span>;
-                                case 'authorized_refurbished':
-                                  return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Yetkili Raporlu</span>;
-                                default:
-                                  return null;
-                              }
-                            })()}
-                          </div>
-                        )}
-                        {p.is_b2b_visible && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1">
-                            <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">Toptanda</span>
-                            <span className="text-[9px] text-slate-500 font-medium">
-                              {p.b2b_package_price != null ? (
-                                <>
-                                  (B2B Paket: {formatCurrencyTRY(p.b2b_package_price)}
-                                  {p.b2b_min_quantity && Number(p.b2b_min_quantity) > 1 && (
-                                    <> • Adet: {formatCurrencyTRY(Number(p.b2b_package_price) / Number(p.b2b_min_quantity))}</>
-                                  )})
-                                </>
-                              ) : (
-                                "(B2B: Teklif)"
-                              )}
-                            </span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2.5 text-center font-bold text-slate-700">{p.stock}</td>
-                      <td className="py-2.5 text-right font-bold text-slate-900">{formatCurrencyTRY(p.sell_price)}</td>
-                      <td className="py-2.5 text-right">
-                        <div className="flex justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenB2bQuickModal(p)}
-                            className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition cursor-pointer ${
-                              p.is_b2b_visible
-                                ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                            }`}
-                          >
-                            {p.is_b2b_visible ? "Toptan Ayarları" : "Toptana Aç"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleStartEdit(p);
-                              setShowAllProductsModal(true);
-                            }}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 cursor-pointer"
-                          >
-                            Düzenle
-                          </button>
-                        </div>
+                  {quickSearchQuery && quickFilteredProducts.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-slate-400 font-medium">
+                        Sonuç bulunamadı.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    (quickSearchQuery ? quickFilteredProducts : lastAddedProducts).map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50/50 transition">
+                        <td className="py-2.5 pr-2">
+                          <div className="font-semibold text-slate-800 truncate max-w-[150px]" title={p.name}>
+                            {p.name}
+                          </div>
+                          {p.device_condition_type && (
+                            <div className="mt-0.5">
+                              {(() => {
+                                switch (p.device_condition_type) {
+                                  case 'new_sealed':
+                                    return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">Sıfır Kapalı Kutu</span>;
+                                  case 'new_open_box':
+                                    return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">Açık Kutu</span>;
+                                  case 'display':
+                                    return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">Teşhir</span>;
+                                  case 'used':
+                                    return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">İkinci El</span>;
+                                  case 'refurbished':
+                                    return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-purple-50 text-purple-700 border border-purple-100">Yenilenmiş</span>;
+                                  case 'authorized_refurbished':
+                                    return <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">Yetkili Raporlu</span>;
+                                  default:
+                                    return null;
+                                }
+                              })()}
+                            </div>
+                          )}
+                          {p.is_b2b_visible && (
+                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                              <span className="inline-block rounded px-1.5 py-0.2 text-[9px] font-bold bg-blue-50 text-blue-600 border border-blue-100">Toptanda</span>
+                              <span className="text-[9px] text-slate-500 font-medium">
+                                {p.b2b_package_price != null ? (
+                                  <>
+                                    (B2B Paket: {formatCurrencyTRY(p.b2b_package_price)}
+                                    {p.b2b_min_quantity && Number(p.b2b_min_quantity) > 1 && (
+                                      <> • Adet: {formatCurrencyTRY(Number(p.b2b_package_price) / Number(p.b2b_min_quantity))}</>
+                                    )})
+                                  </>
+                                ) : (
+                                  "(B2B: Teklif)"
+                                )}
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-center font-bold text-slate-700">{p.stock}</td>
+                        <td className="py-2.5 text-right font-bold text-slate-900">{formatCurrencyTRY(p.sell_price)}</td>
+                        <td className="py-2.5 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenB2bQuickModal(p)}
+                              className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition cursor-pointer ${
+                                p.is_b2b_visible
+                                  ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                              }`}
+                            >
+                              {p.is_b2b_visible ? "Toptan Ayarları" : "Toptana Aç"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleStartEdit(p);
+                                setShowAllProductsModal(true);
+                              }}
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 cursor-pointer"
+                            >
+                              Düzenle
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

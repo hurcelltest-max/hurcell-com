@@ -2,6 +2,34 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+
+const getPdfMake = async () => {
+  const pdfMakeModule: any = await import("pdfmake/build/pdfmake");
+  const pdfFontsModule: any = await import("pdfmake/build/vfs_fonts");
+
+  const pdfMake = pdfMakeModule.default || pdfMakeModule;
+  const fonts = pdfFontsModule.default || pdfFontsModule;
+
+  const vfs =
+    fonts?.vfs ||
+    fonts?.pdfMake?.vfs ||
+    pdfFontsModule?.vfs ||
+    pdfFontsModule?.pdfMake?.vfs ||
+    fonts;
+
+  if (typeof pdfMake.addVirtualFileSystem === "function") {
+    pdfMake.addVirtualFileSystem(vfs);
+  } else {
+    pdfMake.vfs = vfs;
+  }
+
+  if (typeof pdfMake.createPdf !== "function") {
+    throw new Error("PDF oluşturucu yüklenemedi: createPdf bulunamadı");
+  }
+
+  return pdfMake;
+};
 import { createProduct, findProductByBarcode, updateProduct, fetchProducts, Product } from "@/lib/productService";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -523,43 +551,96 @@ export default function AyarlarPage() {
                   return;
                 }
                 const products = data || [];
-                // map to export rows
-                const rows = products.map((p: Product) => ({
-                  Barkod: p.barcode || "",
-                  "Ürün Adı": p.name,
-                  Kategori: p.category || "",
-                  Marka: p.brand || "",
-                  Model: p.model || "",
-                  Renk: p.color || "",
-                  Hafıza: p.memory || "",
-                  RAM: p.ram || "",
-                  Depolama: p.storage || "",
-                  İşlemci: p.processor || "",
-                  "Ekran Boyutu": p.screen_size || "",
-                  Stok: p.stock,
-                  "Alış Fiyatı": Number(p.buy_price || 0),
-                  "Satış Fiyatı": Number(p.sell_price || 0),
-                  "Minimum Stok": p.min_stock,
-                  "Raf / Konum": p.location || "",
-                  Açıklama: p.description || "",
-                  "Fotoğraf URL": p.image_url || "",
-                  "Webde Görünür": p.is_web_visible ? "Evet" : "Hayır",
-                  "B2B Görünür": p.is_b2b_visible ? "Evet" : "Hayır",
-                  "B2B Paket Başlığı": p.b2b_package_title || "",
-                  "B2B Paket Açıklaması": p.b2b_package_description || "",
-                  "Minimum Toptan Adet": p.b2b_min_quantity !== null && p.b2b_min_quantity !== undefined ? p.b2b_min_quantity : "",
-                  "B2B Paket Fiyatı": p.b2b_package_price !== null && p.b2b_package_price !== undefined ? Number(p.b2b_package_price) : "",
-                }));
+                
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet("Products");
 
-                const ws = XLSX.utils.json_to_sheet(rows);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Products");
-                const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-                const blob = new Blob([wbout], { type: "application/octet-stream" });
+                worksheet.addTable({
+                  name: 'ProductsTable',
+                  ref: 'A1',
+                  headerRow: true,
+                  totalsRow: false,
+                  style: {
+                    theme: 'TableStyleMedium2',
+                    showRowStripes: true,
+                  },
+                  columns: [
+                    { name: 'Barkod', filterButton: true },
+                    { name: 'Ürün Adı', filterButton: true },
+                    { name: 'Kategori', filterButton: true },
+                    { name: 'Marka', filterButton: true },
+                    { name: 'Model', filterButton: true },
+                    { name: 'Renk', filterButton: true },
+                    { name: 'Hafıza', filterButton: true },
+                    { name: 'RAM', filterButton: true },
+                    { name: 'Depolama', filterButton: true },
+                    { name: 'İşlemci', filterButton: true },
+                    { name: 'Ekran Boyutu', filterButton: true },
+                    { name: 'Stok', filterButton: true },
+                    { name: 'Alış Fiyatı', filterButton: true },
+                    { name: 'Satış Fiyatı', filterButton: true },
+                    { name: 'Minimum Stok', filterButton: true },
+                    { name: 'Raf / Konum', filterButton: true },
+                    { name: 'Webde Görünür', filterButton: true },
+                    { name: 'B2B Görünür', filterButton: true },
+                    { name: 'B2B Paket Başlığı', filterButton: true },
+                    { name: 'Minimum Toptan Adet', filterButton: true },
+                    { name: 'B2B Paket Fiyatı', filterButton: true }
+                  ],
+                  rows: products.map((p) => [
+                    p.barcode || "",
+                    p.name || "",
+                    p.category || "",
+                    p.brand || "",
+                    p.model || "",
+                    p.color || "",
+                    p.memory || "",
+                    p.ram || "",
+                    p.storage || "",
+                    p.processor || "",
+                    p.screen_size || "",
+                    p.stock ?? 0,
+                    p.buy_price ?? 0,
+                    p.sell_price ?? 0,
+                    p.min_stock ?? 0,
+                    p.location || "",
+                    p.is_web_visible ? "Evet" : "Hayır",
+                    p.is_b2b_visible ? "Evet" : "Hayır",
+                    p.b2b_package_title || "",
+                    p.b2b_min_quantity ?? "",
+                    p.b2b_package_price ?? ""
+                  ])
+                });
+
+                worksheet.columns.forEach((col, i) => {
+                  if (i === 1) col.width = 35;
+                  else col.width = 15;
+                });
+
+                worksheet.getColumn('M').numFmt = '#,##0.00 "₺"';
+                worksheet.getColumn('N').numFmt = '#,##0.00 "₺"';
+                worksheet.getColumn('U').numFmt = '#,##0.00 "₺"';
+
+                worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+                worksheet.eachRow((row) => {
+                  row.eachCell((cell) => {
+                    cell.border = {
+                      top: { style: 'thin' },
+                      left: { style: 'thin' },
+                      bottom: { style: 'thin' },
+                      right: { style: 'thin' }
+                    };
+                  });
+                });
+
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `hurcell-stok-${new Date().toISOString()}.xlsx`;
+                const d = new Date();
+                a.download = `hurcell-stok-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.xlsx`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -576,6 +657,8 @@ export default function AyarlarPage() {
 
           <button
             onClick={async () => {
+              console.log("PDF all clicked");
+              setErrorsPreview("");
               setBusy(true);
               try {
                 const { data, error } = await fetchProducts();
@@ -584,14 +667,79 @@ export default function AyarlarPage() {
                   return;
                 }
                 const products = data || [];
-                const html = buildPrintableHtml(products, "HurCELL Stok Raporu");
-                const w = window.open("", "hurcell-stok-report", "noopener,noreferrer");
-                if (!w) return;
-                w.document.write(html);
-                w.document.close();
-                // try to auto-open print dialog
-                w.focus();
-                setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
+                
+                const docDefinition: any = {
+                  pageOrientation: 'landscape',
+                  content: [
+                    { text: 'HurCELL Stok Raporu', style: 'header' },
+                    { text: `Tarih: ${new Date().toLocaleString('tr-TR')} | Rapor: Tüm Ürünler`, style: 'subheader' },
+                    products.length === 0 ? {
+                      text: "Raporlanacak ürün bulunamadı.", margin: [0, 20, 0, 0], italics: true, color: 'gray'
+                    } : {
+                      table: {
+                        headerRows: 1,
+                        widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto'],
+                        body: [
+                          [
+                            {text: 'Barkod', style: 'tableHeader'},
+                            {text: 'Ürün Adı', style: 'tableHeader'},
+                            {text: 'Kategori', style: 'tableHeader'},
+                            {text: 'Marka', style: 'tableHeader'},
+                            {text: 'Model', style: 'tableHeader'},
+                            {text: 'Stok', style: 'tableHeader'},
+                            {text: 'Alış F.', style: 'tableHeader'},
+                            {text: 'Satış F.', style: 'tableHeader'},
+                            {text: 'Web', style: 'tableHeader'},
+                            {text: 'B2B', style: 'tableHeader'}
+                          ],
+                          ...products.map((p: Product) => [
+                            p.barcode || "",
+                            p.name || "",
+                            p.category || "",
+                            p.brand || "",
+                            p.model || "",
+                            p.stock?.toString() || "0",
+                            p.buy_price ? `${p.buy_price} TL` : "0 TL",
+                            p.sell_price ? `${p.sell_price} TL` : "0 TL",
+                            p.is_web_visible ? "Evet" : "Hayır",
+                            p.is_b2b_visible ? "Evet" : "Hayır"
+                          ])
+                        ]
+                      },
+                      layout: {
+                        fillColor: function (rowIndex: number) {
+                          if (rowIndex === 0) return '#334155';
+                          return (rowIndex % 2 === 0) ? '#f8fafc' : null;
+                        },
+                        hLineWidth: function () { return 0.5; },
+                        vLineWidth: function () { return 0.5; },
+                        hLineColor: function () { return '#e2e8f0'; },
+                        vLineColor: function () { return '#e2e8f0'; },
+                        paddingLeft: function() { return 5; },
+                        paddingRight: function() { return 5; },
+                        paddingTop: function() { return 4; },
+                        paddingBottom: function() { return 4; },
+                      }
+                    }
+                  ],
+                  styles: {
+                    header: { fontSize: 18, bold: true, margin: [0, 0, 0, 5] },
+                    subheader: { fontSize: 10, color: '#64748b', margin: [0, 0, 0, 15] },
+                    tableHeader: { bold: true, fontSize: 10, color: 'white' }
+                  },
+                  defaultStyle: {
+                    fontSize: 9
+                  },
+                  footer: function(currentPage: number, pageCount: number) {
+                    return { text: `Sayfa ${currentPage} / ${pageCount}`, alignment: 'right', margin: [0, 10, 20, 0], fontSize: 8, color: '#94a3b8' };
+                  }
+                };
+                
+                const d = new Date();
+                const pdfMake = await getPdfMake();
+                pdfMake.createPdf(docDefinition).download(`hurcell-stok-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.pdf`);
+              } catch (err: any) {
+                setErrorsPreview(String(err?.message || err));
               } finally {
                 setBusy(false);
               }
@@ -604,6 +752,8 @@ export default function AyarlarPage() {
 
           <button
             onClick={async () => {
+              console.log("PDF low stock clicked");
+              setErrorsPreview("");
               setBusy(true);
               try {
                 const { data, error } = await fetchProducts();
@@ -612,13 +762,71 @@ export default function AyarlarPage() {
                   return;
                 }
                 const products = (data || []).filter((p: Product) => (p.stock ?? 0) <= (p.min_stock ?? 0));
-                const html = buildPrintableHtml(products, "HurCELL Düşük Stok Raporu");
-                const w = window.open("", "hurcell-lowstock-report", "noopener,noreferrer");
-                if (!w) return;
-                w.document.write(html);
-                w.document.close();
-                w.focus();
-                setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
+                
+                const docDefinition: any = {
+                  pageOrientation: 'landscape',
+                  content: [
+                    { text: 'HurCELL Düşük Stok Raporu', style: 'header' },
+                    { text: `Tarih: ${new Date().toLocaleString('tr-TR')} | Rapor: Düşük Stok`, style: 'subheader' },
+                    products.length === 0 ? {
+                      text: "Raporlanacak ürün bulunamadı.", margin: [0, 20, 0, 0], italics: true, color: 'gray'
+                    } : {
+                      table: {
+                        headerRows: 1,
+                        widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'],
+                        body: [
+                          [
+                            {text: 'Barkod', style: 'tableHeader'},
+                            {text: 'Ürün Adı', style: 'tableHeader'},
+                            {text: 'Kategori', style: 'tableHeader'},
+                            {text: 'Stok', style: 'tableHeader'},
+                            {text: 'Min Stok', style: 'tableHeader'},
+                            {text: 'Satış F.', style: 'tableHeader'}
+                          ],
+                          ...products.map((p: Product) => [
+                            p.barcode || "",
+                            p.name || "",
+                            p.category || "",
+                            p.stock?.toString() || "0",
+                            p.min_stock?.toString() || "0",
+                            p.sell_price ? `${p.sell_price} TL` : "0 TL"
+                          ])
+                        ]
+                      },
+                      layout: {
+                        fillColor: function (rowIndex: number) {
+                          if (rowIndex === 0) return '#dc2626'; // rose-600
+                          return (rowIndex % 2 === 0) ? '#fef2f2' : null; // rose-50
+                        },
+                        hLineWidth: function () { return 0.5; },
+                        vLineWidth: function () { return 0.5; },
+                        hLineColor: function () { return '#fecaca'; },
+                        vLineColor: function () { return '#fecaca'; },
+                        paddingLeft: function() { return 5; },
+                        paddingRight: function() { return 5; },
+                        paddingTop: function() { return 4; },
+                        paddingBottom: function() { return 4; },
+                      }
+                    }
+                  ],
+                  styles: {
+                    header: { fontSize: 18, bold: true, margin: [0, 0, 0, 5], color: '#b91c1c' },
+                    subheader: { fontSize: 10, color: '#ef4444', margin: [0, 0, 0, 15] },
+                    tableHeader: { bold: true, fontSize: 10, color: 'white' }
+                  },
+                  defaultStyle: {
+                    fontSize: 9
+                  },
+                  footer: function(currentPage: number, pageCount: number) {
+                    return { text: `Sayfa ${currentPage} / ${pageCount}`, alignment: 'right', margin: [0, 10, 20, 0], fontSize: 8, color: '#ef4444' };
+                  }
+                };
+
+                const d = new Date();
+                const pdfMake = await getPdfMake();
+                pdfMake.createPdf(docDefinition).download(`hurcell-dusuk-stok-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.pdf`);
+              } catch (err: any) {
+                setErrorsPreview(String(err?.message || err));
               } finally {
                 setBusy(false);
               }

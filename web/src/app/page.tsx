@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { getWhatsAppLink, getFallbackImage, formatPriceTRY, B2B_LOGIN_URL, WHATSAPP_NUMBER, getPublicProductTitle, formatCategoryName } from '@/lib/constants'
 import type { Product } from '@/types'
 import { ProductCard } from '@/components/product/product-card'
+import { HeroSlider } from '@/components/home/hero-slider'
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
@@ -110,68 +111,103 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans pt-20">
       
-      {/* Hero Section */}
-      <section className="relative pt-16 pb-14 md:py-20 bg-gradient-to-b from-blue-50/50 via-slate-100/40 to-slate-50 border-b border-slate-200/60 overflow-hidden">
-        <div className="absolute inset-0 opacity-40 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-[120px]" />
-          <div className="absolute bottom-10 right-1/4 w-[400px] h-[400px] bg-indigo-100/40 rounded-full blur-[100px]" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000003_1px,transparent_1px),linear-gradient(to_bottom,#00000003_1px,transparent_1px)] bg-[size:30px_30px]" />
-        </div>
+      {/* Dynamic Hero Area */}
+      {!loading && sliderProducts.length > 0 ? (
+        <>
+          <HeroSlider products={sliderProducts} campaignsMap={campaignsMap} />
+          
+          {/* Arama Çubuğu ve Aksiyon Butonları (Slider Altı Strip) */}
+          <section className="bg-white border-b border-slate-200 py-4 shadow-sm relative z-20">
+            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center justify-between gap-4">
+              <form onSubmit={handleSearchSubmit} className="w-full lg:max-w-md relative">
+                <input
+                  type="text"
+                  placeholder="Ürün, marka, model veya barkod ara..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-20 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+                <Search className="absolute left-3.5 top-[11px] w-4 h-4 text-slate-400" />
+                <button type="submit" className="absolute right-1.5 top-[5px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-all">
+                  Ara
+                </button>
+              </form>
 
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center max-w-3xl mx-auto space-y-5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-blue-100 bg-blue-50/60 text-blue-700 text-xs font-mono uppercase tracking-wider backdrop-blur-xl">
-              <Zap size={11} className="animate-pulse" /> Stoklar Anlık Güncellenir
+              <div className="flex flex-wrap items-center justify-center lg:justify-end gap-3 w-full lg:w-auto">
+                <Link href="/shop" className="px-5 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5">
+                  Tüm Ürünleri İncele <ArrowRight size={14} />
+                </Link>
+                <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL perakende ürünleri hakkında bilgi almak istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5">
+                  <MessageSquare size={14} /> WhatsApp'tan Sor
+                </a>
+              </div>
             </div>
+          </section>
+        </>
+      ) : (
+        /* Fallback Original Hero Section */
+        <section className="relative pt-16 pb-14 md:py-20 bg-gradient-to-b from-blue-50/50 via-slate-100/40 to-slate-50 border-b border-slate-200/60 overflow-hidden">
+          <div className="absolute inset-0 opacity-40 pointer-events-none">
+            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-[120px]" />
+            <div className="absolute bottom-10 right-1/4 w-[400px] h-[400px] bg-indigo-100/40 rounded-full blur-[100px]" />
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000003_1px,transparent_1px),linear-gradient(to_bottom,#00000003_1px,transparent_1px)] bg-[size:30px_30px]" />
+          </div>
 
-            <h1 className="text-4xl md:text-5.5xl font-bold tracking-tight text-slate-900 leading-tight">
-              HurCELL Teknoloji Mağazası
-            </h1>
-            
-            <p className="text-base md:text-lg text-slate-600 font-light max-w-xl mx-auto leading-relaxed">
-              Telefon, tablet, bilgisayar ve aksesuar ürünlerinde güncel stoklarımızı inceleyin.
-            </p>
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div className="text-center max-w-3xl mx-auto space-y-5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-blue-100 bg-blue-50/60 text-blue-700 text-xs font-mono uppercase tracking-wider backdrop-blur-xl">
+                <Zap size={11} className="animate-pulse" /> Stoklar Anlık Güncellenir
+              </div>
 
-            {/* Compact Search Bar */}
-            <form onSubmit={handleSearchSubmit} className="max-w-md mx-auto pt-3 relative">
-              <input
-                type="text"
-                placeholder="Ürün, marka, model veya barkod ara..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-24 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 shadow-sm transition-all"
-              />
-              <Search className="absolute left-4 top-[25px] w-4 h-4 text-slate-400" />
-              <button
-                type="submit"
-                className="absolute right-2 top-[17px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all"
-              >
-                Ara
-              </button>
-            </form>
-
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
-              <Link
-                href="/shop"
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-semibold text-xs transition-all shadow-sm flex items-center gap-1.5"
-              >
-                Ürünleri İncele
-                <ArrowRight size={14} />
-              </Link>
+              <h1 className="text-4xl md:text-5.5xl font-bold tracking-tight text-slate-900 leading-tight">
+                HurCELL Teknoloji Mağazası
+              </h1>
               
-              <a
-                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL perakende ürünleri hakkında bilgi almak istiyorum.')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm"
-              >
-                <MessageSquare size={14} className="text-emerald-600" />
-                WhatsApp'tan Sor
-              </a>
+              <p className="text-base md:text-lg text-slate-600 font-light max-w-xl mx-auto leading-relaxed">
+                Telefon, tablet, bilgisayar ve aksesuar ürünlerinde güncel stoklarımızı inceleyin.
+              </p>
+
+              {/* Compact Search Bar */}
+              <form onSubmit={handleSearchSubmit} className="max-w-md mx-auto pt-3 relative">
+                <input
+                  type="text"
+                  placeholder="Ürün, marka, model veya barkod ara..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-24 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 shadow-sm transition-all"
+                />
+                <Search className="absolute left-4 top-[25px] w-4 h-4 text-slate-400" />
+                <button
+                  type="submit"
+                  className="absolute right-2 top-[17px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all"
+                >
+                  Ara
+                </button>
+              </form>
+
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
+                <Link
+                  href="/shop"
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-semibold text-xs transition-all shadow-sm flex items-center gap-1.5"
+                >
+                  Ürünleri İncele
+                  <ArrowRight size={14} />
+                </Link>
+                
+                <a
+                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL perakende ürünleri hakkında bilgi almak istiyorum.')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm"
+                >
+                  <MessageSquare size={14} className="text-emerald-600" />
+                  WhatsApp'tan Sor
+                </a>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Slider Section */}
       {!loading && sliderProducts.length > 0 && (

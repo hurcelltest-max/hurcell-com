@@ -29,6 +29,7 @@ export default function LayoutClient({
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'dealer_approved' | 'dealer_pending' | 'dealer_rejected' | 'dealer_passive' | 'unknown' | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
 
   const isLoginPage = pathname === '/login';
   const isB2bPath = pathname.startsWith('/b2b');
@@ -127,6 +128,42 @@ export default function LayoutClient({
       });
     }
   }, [pathname, session]);
+
+  // Fetch pending return requests count
+  useEffect(() => {
+    if (!supabase || userRole !== 'admin') return;
+
+    const fetchReturnsCount = async () => {
+      try {
+        const { count, error } = await (supabase as any)
+          .from('return_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        
+        if (!error && count !== null) {
+          setPendingReturnsCount(count);
+        }
+      } catch (err) {
+        console.error('Error fetching return count:', err);
+      }
+    };
+
+    fetchReturnsCount();
+
+    const channel = supabase.channel('return_requests_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'return_requests' },
+        () => {
+          fetchReturnsCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase?.removeChannel(channel);
+    };
+  }, [userRole]);
 
   // Protected Route Redirections
   useEffect(() => {
@@ -294,13 +331,18 @@ export default function LayoutClient({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`block rounded-2xl px-4 py-3 text-sm font-medium transition cursor-pointer ${
+                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition cursor-pointer ${
                       isActive
                         ? "bg-sky-50 text-sky-700 font-semibold"
                         : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                     }`}
                   >
-                    {item.label}
+                    <span>{item.label}</span>
+                    {item.href === "/iade-talepleri" && pendingReturnsCount > 0 && (
+                      <span className="flex h-5 items-center justify-center rounded-full bg-rose-500 px-2 text-[10px] font-bold text-white shadow-sm">
+                        {pendingReturnsCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

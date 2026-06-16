@@ -35,6 +35,12 @@ export interface Product {
   barcode?: string | null;
   is_web_visible?: boolean | null;
   location?: string | null;
+  is_slider_visible?: boolean | null;
+  is_campaign?: boolean | null;
+  campaign_title?: string | null;
+  campaign_benefit?: string | null;
+  show_campaign_benefit_in_slider?: boolean | null;
+  campaign_benefit_requires_return?: boolean | null;
 }
 
 export interface Profile {

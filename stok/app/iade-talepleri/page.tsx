@@ -14,6 +14,10 @@ interface ReturnRequest {
   reason: string;
   description: string | null;
   status: "pending" | "reviewing" | "approved" | "rejected" | "completed";
+  campaign_benefit_returned?: boolean;
+  email_notified_at?: string | null;
+  whatsapp_notified_at?: string | null;
+  whatsapp_notified_by?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -91,6 +95,72 @@ export default function ReturnRequestsDashboard() {
     } catch (err: any) {
       console.error(err);
       alert("Durum güncellenirken hata oluştu: " + err.message);
+    }
+  };
+
+  const handleToggleCampaignBenefit = async (requestId: string, currentVal: boolean) => {
+    try {
+      if (!supabase) return;
+      const newVal = !currentVal;
+      const { error: uError } = await (supabase as any)
+        .from("return_requests")
+        .update({ campaign_benefit_returned: newVal })
+        .eq("id", requestId);
+      
+      if (uError) throw uError;
+
+      setRequests(requests.map(r => r.id === requestId ? { ...r, campaign_benefit_returned: newVal } : r));
+      if (selectedRequest?.id === requestId) {
+        setSelectedRequest({ ...selectedRequest, campaign_benefit_returned: newVal });
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Kampanya faydası durumu güncellenirken hata oluştu: " + err.message);
+    }
+  };
+
+  const handleWhatsAppNotify = async (request: ReturnRequest) => {
+    try {
+      if (!supabase) return;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const adminId = session?.user?.id || 'unknown';
+
+      // 1. WhatsApp Mesajını Hazırla
+      const phone = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_NUMBER || '905000000000';
+      const msg = `Yeni iade talebi var.
+Sipariş No: ${request.order_number_snapshot}
+Müşteri: ${request.customer_name}
+İletişim: ${request.customer_phone} / ${request.customer_email}
+İade Sebebi: ${request.reason}`;
+
+      const encodedMsg = encodeURIComponent(msg);
+      const waUrl = `https://wa.me/${phone}?text=${encodedMsg}`;
+
+      // 2. Yeni Sekmede Aç
+      window.open(waUrl, '_blank');
+
+      // 3. Veritabanını Güncelle
+      const now = new Date().toISOString();
+      const { error: uError } = await (supabase as any)
+        .from('return_requests')
+        .update({ 
+          whatsapp_notified_at: now,
+          whatsapp_notified_by: adminId
+        })
+        .eq('id', request.id);
+
+      if (uError) throw uError;
+
+      // 4. State'i Güncelle
+      setRequests(requests.map(r => r.id === request.id ? { ...r, whatsapp_notified_at: now, whatsapp_notified_by: adminId } : r));
+      if (selectedRequest?.id === request.id) {
+        setSelectedRequest({ ...selectedRequest, whatsapp_notified_at: now, whatsapp_notified_by: adminId });
+      }
+
+    } catch (err: any) {
+      console.error(err);
+      alert("WhatsApp bildirim kaydı güncellenirken hata oluştu: " + err.message);
     }
   };
 
@@ -233,6 +303,52 @@ export default function ReturnRequestsDashboard() {
                     <p className="text-slate-600 leading-relaxed bg-slate-50 border border-slate-100 rounded-xl p-3">{selectedRequest.description}</p>
                   </div>
                 )}
+
+                <div className="pt-4 border-t border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-500 uppercase tracking-wider text-[9px] font-mono">Bildirim & Takip</h4>
+                    <button
+                      onClick={() => handleWhatsAppNotify(selectedRequest)}
+                      className="px-3 py-1.5 rounded-lg font-bold text-[10px] transition-all cursor-pointer border bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 flex items-center gap-1.5"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                        <path fillRule="evenodd" d="M1.051 21.05a10.96 10.96 0 011.662-5.467L1.135 2.102a1 1 0 011.298-1.298l13.481 1.578a10.96 10.96 0 015.467-1.662C22.684 1.303 23 2.164 23 3.093c0 6.037-4.894 10.93-10.931 10.93a10.96 10.96 0 01-5.467-1.662l-3.957 1.052a1 1 0 01-1.298-1.298l1.052-3.957A10.96 10.96 0 011.303 12c.929 0 1.79.316 2.473.834a9.92 9.92 0 005.155 1.48c5.485 0 9.93-4.445 9.93-9.93 0-2.316-1.127-4.63-2.924-6.332C13.25 1.135 12.389 1.3 12 1.3c-6.037 0-10.93 4.894-10.93 10.93a10.96 10.96 0 001.662 5.467L1.135 21.602a1 1 0 001.298 1.298L4.316 22H1.051z" clipRule="evenodd" />
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.82 9.82 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                      </svg>
+                      {selectedRequest.whatsapp_notified_at ? "WhatsApp ile Bildirildi" : "WhatsApp ile Bildir"}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-1">
+                      <p className="text-[10px] font-semibold text-slate-500">E-Posta Bildirimi</p>
+                      <p className="text-[10px] font-bold text-slate-800">
+                        {selectedRequest.email_notified_at ? `Gönderildi: ${new Date(selectedRequest.email_notified_at).toLocaleString("tr-TR")}` : "Gönderilmedi veya hata oluştu."}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-1">
+                      <p className="text-[10px] font-semibold text-slate-500">WhatsApp Bildirimi</p>
+                      <p className="text-[10px] font-bold text-slate-800">
+                        {selectedRequest.whatsapp_notified_at ? `Gönderildi: ${new Date(selectedRequest.whatsapp_notified_at).toLocaleString("tr-TR")}` : "Henüz bildirilmedi."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 space-y-3">
+                  <h4 className="font-bold text-slate-500 uppercase tracking-wider text-[9px] font-mono">Kampanya Durumu</h4>
+                  <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer bg-slate-50 border border-slate-100 rounded-xl p-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedRequest.campaign_benefit_returned || false}
+                      onChange={() => handleToggleCampaignBenefit(selectedRequest.id, selectedRequest.campaign_benefit_returned || false)}
+                      className="h-5 w-5 rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    <span className="font-semibold text-xs text-slate-800">Müşteri kampanya faydasını (hediye vb.) iade etti</span>
+                  </label>
+                  <p className="text-[9px] text-slate-500">
+                    Eğer bu ürün kampanyalı satılmışsa, kampanya faydasının iade edilip edilmediğini buradan takip edebilirsiniz.
+                  </p>
+                </div>
 
                 <div className="pt-4 border-t border-slate-100 space-y-3">
                   <h4 className="font-bold text-slate-500 uppercase tracking-wider text-[9px] font-mono">Durumu Güncelle</h4>

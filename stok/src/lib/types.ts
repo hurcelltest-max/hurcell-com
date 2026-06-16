@@ -15,6 +15,12 @@ export type Product = {
   image_url_3?: string | null;
   is_web_visible: boolean;
   is_b2b_visible: boolean;
+  is_slider_visible?: boolean | null;
+  is_campaign?: boolean | null;
+  campaign_title?: string | null;
+  campaign_benefit?: string | null;
+  show_campaign_benefit_in_slider?: boolean | null;
+  campaign_benefit_requires_return?: boolean | null;
   b2b_package_title?: string | null;
   b2b_package_description?: string | null;
   b2b_min_quantity?: number | null;

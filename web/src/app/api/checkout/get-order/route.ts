@@ -5,11 +5,11 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const orderNumber = searchParams.get('order_number');
-    const token = searchParams.get('token');
+    const emailOrPhone = searchParams.get('emailOrPhone');
 
-    if (!orderNumber || !token) {
+    if (!orderNumber || !emailOrPhone) {
       return NextResponse.json(
-        { error: 'Sipariş numarası ve doğrulama anahtarı (token) gereklidir.' },
+        { error: 'Sipariş numarası ve iletişim bilgisi (e-posta veya telefon) gereklidir.' },
         { status: 400 }
       );
     }
@@ -28,10 +28,18 @@ export async function GET(req: Request) {
       );
     }
 
-    // 2. Security Check: Verify that the provided token matches the lookup_token
-    if (order.lookup_token !== token) {
+    // 2. Security Check: Verify that the provided email or phone matches the order
+    const cleanedInput = emailOrPhone.trim().toLowerCase();
+    const orderEmail = (order.customer_email || '').toLowerCase();
+    const orderPhone = (order.customer_phone || '').replace(/\D/g, '');
+    const inputPhone = cleanedInput.replace(/\D/g, '');
+
+    const isEmailMatch = orderEmail && orderEmail === cleanedInput;
+    const isPhoneMatch = orderPhone && inputPhone && orderPhone.includes(inputPhone); // Simple inclusion check for phone
+
+    if (!isEmailMatch && !isPhoneMatch) {
       return NextResponse.json(
-        { error: 'Bu siparişi görüntülemek için yetkiniz yok.' },
+        { error: 'Girdiğiniz iletişim bilgisi bu siparişe ait değil.' },
         { status: 403 }
       );
     }
@@ -39,7 +47,7 @@ export async function GET(req: Request) {
     // 3. Fetch order items snapshot
     const { data: items, error: itemsError } = await supabaseAdmin
       .from('order_items')
-      .select('id, product_title_snapshot, barcode_snapshot, unit_price_snapshot, quantity, line_total')
+      .select('id, product_id, product_title_snapshot, barcode_snapshot, unit_price_snapshot, quantity, line_total')
       .eq('order_id', order.id);
 
     if (itemsError) {
@@ -48,6 +56,23 @@ export async function GET(req: Request) {
         { error: 'Sipariş detayları getirilemedi.' },
         { status: 500 }
       );
+    }
+
+    // 4. Fetch product campaign info to see if any requires return
+    let hasCampaignBenefitWarning = false;
+    if (items && items.length > 0) {
+      const productIds = items.map((item: any) => item.product_id).filter(Boolean);
+      if (productIds.length > 0) {
+        const { data: products } = await supabaseAdmin
+          .from('products')
+          .select('id, campaign_benefit_requires_return, campaign_benefit')
+          .in('id', productIds)
+          .eq('campaign_benefit_requires_return', true);
+        
+        if (products && products.length > 0) {
+          hasCampaignBenefitWarning = true;
+        }
+      }
     }
 
     // Omit sensitive database ids and lookup token before returning
@@ -73,6 +98,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       order: safeOrder,
       items: items || [],
+      hasCampaignBenefitWarning
     });
   } catch (err: any) {
     console.error('Get order error:', err);

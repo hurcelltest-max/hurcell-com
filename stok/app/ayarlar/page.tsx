@@ -668,43 +668,47 @@ export default function AyarlarPage() {
                 }
                 const products = data || [];
                 
+                const headers = [
+                  "Barkod",
+                  "Ürün Adı",
+                  "Kategori",
+                  "Marka",
+                  "Model",
+                  "Stok",
+                  "Alış Fiyatı",
+                  "Satış Fiyatı",
+                  "Web",
+                  "B2B"
+                ];
+
+                const body = [
+                  headers.map((h) => ({ text: h, bold: true, color: "white" })),
+                  ...products.map((p: Product) => [
+                    String(p.barcode || ""),
+                    String(p.name || ""),
+                    String(p.category || ""),
+                    String(p.brand || ""),
+                    String(p.model || ""),
+                    String(Number(p.stock || 0)),
+                    `${Number(p.buy_price || 0).toLocaleString("tr-TR")} TL`,
+                    `${Number(p.sell_price || 0).toLocaleString("tr-TR")} TL`,
+                    p.is_web_visible ? "Evet" : "Hayır",
+                    p.is_b2b_visible ? "Evet" : "Hayır"
+                  ])
+                ];
+
                 const docDefinition: any = {
                   pageOrientation: 'landscape',
                   content: [
                     { text: 'HurCELL Stok Raporu', style: 'header' },
                     { text: `Tarih: ${new Date().toLocaleString('tr-TR')} | Rapor: Tüm Ürünler`, style: 'subheader' },
-                    products.length === 0 ? {
+                    (!body || body.length < 2) ? {
                       text: "Raporlanacak ürün bulunamadı.", margin: [0, 20, 0, 0], italics: true, color: 'gray'
                     } : {
                       table: {
                         headerRows: 1,
-                        widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto'],
-                        body: [
-                          [
-                            {text: 'Barkod', style: 'tableHeader'},
-                            {text: 'Ürün Adı', style: 'tableHeader'},
-                            {text: 'Kategori', style: 'tableHeader'},
-                            {text: 'Marka', style: 'tableHeader'},
-                            {text: 'Model', style: 'tableHeader'},
-                            {text: 'Stok', style: 'tableHeader'},
-                            {text: 'Alış F.', style: 'tableHeader'},
-                            {text: 'Satış F.', style: 'tableHeader'},
-                            {text: 'Web', style: 'tableHeader'},
-                            {text: 'B2B', style: 'tableHeader'}
-                          ],
-                          ...products.map((p: Product) => [
-                            p.barcode || "",
-                            p.name || "",
-                            p.category || "",
-                            p.brand || "",
-                            p.model || "",
-                            p.stock?.toString() || "0",
-                            p.buy_price ? `${p.buy_price} TL` : "0 TL",
-                            p.sell_price ? `${p.sell_price} TL` : "0 TL",
-                            p.is_web_visible ? "Evet" : "Hayır",
-                            p.is_b2b_visible ? "Evet" : "Hayır"
-                          ])
-                        ]
+                        widths: ["auto", "*", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"],
+                        body
                       },
                       layout: {
                         fillColor: function (rowIndex: number) {
@@ -713,19 +717,14 @@ export default function AyarlarPage() {
                         },
                         hLineWidth: function () { return 0.5; },
                         vLineWidth: function () { return 0.5; },
-                        hLineColor: function () { return '#e2e8f0'; },
-                        vLineColor: function () { return '#e2e8f0'; },
-                        paddingLeft: function() { return 5; },
-                        paddingRight: function() { return 5; },
-                        paddingTop: function() { return 4; },
-                        paddingBottom: function() { return 4; },
+                        hLineColor: function () { return '#cbd5e1'; },
+                        vLineColor: function () { return '#cbd5e1'; }
                       }
                     }
                   ],
                   styles: {
                     header: { fontSize: 18, bold: true, margin: [0, 0, 0, 5] },
                     subheader: { fontSize: 10, color: '#64748b', margin: [0, 0, 0, 15] },
-                    tableHeader: { bold: true, fontSize: 10, color: 'white' }
                   },
                   defaultStyle: {
                     fontSize: 9
@@ -734,10 +733,25 @@ export default function AyarlarPage() {
                     return { text: `Sayfa ${currentPage} / ${pageCount}`, alignment: 'right', margin: [0, 10, 20, 0], fontSize: 8, color: '#94a3b8' };
                   }
                 };
+
+                console.log("PDF products count", products.length);
+                console.log("PDF docDefinition", docDefinition);
                 
                 const d = new Date();
                 const pdfMake = await getPdfMake();
-                pdfMake.createPdf(docDefinition).download(`hurcell-stok-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.pdf`);
+                const fileName = `hurcell-stok-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.pdf`;
+
+                const pdfDocGenerator = pdfMake.createPdf(docDefinition);
+                pdfDocGenerator.getBlob((blob: Blob) => {
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = fileName;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                });
               } catch (err: any) {
                 setErrorsPreview(String(err?.message || err));
               } finally {
@@ -763,56 +777,55 @@ export default function AyarlarPage() {
                 }
                 const products = (data || []).filter((p: Product) => (p.stock ?? 0) <= (p.min_stock ?? 0));
                 
+                const headers = [
+                  "Barkod",
+                  "Ürün Adı",
+                  "Kategori",
+                  "Stok",
+                  "Minimum Stok",
+                  "Satış Fiyatı"
+                ];
+
+                const body = [
+                  headers.map((h) => ({ text: h, bold: true, color: "white" })),
+                  ...products.map((p: Product) => [
+                    String(p.barcode || ""),
+                    String(p.name || ""),
+                    String(p.category || ""),
+                    String(Number(p.stock || 0)),
+                    String(Number(p.min_stock || 0)),
+                    `${Number(p.sell_price || 0).toLocaleString("tr-TR")} TL`
+                  ])
+                ];
+
                 const docDefinition: any = {
                   pageOrientation: 'landscape',
                   content: [
                     { text: 'HurCELL Düşük Stok Raporu', style: 'header' },
                     { text: `Tarih: ${new Date().toLocaleString('tr-TR')} | Rapor: Düşük Stok`, style: 'subheader' },
-                    products.length === 0 ? {
+                    (!body || body.length < 2) ? {
                       text: "Raporlanacak ürün bulunamadı.", margin: [0, 20, 0, 0], italics: true, color: 'gray'
                     } : {
                       table: {
                         headerRows: 1,
-                        widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'],
-                        body: [
-                          [
-                            {text: 'Barkod', style: 'tableHeader'},
-                            {text: 'Ürün Adı', style: 'tableHeader'},
-                            {text: 'Kategori', style: 'tableHeader'},
-                            {text: 'Stok', style: 'tableHeader'},
-                            {text: 'Min Stok', style: 'tableHeader'},
-                            {text: 'Satış F.', style: 'tableHeader'}
-                          ],
-                          ...products.map((p: Product) => [
-                            p.barcode || "",
-                            p.name || "",
-                            p.category || "",
-                            p.stock?.toString() || "0",
-                            p.min_stock?.toString() || "0",
-                            p.sell_price ? `${p.sell_price} TL` : "0 TL"
-                          ])
-                        ]
+                        widths: ["auto", "*", "auto", "auto", "auto", "auto"],
+                        body
                       },
                       layout: {
                         fillColor: function (rowIndex: number) {
-                          if (rowIndex === 0) return '#dc2626'; // rose-600
-                          return (rowIndex % 2 === 0) ? '#fef2f2' : null; // rose-50
+                          if (rowIndex === 0) return '#334155'; 
+                          return (rowIndex % 2 === 0) ? '#f8fafc' : null;
                         },
                         hLineWidth: function () { return 0.5; },
                         vLineWidth: function () { return 0.5; },
-                        hLineColor: function () { return '#fecaca'; },
-                        vLineColor: function () { return '#fecaca'; },
-                        paddingLeft: function() { return 5; },
-                        paddingRight: function() { return 5; },
-                        paddingTop: function() { return 4; },
-                        paddingBottom: function() { return 4; },
+                        hLineColor: function () { return '#cbd5e1'; },
+                        vLineColor: function () { return '#cbd5e1'; }
                       }
                     }
                   ],
                   styles: {
                     header: { fontSize: 18, bold: true, margin: [0, 0, 0, 5], color: '#b91c1c' },
                     subheader: { fontSize: 10, color: '#ef4444', margin: [0, 0, 0, 15] },
-                    tableHeader: { bold: true, fontSize: 10, color: 'white' }
                   },
                   defaultStyle: {
                     fontSize: 9
@@ -822,9 +835,24 @@ export default function AyarlarPage() {
                   }
                 };
 
+                console.log("PDF low stock count", products.length);
+                console.log("PDF docDefinition", docDefinition);
+
                 const d = new Date();
                 const pdfMake = await getPdfMake();
-                pdfMake.createPdf(docDefinition).download(`hurcell-dusuk-stok-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.pdf`);
+                const fileName = `hurcell-dusuk-stok-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.pdf`;
+
+                const pdfDocGenerator = pdfMake.createPdf(docDefinition);
+                pdfDocGenerator.getBlob((blob: Blob) => {
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = fileName;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                });
               } catch (err: any) {
                 setErrorsPreview(String(err?.message || err));
               } finally {

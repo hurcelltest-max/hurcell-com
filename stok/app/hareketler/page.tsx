@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import * as XLSX from "xlsx";
+import { normalizeForSearch } from "@/lib/stringUtils";
 
 const MOVEMENT_LABELS: Record<string, string> = {
   IN: "Stok Girişi",
@@ -59,11 +60,11 @@ export default function HareketlerPage() {
     return movements.filter((m) => {
       if (filterType !== "ALL" && m.movement_type !== filterType) return false;
       if (!search) return true;
-      const s = search.toLowerCase();
+      const q = normalizeForSearch(search);
       const prod = m.product || {};
       return (
-        (prod.name || "").toString().toLowerCase().includes(s) ||
-        (prod.barcode || "").toString().toLowerCase().includes(s)
+        normalizeForSearch((prod.name || "").toString()).includes(q) ||
+        normalizeForSearch((prod.barcode || "").toString()).includes(q)
       );
     });
   }, [movements, filterType, search]);
@@ -110,7 +111,13 @@ export default function HareketlerPage() {
                 <option key={k} value={k}>{MOVEMENT_LABELS[k]}</option>
               ))}
             </select>
-            <input placeholder="Ürün adı veya barkod ara" value={search} onChange={(e) => setSearch(e.target.value)} className="rounded-lg border px-3 py-2" />
+            <input
+              type="text"
+              placeholder="Ürün adı veya barkod ile ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full sm:w-64 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 pl-9 text-sm font-semibold text-slate-900 placeholder:font-normal placeholder-slate-400 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+            />
           </div>
           <div className="flex gap-2">
             <button onClick={loadMovements} className="rounded-2xl border px-4 py-2">Yenile</button>

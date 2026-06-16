@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { normalizeForSearch } from '@/src/lib/stringUtils';
 import type { Product } from '@/lib/types';
 
 const formatCurrencyTRY = (value: string | number | null | undefined) => {
@@ -51,16 +52,18 @@ export default function B2bProductsPage() {
 
   // Filter products by search query and category
   const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.model || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.b2b_package_title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const q = normalizeForSearch(searchQuery);
+    const matchesSearch = !q || (
+      normalizeForSearch(p.name).includes(q) ||
+      normalizeForSearch(p.brand || '').includes(q) ||
+      normalizeForSearch(p.model || '').includes(q) ||
+      normalizeForSearch(p.b2b_package_title || '').includes(q) ||
+      normalizeForSearch(p.description || '').includes(q)
+    );
 
     const matchesCategory =
       selectedCategory === 'All' ||
-      (p.category && p.category.toLowerCase() === selectedCategory.toLowerCase());
+      (p.category && normalizeForSearch(p.category) === normalizeForSearch(selectedCategory));
 
     return matchesSearch && matchesCategory;
   });
@@ -88,7 +91,7 @@ export default function B2bProductsPage() {
             placeholder="Ürün adı, marka, model veya paket ara..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 pl-4 pr-10 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+            className="w-full rounded-2xl border border-slate-200 bg-white pl-4 pr-10 py-3 text-sm font-semibold text-slate-900 placeholder:font-normal placeholder-slate-400 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
           />
           <span className="absolute right-3.5 top-3.5 text-slate-400">🔍</span>
         </div>

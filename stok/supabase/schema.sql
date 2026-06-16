@@ -15,6 +15,12 @@ create table if not exists products (
   sell_price numeric(12,2) not null default 0,
   min_stock integer not null default 0,
   location text,
+  is_slider_visible boolean default false,
+  is_campaign boolean default false,
+  campaign_title text,
+  campaign_benefit text,
+  show_campaign_benefit_in_slider boolean default false,
+  campaign_benefit_requires_return boolean default false,
   created_at timestamptz not null default now()
 );
 

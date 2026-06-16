@@ -420,6 +420,11 @@ const isDeviceCategory = (category?: string) => {
   );
 };
 
+const isTelefonCategory = (category?: string) => {
+  const normalized = normalizeText(category);
+  return normalized.includes('telefon') || normalized.includes('phone');
+};
+
 const isAksesuarCategory = (category?: string) => {
   const normalized = normalizeText(category);
   return (
@@ -454,6 +459,12 @@ const initialFormState = {
   image_url_3: "",
   is_web_visible: false as boolean,
   is_b2b_visible: false as boolean,
+  is_slider_visible: false as boolean,
+  is_campaign: false as boolean,
+  campaign_title: "",
+  campaign_benefit: "",
+  show_campaign_benefit_in_slider: false as boolean,
+  campaign_benefit_requires_return: false as boolean,
   b2b_package_title: "",
   b2b_package_description: "",
   b2b_min_quantity: "1",
@@ -1161,6 +1172,12 @@ const [products, setProducts] = useState<Product[]>([]);
       image_url_3: form.image_url_3.trim() || null,
       is_web_visible: form.is_web_visible === true,
       is_b2b_visible: form.is_b2b_visible === true,
+      is_slider_visible: form.is_slider_visible === true,
+      is_campaign: form.is_campaign === true,
+      campaign_title: form.is_campaign ? (form.campaign_title.trim() || null) : null,
+      campaign_benefit: form.is_campaign ? (form.campaign_benefit.trim() || null) : null,
+      show_campaign_benefit_in_slider: form.show_campaign_benefit_in_slider === true,
+      campaign_benefit_requires_return: form.campaign_benefit_requires_return === true,
       b2b_package_title: form.is_b2b_visible ? (form.b2b_package_title.trim() || null) : null,
       b2b_package_description: form.is_b2b_visible ? (form.b2b_package_description.trim() || null) : null,
       b2b_min_quantity: form.is_b2b_visible ? (form.b2b_min_quantity.trim() !== "" ? Number(form.b2b_min_quantity) : null) : null,
@@ -1173,7 +1190,7 @@ const [products, setProducts] = useState<Product[]>([]);
       storage: isLaptop ? (form.storage.trim() || null) : null,
       processor: isLaptop ? (form.processor.trim() || null) : null,
       screen_size: isLaptop ? (form.screen_size.trim() || null) : null,
-      device_condition_type: isDevice ? (form.device_condition_type || null) : (isAksesuarCategory(catTrim) ? "new_sealed" : null),
+      device_condition_type: isTelefonCategory(catTrim) ? (form.device_condition_type || null) : null,
       device_category: isDevice ? devCat : (form.category.trim() || null),
       imei_1: isDevice ? (form.imei_1.trim() || null) : '',
       imei_2: isDevice ? (form.imei_2.trim() || null) : '',
@@ -1224,6 +1241,12 @@ const [products, setProducts] = useState<Product[]>([]);
       image_url_3: product.image_url_3 || "",
       is_web_visible: product.is_web_visible || false,
       is_b2b_visible: product.is_b2b_visible || false,
+      is_slider_visible: product.is_slider_visible || false,
+      is_campaign: product.is_campaign || false,
+      campaign_title: product.campaign_title || "",
+      campaign_benefit: product.campaign_benefit || "",
+      show_campaign_benefit_in_slider: product.show_campaign_benefit_in_slider || false,
+      campaign_benefit_requires_return: product.campaign_benefit_requires_return || false,
       b2b_package_title: product.b2b_package_title || "",
       b2b_package_description: product.b2b_package_description || "",
       b2b_min_quantity: product.b2b_min_quantity != null ? String(product.b2b_min_quantity) : "1",
@@ -1357,6 +1380,12 @@ const [products, setProducts] = useState<Product[]>([]);
       image_url_3: editForm.image_url_3.trim() || null,
       is_web_visible: editForm.is_web_visible === true,
       is_b2b_visible: editForm.is_b2b_visible === true,
+      is_slider_visible: editForm.is_slider_visible === true,
+      is_campaign: editForm.is_campaign === true,
+      campaign_title: editForm.is_campaign ? (editForm.campaign_title.trim() || null) : null,
+      campaign_benefit: editForm.is_campaign ? (editForm.campaign_benefit.trim() || null) : null,
+      show_campaign_benefit_in_slider: editForm.show_campaign_benefit_in_slider === true,
+      campaign_benefit_requires_return: editForm.campaign_benefit_requires_return === true,
       b2b_package_title: editForm.is_b2b_visible ? (editForm.b2b_package_title.trim() || null) : null,
       b2b_package_description: editForm.is_b2b_visible ? (editForm.b2b_package_description.trim() || null) : null,
       b2b_min_quantity: editForm.is_b2b_visible ? (editForm.b2b_min_quantity.trim() !== "" ? Number(editForm.b2b_min_quantity) : null) : null,
@@ -1369,7 +1398,7 @@ const [products, setProducts] = useState<Product[]>([]);
       storage: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.storage.trim() || null) : null,
       processor: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.processor.trim() || null) : null,
       screen_size: editForm.category.trim().toLowerCase() === "bilgisayar" ? (editForm.screen_size.trim() || null) : null,
-      device_condition_type: isEditDevice ? (editForm.device_condition_type || null) : (isAksesuarCategory(catEditTrim) ? "new_sealed" : null),
+      device_condition_type: isTelefonCategory(catEditTrim) ? (editForm.device_condition_type || null) : null,
       device_category: isEditDevice ? devEditCat : (editForm.category.trim() || null),
       imei_1: isEditDevice ? (editForm.imei_1.trim() || null) : '',
       imei_2: isEditDevice ? (editForm.imei_2.trim() || null) : '',
@@ -1401,6 +1430,17 @@ const [products, setProducts] = useState<Product[]>([]);
       showStatus("success", `Ürün güncellendi. Marka otomatik düzenlendi: "${editForm.brand.trim()}" → "${resolvedEditBrand}"`);
     } else {
       showStatus("success", "Ürün başarıyla güncellendi.");
+    }
+  };
+
+  const handleToggleSlider = async (product: Product) => {
+    const newValue = !product.is_slider_visible;
+    const { error } = await updateProduct(product.id, { is_slider_visible: newValue });
+    if (error) {
+      showStatus("error", "Slayt durumu güncellenirken hata oluştu.");
+    } else {
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_slider_visible: newValue } : p));
+      showStatus("success", newValue ? "Ürün slayta eklendi." : "Ürün slayttan çıkarıldı.");
     }
   };
 
@@ -1731,7 +1771,7 @@ const [products, setProducts] = useState<Product[]>([]);
             </div>
 
             {/* Cihaz Durumu */}
-            {!isAksesuarCategory(form.category) && (
+            {isTelefonCategory(form.category) && (
               <div className="grid gap-2 text-sm text-slate-700">
                 <span className="font-medium">Cihaz Durumu {isDevice && "*"}</span>
                 <select
@@ -1751,7 +1791,7 @@ const [products, setProducts] = useState<Product[]>([]);
             )}
 
             {/* Cihaz Durumuna Göre Spesifik Kabul/Kayıt Girişleri */}
-            {isDevice && form.device_condition_type && (
+            {isTelefonCategory(form.category) && form.device_condition_type && (
               <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 gap-4 grid text-sm">
                 <p className="font-semibold text-xs uppercase tracking-wider text-slate-500">Cihaz Kabul & Giriş Verileri</p>
                 
@@ -2452,6 +2492,85 @@ const [products, setProducts] = useState<Product[]>([]);
               <span className="font-medium">B2B / Toptanda Gösterilsin mi?</span>
             </label>
 
+            {/* Slayt / Kampanya Ayarları */}
+            <div className="mt-6 p-5 rounded-2xl border-2 border-indigo-200 bg-indigo-50/40 space-y-4 w-full shadow-sm">
+              <p className="text-sm font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
+                🌟 Slayt & Kampanya Ayarları
+              </p>
+              
+              <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="is_slider_visible"
+                  checked={form.is_slider_visible}
+                  onChange={(e) => handleFormChange("is_slider_visible", e.target.checked)}
+                  className="h-5 w-5 rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500"
+                />
+                <span className="font-medium">Slaytta Gösterilsin mi?</span>
+              </label>
+
+              <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="is_campaign"
+                  checked={form.is_campaign}
+                  onChange={(e) => handleFormChange("is_campaign", e.target.checked)}
+                  className="h-5 w-5 rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500"
+                />
+                <span className="font-medium">Kampanyalı Ürün mü?</span>
+              </label>
+
+              {form.is_campaign && (
+                <div className="space-y-4 border-t border-slate-200 pt-4 mt-2">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                    Kampanya Başlığı
+                    <input
+                      type="text"
+                      name="campaign_title"
+                      placeholder="Örn: Haftanın Fırsatı"
+                      value={form.campaign_title}
+                      onChange={handleFormInputChange}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                    Müşteriye Sağlanan Fayda (Hediye/Avantaj)
+                    <input
+                      type="text"
+                      name="campaign_benefit"
+                      placeholder="Örn: Telefon alana kılıf hediye"
+                      value={form.campaign_benefit}
+                      onChange={handleFormInputChange}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+
+                  <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="show_campaign_benefit_in_slider"
+                      checked={form.show_campaign_benefit_in_slider}
+                      onChange={(e) => handleFormChange("show_campaign_benefit_in_slider", e.target.checked)}
+                      className="h-5 w-5 rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    <span className="font-medium">Kampanya faydası slaytta gösterilsin mi?</span>
+                  </label>
+
+                  <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="campaign_benefit_requires_return"
+                      checked={form.campaign_benefit_requires_return}
+                      onChange={(e) => handleFormChange("campaign_benefit_requires_return", e.target.checked)}
+                      className="h-5 w-5 rounded-lg border-slate-300 text-rose-500 focus:ring-rose-500"
+                    />
+                    <span className="font-medium">İadelerde bu fayda geri istensin mi? (Müşteriye iade ekranında uyarı gösterilir)</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
             {/* B2B Paket Alanları */}
             {form.is_b2b_visible && (
               <div className="mt-4 p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-4 w-full">
@@ -2833,7 +2952,7 @@ const [products, setProducts] = useState<Product[]>([]);
                           <div className="font-semibold text-slate-800 truncate max-w-[150px]" title={p.name}>
                             {p.name}
                           </div>
-                          {p.category?.toLowerCase() !== 'aksesuar' && p.device_condition_type && (
+                          {isTelefonCategory(p.category || "") && p.device_condition_type && (
                             <div className="mt-0.5">
                               {(() => {
                                 switch (p.device_condition_type) {
@@ -2877,6 +2996,17 @@ const [products, setProducts] = useState<Product[]>([]);
                         <td className="py-2.5 text-right font-bold text-slate-900">{formatCurrencyTRY(p.sell_price)}</td>
                         <td className="py-2.5 text-right">
                           <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSlider(p)}
+                              className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition cursor-pointer ${
+                                p.is_slider_visible
+                                  ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                              }`}
+                            >
+                              {p.is_slider_visible ? "🌟 Slaytta" : "Slayta Ekle"}
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleOpenB2bQuickModal(p)}
@@ -3391,6 +3521,79 @@ const [products, setProducts] = useState<Product[]>([]);
                                       />
                                       <span>B2B / Toptanda gösterilsin mi?</span>
                                     </label>
+
+                                    {/* Edit Modalı Slayt / Kampanya Ayarları */}
+                                    <div className="sm:col-span-2 mt-4 p-5 rounded-xl border-2 border-indigo-200 bg-indigo-50/40 space-y-4 w-full shadow-sm">
+                                      <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
+                                        🌟 Slayt & Kampanya Ayarları
+                                      </p>
+                                      
+                                      <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={editForm.is_slider_visible}
+                                          onChange={(e) => handleEditFormChange("is_slider_visible", e.target.checked)}
+                                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                        />
+                                        <span className="font-semibold">Slaytta Gösterilsin mi?</span>
+                                      </label>
+
+                                      <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={editForm.is_campaign}
+                                          onChange={(e) => handleEditFormChange("is_campaign", e.target.checked)}
+                                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                        />
+                                        <span className="font-semibold">Kampanyalı Ürün mü?</span>
+                                      </label>
+
+                                      {editForm.is_campaign && (
+                                        <div className="space-y-4 border-t border-slate-200 pt-4 mt-2">
+                                          <label className="grid gap-1 text-[11px] text-slate-700">
+                                            <span>Kampanya Başlığı</span>
+                                            <input
+                                              type="text"
+                                              value={editForm.campaign_title}
+                                              onChange={(e) => handleEditFormChange("campaign_title", e.target.value)}
+                                              placeholder="Örn: Haftanın Fırsatı"
+                                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none"
+                                            />
+                                          </label>
+
+                                          <label className="grid gap-1 text-[11px] text-slate-700">
+                                            <span>Müşteriye Sağlanan Fayda (Hediye/Avantaj)</span>
+                                            <input
+                                              type="text"
+                                              value={editForm.campaign_benefit}
+                                              onChange={(e) => handleEditFormChange("campaign_benefit", e.target.value)}
+                                              placeholder="Örn: Telefon alana kılıf hediye"
+                                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none"
+                                            />
+                                          </label>
+
+                                          <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              checked={editForm.show_campaign_benefit_in_slider}
+                                              onChange={(e) => handleEditFormChange("show_campaign_benefit_in_slider", e.target.checked)}
+                                              className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                            />
+                                            <span className="font-semibold">Kampanya faydası slaytta gösterilsin mi?</span>
+                                          </label>
+
+                                          <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              checked={editForm.campaign_benefit_requires_return}
+                                              onChange={(e) => handleEditFormChange("campaign_benefit_requires_return", e.target.checked)}
+                                              className="h-4 w-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500"
+                                            />
+                                            <span className="font-semibold">İadelerde bu fayda geri istensin mi?</span>
+                                          </label>
+                                        </div>
+                                      )}
+                                    </div>
                                     {editForm.is_b2b_visible && (
                                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:col-span-2 p-3 rounded-xl border border-slate-200 bg-slate-50/50 w-full">
                                         <label className="grid gap-1 text-[11px] text-slate-700">
@@ -3531,7 +3734,13 @@ const [products, setProducts] = useState<Product[]>([]);
                                             </span>
                                           </div>
                                         )}
-                                        {product.category?.toLowerCase() !== 'aksesuar' && product.device_condition_type && (() => {
+                                        {product.is_campaign && (
+                                          <span className="rounded px-1.5 py-0.2 text-[9px] font-bold bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-100">Kampanyalı</span>
+                                        )}
+                                        {product.is_slider_visible && (
+                                          <span className="rounded flex items-center gap-1 px-1.5 py-0.2 text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">🌟 Slaytta</span>
+                                        )}
+                                        {isTelefonCategory(product.category || "") && product.device_condition_type && (() => {
                                           switch (product.device_condition_type) {
                                             case 'new_sealed':
                                               return <span className="rounded px-1.5 py-0.2 text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">Sıfır Kapalı Kutu</span>;
@@ -3594,6 +3803,17 @@ const [products, setProducts] = useState<Product[]>([]);
                                       className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 transition cursor-pointer"
                                     >
                                       Düzenle
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleSlider(product)}
+                                      className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition cursor-pointer flex items-center gap-1 ${
+                                        product.is_slider_visible
+                                          ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                      }`}
+                                    >
+                                      {product.is_slider_visible ? "🌟 Slaytta" : "Slayta Ekle"}
                                     </button>
                                     <button
                                       type="button"

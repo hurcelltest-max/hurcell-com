@@ -11,6 +11,7 @@ import { ProductCard } from '@/components/product/product-card'
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
+  const [sliderProducts, setSliderProducts] = useState<Product[]>([])
   const [campaignsMap, setCampaignsMap] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -22,14 +23,17 @@ export default function Home() {
       try {
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price, is_web_visible, device_condition_type, created_at')
+          .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price, is_web_visible, is_slider_visible, is_campaign, campaign_title, campaign_benefit, show_campaign_benefit_in_slider, device_condition_type, created_at')
           .eq('is_web_visible', true)
           .gt('stock', 0)
           .order('created_at', { ascending: false })
-          .limit(8)
+          .limit(16)
 
         if (error) throw error
-        setProducts(data || [])
+        
+        const allFetchedProducts = data || [];
+        setProducts(allFetchedProducts.slice(0, 8)) // Yeni gelen ürünler için 8 tane
+        setSliderProducts(allFetchedProducts.filter(p => p.is_slider_visible))
 
         // Aktif kampanyaları çek
         const { data: campaignProdData, error: campError } = await supabase
@@ -158,6 +162,74 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Slider Section */}
+      {!loading && sliderProducts.length > 0 && (
+        <section className="py-10 bg-slate-100 border-b border-slate-200">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-6 flex items-center gap-2">
+              <Zap className="text-amber-500" size={20} /> Öne Çıkanlar & Kampanyalar
+            </h2>
+            <div className="flex overflow-x-auto gap-4 md:gap-6 pb-4 snap-x snap-mandatory hide-scrollbar">
+              {sliderProducts.map((product) => (
+                <div key={product.id} className="min-w-[280px] max-w-[320px] shrink-0 snap-center">
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden h-full flex flex-col transition-all hover:shadow-md hover:border-blue-200 relative">
+                    {/* Slayt / Kampanya Badge */}
+                    {product.is_campaign && (
+                      <div className="absolute top-3 left-3 z-10 bg-rose-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-sm">
+                        {product.campaign_title || 'Kampanya'}
+                      </div>
+                    )}
+                    
+                    <Link href={`/shop/${product.id}`} className="block relative aspect-square p-6 bg-slate-50 flex items-center justify-center">
+                      {product.image_url ? (
+                        <img src={product.image_url} alt={product.name} className="object-contain w-full h-full drop-shadow-sm mix-blend-multiply" />
+                      ) : (
+                        <div className="w-16 h-16 opacity-10 grayscale">
+                          <img src={getFallbackImage(product.category || '')} alt="Fallback" className="w-full h-full" />
+                        </div>
+                      )}
+                    </Link>
+
+                    <div className="p-5 flex flex-col flex-1 border-t border-slate-100">
+                      <div className="flex-1 space-y-1">
+                        <Link href={`/shop/${product.id}`} className="block">
+                          <h3 className="text-sm font-bold text-slate-800 line-clamp-2 hover:text-blue-600 transition-colors">
+                            {getPublicProductTitle(product)}
+                          </h3>
+                        </Link>
+                        
+                        {/* Kampanya Faydası Slaytta Göster */}
+                        {product.is_campaign && product.show_campaign_benefit_in_slider && product.campaign_benefit && (
+                          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-semibold px-2 py-1.5 rounded-lg mt-2 flex items-start gap-1.5 leading-tight">
+                            <span className="text-lg leading-none">🎁</span>
+                            <span>{product.campaign_benefit}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex items-end justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-xs text-slate-500 font-medium">Satış Fiyatı</span>
+                          <span className="text-lg font-black text-slate-900 tracking-tight">
+                            {formatPriceTRY(product.sell_price || 0)}
+                          </span>
+                        </div>
+                        <Link 
+                          href={`/shop/${product.id}`}
+                          className="bg-slate-900 hover:bg-blue-600 text-white p-2.5 rounded-xl transition-colors"
+                        >
+                          <ChevronRight size={16} />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Quick Category Cards */}
       <section className="py-10 bg-white border-b border-slate-200/50">

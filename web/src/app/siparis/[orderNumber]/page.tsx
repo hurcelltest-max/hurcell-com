@@ -257,7 +257,7 @@ function OrderTrackingContent() {
         {/* Cancellation and Refund Button */}
         <div className="pt-4 border-t border-slate-100">
           <Link
-            href={`/iade-talebi?order=${order.order_number}&token=${token}`}
+            href={`/iade-talebi?order=${order.order_number}`}
             className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-2xl transition-colors flex items-center justify-center gap-2 border border-slate-200 cursor-pointer"
           >
             <ShieldAlert size={14} className="text-amber-600" />

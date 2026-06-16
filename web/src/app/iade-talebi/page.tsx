@@ -10,7 +10,7 @@ function ReturnRequestFormContent() {
   const router = useRouter();
 
   const [orderNumberInput, setOrderNumberInput] = useState('');
-  const [tokenInput, setTokenInput] = useState('');
+  const [emailOrPhoneInput, setEmailOrPhoneInput] = useState('');
   
   const [isValidated, setIsValidated] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -21,6 +21,7 @@ function ReturnRequestFormContent() {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [hasCampaignWarning, setHasCampaignWarning] = useState(false);
 
   // Form Fields
   const [requestType, setRequestType] = useState<'cancel' | 'return' | 'exchange'>('return');
@@ -29,27 +30,24 @@ function ReturnRequestFormContent() {
   const [kvkkApproved, setKvkkApproved] = useState(false);
   const [successResponse, setSuccessResponse] = useState<{ request_id: string; message: string } | null>(null);
 
-  const orderParam = searchParams.get('order');
-  const tokenParam = searchParams.get('token');
+  const orderParam = searchParams.get('order') || searchParams.get('orderNumber');
 
   useEffect(() => {
-    if (orderParam && tokenParam) {
+    if (orderParam) {
       setOrderNumberInput(orderParam);
-      setTokenInput(tokenParam);
-      validateOrder(orderParam, tokenParam);
     }
-  }, [orderParam, tokenParam]);
+  }, [orderParam]);
 
-  const validateOrder = async (orderNum: string, tokenVal: string) => {
-    if (!orderNum.trim() || !tokenVal.trim()) {
-      setErrorMsg('Sipariş numarası ve doğrulama anahtarı (token) gereklidir.');
+  const validateOrder = async (orderNum: string, emailOrPhoneVal: string) => {
+    if (!orderNum.trim() || !emailOrPhoneVal.trim()) {
+      setErrorMsg('Sipariş numarası ve iletişim bilgisi (e-posta veya telefon) gereklidir.');
       return;
     }
 
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetch(`/api/checkout/get-order?order_number=${orderNum.trim()}&token=${tokenVal.trim()}`);
+      const res = await fetch(`/api/checkout/get-order?order_number=${orderNum.trim()}&emailOrPhone=${encodeURIComponent(emailOrPhoneVal.trim())}`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -59,6 +57,7 @@ function ReturnRequestFormContent() {
       setCustomerName(data.order.customer_name);
       setCustomerEmail(data.order.customer_email);
       setCustomerPhone(data.order.customer_phone);
+      setHasCampaignWarning(data.hasCampaignBenefitWarning || false);
       setIsValidated(true);
     } catch (err: any) {
       console.error(err);
@@ -70,7 +69,7 @@ function ReturnRequestFormContent() {
 
   const handleManualValidate = (e: React.FormEvent) => {
     e.preventDefault();
-    validateOrder(orderNumberInput, tokenInput);
+    validateOrder(orderNumberInput, emailOrPhoneInput);
   };
 
   const handleSubmitRequest = async (e: React.FormEvent) => {
@@ -89,7 +88,7 @@ function ReturnRequestFormContent() {
     try {
       const payload = {
         order_number: orderNumberInput.trim(),
-        lookup_token: tokenInput.trim(),
+        lookup_token: 'deprecated', // Token is deprecated on client side
         customer_name: customerName,
         customer_phone: customerPhone,
         customer_email: customerEmail,
@@ -190,12 +189,12 @@ function ReturnRequestFormContent() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-700">Doğrulama Tokenı</label>
+              <label className="font-bold text-slate-700">E-Posta veya Telefon Numarası</label>
               <input
                 type="text"
-                placeholder="Token değerini girin..."
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder="Siparişte kullandığınız E-Posta veya Telefon..."
+                value={emailOrPhoneInput}
+                onChange={(e) => setEmailOrPhoneInput(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs text-slate-800 focus:outline-none focus:border-blue-500 transition-all font-mono"
                 required
               />
@@ -233,6 +232,18 @@ function ReturnRequestFormContent() {
               <li>Talep oluşturulduğunda sistemdeki ürün stoğu ve ödeme durumu otomatik olarak değişmemektedir.</li>
             </ul>
           </div>
+
+          {hasCampaignWarning && (
+            <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 text-[11px] text-blue-800 space-y-1.5 leading-relaxed font-medium mt-4">
+              <p className="font-bold flex items-center gap-1 text-xs">
+                <ShieldAlert size={14} className="text-blue-600" />
+                Kampanyalı Ürün İadesi
+              </p>
+              <p className="font-light text-slate-700">
+                Siparişinizde kampanyalı olarak satın alınmış bir ürün bulunmaktadır. İade talebinizde, kampanya kapsamında size sağlanan hediye, ek ürün veya avantajın da iade paketine eklenmesi gerekmektedir. Aksi takdirde kampanya faydasının bedeli iade tutarından düşülebilir.
+              </p>
+            </div>
+          )}
 
           {errorMsg && (
             <div className="bg-rose-55 text-rose-800 border border-rose-100 rounded-2xl p-4 text-xs font-semibold flex items-start gap-2.5">

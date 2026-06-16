@@ -1702,7 +1702,7 @@ const [products, setProducts] = useState<Product[]>([]);
         <div className="space-y-6">
           <form
             onSubmit={handleAddProduct}
-            className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5"
+            className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5 max-w-4xl"
           >
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
             Yeni Ürün Ekle

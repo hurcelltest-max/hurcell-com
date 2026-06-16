@@ -319,7 +319,7 @@ export default function LayoutClient({
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[300px_1fr] xl:grid-cols-[360px_1fr]">
           <div className="flex flex-col gap-6">
             <aside className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-900/5 h-fit">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">

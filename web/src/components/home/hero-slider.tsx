@@ -72,7 +72,7 @@ export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
               key={product.id} 
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('button, a')) return;
-                router.push(`/shop/${product.id}`);
+                router.push(`/urun/${product.id}`);
               }}
               role="button"
               tabIndex={0}
@@ -118,7 +118,7 @@ export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
                     </div>
                     
                     <Link 
-                      href={`/shop/${product.id}`}
+                      href={`/urun/${product.id}`}
                       className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-sm md:text-base transition-all shadow-lg shadow-blue-600/30 flex items-center gap-2 group"
                     >
                       Hemen İncele

@@ -2935,6 +2935,7 @@ const [products, setProducts] = useState<Product[]>([]);
                     <th className="pb-2">Ürün Adı</th>
                     <th className="pb-2 text-center">Stok</th>
                     <th className="pb-2 text-right">Fiyat</th>
+                    <th className="pb-2 text-center w-24">Slayt</th>
                     <th className="pb-2 text-right">İşlem</th>
                   </tr>
                 </thead>
@@ -2994,19 +2995,21 @@ const [products, setProducts] = useState<Product[]>([]);
                         </td>
                         <td className="py-2.5 text-center font-bold text-slate-700">{p.stock}</td>
                         <td className="py-2.5 text-right font-bold text-slate-900">{formatCurrencyTRY(p.sell_price)}</td>
+                        <td className="py-2.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSlider(p)}
+                            className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition cursor-pointer inline-flex items-center justify-center gap-1 min-w-[80px] ${
+                              p.is_slider_visible
+                                ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            {p.is_slider_visible ? "🌟 Slaytta" : "Slayta Ekle"}
+                          </button>
+                        </td>
                         <td className="py-2.5 text-right">
                           <div className="flex justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSlider(p)}
-                              className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition cursor-pointer ${
-                                p.is_slider_visible
-                                  ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                              }`}
-                            >
-                              {p.is_slider_visible ? "🌟 Slaytta" : "Slayta Ekle"}
-                            </button>
                             <button
                               type="button"
                               onClick={() => handleOpenB2bQuickModal(p)}
@@ -3124,6 +3127,7 @@ const [products, setProducts] = useState<Product[]>([]);
                       <th className="px-4 py-3">Ürün Detayı</th>
                       <th className="px-4 py-3 text-center w-24">Stok</th>
                       <th className="px-4 py-3 text-right w-32">Fiyat</th>
+                      <th className="px-4 py-3 text-center w-28">Slayt</th>
                       <th className="px-4 py-3 text-right w-52">İşlem</th>
                     </tr>
                   </thead>
@@ -3205,7 +3209,7 @@ const [products, setProducts] = useState<Product[]>([]);
                                       />
                                     </label>
                                     
-                                    {!isAksesuarCategory(editForm.category) && (
+                                    {isTelefonCategory(editForm.category) && (
                                       <label className="grid gap-2 text-[11px] text-slate-700">
                                         <span>Cihaz Durumu</span>
                                         <select
@@ -3770,6 +3774,19 @@ const [products, setProducts] = useState<Product[]>([]);
                                   }`}>{product.stock} adet</span>
                                 </td>
                                 <td className="px-4 py-3.5 text-right font-bold text-slate-900">{formatCurrencyTRY(product.sell_price)}</td>
+                                <td className="px-4 py-3.5 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleSlider(product)}
+                                    className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition cursor-pointer inline-flex items-center justify-center gap-1 min-w-[90px] ${
+                                      product.is_slider_visible
+                                        ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    {product.is_slider_visible ? "🌟 Slaytta" : "Slayta Ekle"}
+                                  </button>
+                                </td>
                                 <td className="px-4 py-3.5 text-right">
                                   <div className="flex justify-end gap-1.5">
                                     <button
@@ -3804,17 +3821,7 @@ const [products, setProducts] = useState<Product[]>([]);
                                     >
                                       Düzenle
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleToggleSlider(product)}
-                                      className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition cursor-pointer flex items-center gap-1 ${
-                                        product.is_slider_visible
-                                          ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                                      }`}
-                                    >
-                                      {product.is_slider_visible ? "🌟 Slaytta" : "Slayta Ekle"}
-                                    </button>
+
                                     <button
                                       type="button"
                                       onClick={() => setCampaignModalProduct(product)}

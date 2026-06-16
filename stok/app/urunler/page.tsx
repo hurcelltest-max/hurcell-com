@@ -989,6 +989,9 @@ const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     loadProducts();
+    if (typeof window !== "undefined" && window.location.hash === "#tum-urunler") {
+      setShowAllProductsModal(true);
+    }
   }, []);
 
   const loadProducts = async () => {
@@ -1690,7 +1693,7 @@ const [products, setProducts] = useState<Product[]>([]);
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[600px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] xl:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
           <form
             onSubmit={handleAddProduct}

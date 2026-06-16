@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchProducts, Product } from "@/lib/productService";
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 
 const MOVEMENT_LABELS: Record<string, string> = {
   IN: "Stok Girişi",
@@ -69,12 +70,22 @@ export default function DashboardPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-3xl border border-slate-200 bg-white/95 px-6 py-6 shadow-sm shadow-slate-900/5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Ana Dashboard</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Hoş geldiniz, HurCELL Stok Takip</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">Ana Dashboard</p>
+              <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Hoş geldiniz, HurCELL Stok Takip</h2>
+            </div>
+            <p className="max-w-xl text-sm leading-6 text-slate-600">Stok yönetimi için temel göstergeler burada yer alır. Mobil uyumlu arayüz ile hızlıca sayfalar arasında geçiş yapabilirsiniz.</p>
           </div>
-          <p className="max-w-xl text-sm leading-6 text-slate-600">Stok yönetimi için temel göstergeler burada yer alır. Mobil uyumlu arayüz ile hızlıca sayfalar arasında geçiş yapabilirsiniz.</p>
+          <div className="shrink-0 pt-2">
+            <Link 
+              href="/urunler#tum-urunler"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 hover:bg-slate-800 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-slate-900/20 transition active:scale-95"
+            >
+              📋 Tüm Ürünleri Gör
+            </Link>
+          </div>
         </div>
       </div>
 

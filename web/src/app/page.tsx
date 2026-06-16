@@ -21,19 +21,29 @@ export default function Home() {
   useEffect(() => {
     async function fetchShowcaseProducts() {
       try {
-        const { data, error } = await supabase
+        // Slider ürünlerini çek
+        const { data: sliderData, error: sliderError } = await supabase
+          .from('products')
+          .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price, is_web_visible, is_slider_visible, is_campaign, campaign_title, campaign_benefit, show_campaign_benefit_in_slider, device_condition_type, created_at')
+          .eq('is_web_visible', true)
+          .eq('is_slider_visible', true)
+          .gt('stock', 0)
+          .order('created_at', { ascending: false });
+
+        if (sliderError) throw sliderError;
+        setSliderProducts(sliderData || []);
+
+        // Yeni gelen ürünleri çek
+        const { data: newData, error: newError } = await supabase
           .from('products')
           .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price, is_web_visible, is_slider_visible, is_campaign, campaign_title, campaign_benefit, show_campaign_benefit_in_slider, device_condition_type, created_at')
           .eq('is_web_visible', true)
           .gt('stock', 0)
           .order('created_at', { ascending: false })
-          .limit(16)
+          .limit(8);
 
-        if (error) throw error
-        
-        const allFetchedProducts = data || [];
-        setProducts(allFetchedProducts.slice(0, 8)) // Yeni gelen ürünler için 8 tane
-        setSliderProducts(allFetchedProducts.filter(p => p.is_slider_visible))
+        if (newError) throw newError;
+        setProducts(newData || []);
 
         // Aktif kampanyaları çek
         const { data: campaignProdData, error: campError } = await supabase

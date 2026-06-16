@@ -1435,12 +1435,23 @@ const [products, setProducts] = useState<Product[]>([]);
 
   const handleToggleSlider = async (product: Product) => {
     const newValue = !product.is_slider_visible;
-    const { error } = await updateProduct(product.id, { is_slider_visible: newValue });
+    
+    // Eğer slayta ekleniyorsa otomatik olarak web'de de görünür yapalım
+    const payload: any = { is_slider_visible: newValue };
+    if (newValue) {
+      payload.is_web_visible = true;
+    }
+
+    const { error } = await updateProduct(product.id, payload);
     if (error) {
       showStatus("error", "Slayt durumu güncellenirken hata oluştu.");
     } else {
-      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_slider_visible: newValue } : p));
-      showStatus("success", newValue ? "Ürün slayta eklendi." : "Ürün slayttan çıkarıldı.");
+      setProducts(prev => prev.map(p => 
+        p.id === product.id 
+          ? { ...p, is_slider_visible: newValue, ...(newValue ? { is_web_visible: true } : {}) } 
+          : p
+      ));
+      showStatus("success", newValue ? "Ürün slayta eklendi ve webde görünür yapıldı." : "Ürün slayttan çıkarıldı.");
     }
   };
 

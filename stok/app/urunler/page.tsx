@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   changeProductStock,
   createProduct,
@@ -782,6 +783,7 @@ const [products, setProducts] = useState<Product[]>([]);
   const [showAllProductsModal, setShowAllProductsModal] = useState(false);
   const [modalFilter, setModalFilter] = useState("all");
   const [modalSearchQuery, setModalSearchQuery] = useState("");
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
   // --- B2B Hızlı Ayarlar Modalı State Tanımları ---
   const [b2bQuickProduct, setB2bQuickProduct] = useState<Product | null>(null);
@@ -989,8 +991,11 @@ const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     loadProducts();
-    if (typeof window !== "undefined" && window.location.hash === "#tum-urunler") {
-      setShowAllProductsModal(true);
+    if (typeof window !== "undefined") {
+      setPortalTarget(document.getElementById("sidebar-portal"));
+      if (window.location.hash === "#tum-urunler") {
+        setShowAllProductsModal(true);
+      }
     }
   }, []);
 
@@ -1693,7 +1698,7 @@ const [products, setProducts] = useState<Product[]>([]);
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] xl:grid-cols-[2fr_1fr]">
+      <div>
         <div className="space-y-6">
           <form
             onSubmit={handleAddProduct}

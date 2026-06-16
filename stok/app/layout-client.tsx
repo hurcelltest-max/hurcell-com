@@ -320,34 +320,37 @@ export default function LayoutClient({
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
-          <aside className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-900/5 h-fit">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Menü
-            </p>
-            <nav className="mt-6 space-y-2">
-              {navItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition cursor-pointer ${
-                      isActive
-                        ? "bg-sky-50 text-sky-700 font-semibold"
-                        : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
-                  >
-                    <span>{item.label}</span>
-                    {item.href === "/iade-talepleri" && pendingReturnsCount > 0 && (
-                      <span className="flex h-5 items-center justify-center rounded-full bg-rose-500 px-2 text-[10px] font-bold text-white shadow-sm">
-                        {pendingReturnsCount}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-          </aside>
+          <div className="flex flex-col gap-6">
+            <aside className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-900/5 h-fit">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Menü
+              </p>
+              <nav className="mt-6 space-y-2">
+                {navItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition cursor-pointer ${
+                        isActive
+                          ? "bg-sky-50 text-sky-700 font-semibold"
+                          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                      {item.href === "/iade-talepleri" && pendingReturnsCount > 0 && (
+                        <span className="flex h-5 items-center justify-center rounded-full bg-rose-500 px-2 text-[10px] font-bold text-white shadow-sm">
+                          {pendingReturnsCount}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </aside>
+            <div id="sidebar-portal"></div>
+          </div>
 
           <main className="space-y-6">{children}</main>
         </div>

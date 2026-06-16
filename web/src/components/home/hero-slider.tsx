@@ -58,14 +58,15 @@ export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
           const campaignBenefit = product.campaign_benefit || (campaign?.discount_type === 'percentage' ? `%${campaign.discount_value} İndirim` : '');
           const showBenefit = product.show_campaign_benefit_in_slider !== false && campaignBenefit;
 
-          // Arka plan rengi ayarlaması (kategoriye veya genel markaya göre renk verebiliriz, şimdilik modern koyu/mavi tonlar)
+          // Arka plan rengi ayarlaması (beyaz arkaplanlı JPEg ürün fotoğraflarının beyaz kutu hissini kaldırmak için açık/modern tonlar)
           const bgColors = [
-            'from-blue-900/40 via-slate-900 to-slate-900',
-            'from-indigo-900/40 via-slate-900 to-slate-900',
-            'from-purple-900/40 via-slate-900 to-slate-900',
-            'from-cyan-900/40 via-slate-900 to-slate-900',
+            'from-sky-50 via-white to-slate-100',
+            'from-rose-50 via-white to-orange-50',
+            'from-indigo-50 via-white to-purple-50',
+            'from-emerald-50 via-white to-teal-50',
           ];
           const bgGradient = bgColors[index % bgColors.length];
+          const isDiscounted = product.is_discounted && product.old_price && product.old_price > (product.sell_price || 0);
 
           return (
             <div 
@@ -80,9 +81,9 @@ export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
               className={`w-full flex-shrink-0 relative flex items-center justify-center min-h-[450px] md:min-h-[500px] bg-gradient-to-r ${bgGradient} cursor-pointer group/slider`}
             >
               {/* Arka plan dekorasyon */}
-              <div className="absolute inset-0 opacity-20 pointer-events-none">
-                <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-white/10 rounded-full blur-[120px]" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:40px_40px]" />
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-black/10 rounded-full blur-[120px]" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000005_1px,transparent_1px),linear-gradient(to_bottom,#00000005_1px,transparent_1px)] bg-[size:40px_40px]" />
               </div>
 
               <div className="max-w-[1400px] w-full mx-auto px-6 sm:px-10 lg:px-16 relative z-10 flex flex-col-reverse md:flex-row items-center justify-between gap-8 md:gap-12 py-12 md:py-16">
@@ -90,14 +91,23 @@ export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
                 {/* Sol Taraf: Metin İçeriği */}
                 <div className="flex-1 text-center md:text-left space-y-6">
                   {/* Kampanya Rozeti */}
-                  {hasCampaign && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-rose-400/30 bg-rose-500/10 text-rose-400 text-xs font-bold uppercase tracking-wider">
-                      <Tag size={12} className="animate-pulse" /> {campaignTitle}
+                  {(hasCampaign || isDiscounted) && (
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                      {hasCampaign && (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-rose-400 bg-rose-50 text-rose-600 text-xs font-bold uppercase tracking-wider shadow-sm">
+                          <Tag size={12} className="animate-pulse" /> {campaignTitle}
+                        </div>
+                      )}
+                      {isDiscounted && (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-rose-500 bg-rose-600 text-white text-xs font-bold uppercase tracking-wider shadow-sm">
+                          🔥 FIRSAT
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Ürün Başlığı */}
-                  <h2 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight">
+                  <h2 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 leading-tight">
                     {getPublicProductTitle(product)}
                   </h2>
 
@@ -111,10 +121,23 @@ export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
                   {/* Fiyat ve Buton */}
                   <div className="pt-4 flex flex-col md:flex-row items-center md:items-end gap-6 justify-center md:justify-start">
                     <div className="flex flex-col text-center md:text-left">
-                      <span className="text-sm text-slate-400 font-medium mb-1">Satış Fiyatı</span>
-                      <span className="text-3xl md:text-4xl font-black text-white tracking-tight">
-                        {formatPriceTRY(product.sell_price || 0)}
-                      </span>
+                      {isDiscounted ? (
+                        <>
+                          <span className="text-sm md:text-base text-slate-400 font-bold mb-0.5 line-through decoration-rose-400/50">
+                            {formatPriceTRY(product.old_price || 0)}
+                          </span>
+                          <span className="text-3xl md:text-4xl font-black text-rose-600 tracking-tight">
+                            {formatPriceTRY(product.sell_price || 0)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-sm text-slate-500 font-medium mb-1">Satış Fiyatı</span>
+                          <span className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                            {formatPriceTRY(product.sell_price || 0)}
+                          </span>
+                        </>
+                      )}
                     </div>
                     
                     <Link 
@@ -129,18 +152,18 @@ export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
 
                 {/* Sağ Taraf: Görsel */}
                 <div className="flex-1 w-full max-w-sm md:max-w-xl aspect-square relative flex items-center justify-center">
-                  <div className="absolute inset-0 bg-white/5 rounded-full blur-3xl" />
+                  <div className="absolute inset-0 bg-white/40 rounded-full blur-3xl mix-blend-overlay" />
                   {product.image_url ? (
                     <img 
                       src={product.image_url} 
                       alt={product.name} 
-                      className="w-full h-full object-contain relative z-10 drop-shadow-2xl scale-95 md:scale-100 group-hover/slider:scale-105 transition-transform duration-700" 
+                      className="w-full h-full object-contain relative z-10 drop-shadow-2xl mix-blend-multiply scale-95 md:scale-100 group-hover/slider:scale-105 transition-transform duration-700" 
                     />
                   ) : (
                     <img 
                       src={getFallbackImage(product.category || '')} 
                       alt="Fallback" 
-                      className="w-3/4 h-3/4 object-contain opacity-50 relative z-10 grayscale invert brightness-200 group-hover/slider:scale-105 transition-transform duration-700" 
+                      className="w-3/4 h-3/4 object-contain opacity-40 relative z-10 mix-blend-multiply group-hover/slider:scale-105 transition-transform duration-700" 
                     />
                   )}
                 </div>

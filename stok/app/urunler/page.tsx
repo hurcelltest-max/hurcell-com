@@ -460,6 +460,8 @@ const initialFormState = {
   is_web_visible: false as boolean,
   is_b2b_visible: false as boolean,
   is_slider_visible: false as boolean,
+  is_discounted: false as boolean,
+  old_price: "",
   is_campaign: false as boolean,
   campaign_title: "",
   campaign_benefit: "",
@@ -1173,6 +1175,8 @@ const [products, setProducts] = useState<Product[]>([]);
       is_web_visible: form.is_web_visible === true,
       is_b2b_visible: form.is_b2b_visible === true,
       is_slider_visible: form.is_slider_visible === true,
+      is_discounted: form.is_discounted === true,
+      old_price: form.is_discounted && form.old_price ? Number(form.old_price) : null,
       is_campaign: form.is_campaign === true,
       campaign_title: form.is_campaign ? (form.campaign_title.trim() || null) : null,
       campaign_benefit: form.is_campaign ? (form.campaign_benefit.trim() || null) : null,
@@ -1242,6 +1246,8 @@ const [products, setProducts] = useState<Product[]>([]);
       is_web_visible: product.is_web_visible || false,
       is_b2b_visible: product.is_b2b_visible || false,
       is_slider_visible: product.is_slider_visible || false,
+      is_discounted: product.is_discounted || false,
+      old_price: product.old_price != null ? String(product.old_price) : "",
       is_campaign: product.is_campaign || false,
       campaign_title: product.campaign_title || "",
       campaign_benefit: product.campaign_benefit || "",
@@ -1381,6 +1387,8 @@ const [products, setProducts] = useState<Product[]>([]);
       is_web_visible: editForm.is_web_visible === true,
       is_b2b_visible: editForm.is_b2b_visible === true,
       is_slider_visible: editForm.is_slider_visible === true,
+      is_discounted: editForm.is_discounted === true,
+      old_price: editForm.is_discounted && editForm.old_price ? Number(editForm.old_price) : null,
       is_campaign: editForm.is_campaign === true,
       campaign_title: editForm.is_campaign ? (editForm.campaign_title.trim() || null) : null,
       campaign_benefit: editForm.is_campaign ? (editForm.campaign_benefit.trim() || null) : null,
@@ -2520,7 +2528,35 @@ const [products, setProducts] = useState<Product[]>([]);
                 <span className="font-medium">Slaytta Gösterilsin mi?</span>
               </label>
 
-              <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer">
+              <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer mt-2">
+                <input
+                  type="checkbox"
+                  name="is_discounted"
+                  checked={form.is_discounted}
+                  onChange={(e) => handleFormChange("is_discounted", e.target.checked)}
+                  className="h-5 w-5 rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500"
+                />
+                <span className="font-medium">İndirimli Ürün mü?</span>
+              </label>
+
+              {form.is_discounted && (
+                <div className="space-y-4 border-t border-slate-200 pt-4 mt-2">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600">
+                    Eski Fiyat
+                    <input
+                      type="number"
+                      name="old_price"
+                      placeholder="Örn: 15000"
+                      value={form.old_price}
+                      onChange={handleFormInputChange}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                  <p className="text-[10px] text-slate-500">Mevcut Satış Fiyatı yeni fiyat olarak gösterilecektir. Eski fiyat satış fiyatından büyük değilse indirim rozeti gösterilmez.</p>
+                </div>
+              )}
+
+              <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer mt-2">
                 <input
                   type="checkbox"
                   name="is_campaign"
@@ -3553,7 +3589,33 @@ const [products, setProducts] = useState<Product[]>([]);
                                         <span className="font-semibold">Slaytta Gösterilsin mi?</span>
                                       </label>
 
-                                      <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer">
+                                      <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer mt-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={editForm.is_discounted}
+                                          onChange={(e) => handleEditFormChange("is_discounted", e.target.checked)}
+                                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                        />
+                                        <span className="font-semibold">İndirimli Ürün mü?</span>
+                                      </label>
+
+                                      {editForm.is_discounted && (
+                                        <div className="space-y-4 border-t border-slate-200 pt-4 mt-2">
+                                          <label className="grid gap-1 text-[11px] text-slate-700">
+                                            <span>Eski Fiyat</span>
+                                            <input
+                                              type="number"
+                                              value={editForm.old_price}
+                                              onChange={(e) => handleEditFormChange("old_price", e.target.value)}
+                                              placeholder="Örn: 15000"
+                                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none"
+                                            />
+                                          </label>
+                                          <p className="text-[10px] text-slate-500">Mevcut Satış Fiyatı yeni fiyat olarak gösterilecektir. Eski fiyat satış fiyatından büyük değilse indirim rozeti gösterilmez.</p>
+                                        </div>
+                                      )}
+
+                                      <label className="flex items-center gap-3 text-xs text-slate-700 select-none cursor-pointer mt-2">
                                         <input
                                           type="checkbox"
                                           checked={editForm.is_campaign}

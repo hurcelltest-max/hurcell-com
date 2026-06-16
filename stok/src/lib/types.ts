@@ -21,6 +21,8 @@ export type Product = {
   campaign_benefit?: string | null;
   show_campaign_benefit_in_slider?: boolean | null;
   campaign_benefit_requires_return?: boolean | null;
+  is_discounted?: boolean | null;
+  old_price?: number | null;
   b2b_package_title?: string | null;
   b2b_package_description?: string | null;
   b2b_min_quantity?: number | null;

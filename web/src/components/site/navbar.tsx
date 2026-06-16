@@ -17,11 +17,12 @@ export const Navbar = () => {
             </Link>
           </div>
 
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-6">
             <Link href="/shop" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">MAĞAZA</Link>
+            <Link href="/kampanyalar" className="text-xs font-semibold tracking-wider text-rose-500 hover:text-rose-600 transition-colors uppercase">KAMPANYALAR</Link>
+            <Link href="/indirimli-urunler" className="text-xs font-semibold tracking-wider text-orange-500 hover:text-orange-600 transition-colors uppercase">% İNDİRİMLER</Link>
             <Link href="/shop?category=Telefon" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">TELEFON</Link>
             <Link href="/shop?category=Aksesuar" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">AKSESUAR</Link>
-            <Link href="/shop?category=Bilgisayar" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">BİLGİSAYAR</Link>
             <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletişime geçmek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">İLETİŞİM</a>
           </div>
 

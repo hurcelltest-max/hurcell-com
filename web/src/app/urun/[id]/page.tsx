@@ -53,7 +53,7 @@ export default function ProductDetailPage() {
         setLoading(true)
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, image_url_2, image_url_3, stock, sell_price, is_web_visible, device_condition_type, location, created_at')
+          .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, image_url_2, image_url_3, stock, sell_price, is_web_visible, device_condition_type, location, created_at, is_discounted, old_price, is_campaign, campaign_title, campaign_benefit')
           .eq('id', id)
           .single()
 
@@ -283,6 +283,13 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
+              {/* Discount badge overlay */}
+              {product?.is_discounted && product?.old_price && product.old_price > product.sell_price && (
+                <span className="absolute left-4 top-4 px-3 py-1 rounded-xl bg-rose-500 text-white text-xs font-bold uppercase tracking-wider animate-pulse z-10 shadow-md">
+                  %{Math.round(((product.old_price - product.sell_price) / product.old_price) * 100)} İNDİRİM
+                </span>
+              )}
+
               {/* Son 1 adet badge overlay */}
               {isSingleLeft && (
                 <span className="absolute right-4 top-4 px-3 py-1 rounded-xl bg-rose-500 text-white text-xs font-bold uppercase tracking-wider animate-pulse z-10">
@@ -341,10 +348,21 @@ export default function ProductDetailPage() {
             {/* Price & Stock info */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-b border-slate-100 py-5 gap-4">
               <div>
-                <p className="text-[10px] text-slate-450 uppercase font-mono tracking-wider">Satış Fiyatı</p>
-                <p className="text-3xl font-extrabold text-slate-900 tracking-tight mt-1">
-                  {formatPriceTRY(product.sell_price)}
-                </p>
+                <p className="text-[10px] text-slate-450 uppercase font-mono tracking-wider mb-1">Satış Fiyatı</p>
+                {product?.is_discounted && product?.old_price && product.old_price > product.sell_price ? (
+                  <div className="flex flex-col">
+                    <span className="text-sm text-slate-400 font-bold line-through decoration-rose-400/50 mb-0.5">
+                      {formatPriceTRY(product.old_price)}
+                    </span>
+                    <span className="text-3xl font-extrabold text-rose-600 tracking-tight">
+                      {formatPriceTRY(product.sell_price)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                    {formatPriceTRY(product?.sell_price || 0)}
+                  </p>
+                )}
               </div>
               
               {stockLabel && (

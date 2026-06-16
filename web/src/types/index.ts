@@ -41,6 +41,8 @@ export interface Product {
   campaign_benefit?: string | null;
   show_campaign_benefit_in_slider?: boolean | null;
   campaign_benefit_requires_return?: boolean | null;
+  is_discounted?: boolean | null;
+  old_price?: number | null;
 }
 
 export interface Profile {

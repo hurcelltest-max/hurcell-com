@@ -64,6 +64,11 @@ export function ProductCard({
   else if (product.storage) specParts.push(product.storage)
   const specText = specParts.join(' · ') || 'Özellik belirtilmemiş'
 
+  const isDiscounted = product.is_discounted && product.old_price && product.old_price > product.sell_price;
+  const discountPercent = isDiscounted && product.old_price 
+    ? Math.round(((product.old_price - product.sell_price) / product.old_price) * 100) 
+    : 0;
+
   return (
     <div className="group flex flex-col h-full bg-white hover:shadow-md border border-slate-200/80 hover:border-slate-350 rounded-3xl p-4 transition-all duration-300 hover:-translate-y-1 shadow-sm">
       
@@ -91,6 +96,13 @@ export function ProductCard({
           }
           return null;
         })()}
+
+        {/* Discount Badge */}
+        {isDiscounted && discountPercent > 0 && (
+          <span className="absolute right-3 top-3 px-2 py-0.5 rounded-lg bg-rose-500 border border-rose-600 text-[10px] font-bold tracking-wider text-white shadow-sm z-10 animate-pulse">
+            %{discountPercent} İNDİRİM
+          </span>
+        )}
       </div>
 
       {/* Content Area */}
@@ -130,9 +142,22 @@ export function ProductCard({
 
         {/* Price & Stock status */}
         <div className="mt-auto mb-4 flex items-center justify-between gap-2 flex-wrap">
-          <span className="text-base font-extrabold text-slate-900 tracking-tight">
-            {formatPriceTRY(product.sell_price)}
-          </span>
+          <div className="flex flex-col">
+            {isDiscounted ? (
+              <>
+                <span className="text-[10px] text-slate-400 font-bold line-through decoration-rose-400/50 mb-0.5">
+                  {formatPriceTRY(product.old_price || 0)}
+                </span>
+                <span className="text-base font-extrabold text-rose-600 tracking-tight">
+                  {formatPriceTRY(product.sell_price)}
+                </span>
+              </>
+            ) : (
+              <span className="text-base font-extrabold text-slate-900 tracking-tight">
+                {formatPriceTRY(product.sell_price)}
+              </span>
+            )}
+          </div>
           {stockLabel && (
             <span className={`text-[9px] font-bold border px-2 py-0.5 rounded-lg ${stockColorClass}`}>
               {stockLabel}

@@ -1589,9 +1589,19 @@ const [products, setProducts] = useState<Product[]>([]);
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
               Ürünler
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">Ürün yönetimi</h2>
+            <div className="flex items-center gap-3 mt-2">
+              <h2 className="text-2xl font-semibold text-slate-900">Ürün yönetimi</h2>
+            </div>
           </div>
-          <div ref={searchContainerRef} className="relative w-full sm:max-w-xs z-30">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setShowAllProductsModal(true)}
+              className="shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 transition flex shadow-sm"
+            >
+              📋 Tüm Ürünleri Gör
+            </button>
+            <div ref={searchContainerRef} className="relative w-full sm:max-w-xs z-30">
             <input
               type="text"
               placeholder="Ürün adı, marka, model veya barkod ara..."
@@ -1662,6 +1672,7 @@ const [products, setProducts] = useState<Product[]>([]);
               </div>
             )}
           </div>
+          </div>
         </div>
       </div>
 
@@ -1679,7 +1690,7 @@ const [products, setProducts] = useState<Product[]>([]);
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[600px_1fr]">
         <div className="space-y-6">
           <form
             onSubmit={handleAddProduct}
@@ -1688,7 +1699,15 @@ const [products, setProducts] = useState<Product[]>([]);
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
             Yeni Ürün Ekle
           </p>
-          <div className="mt-6 grid gap-4">
+          <div className="mt-6 flex flex-col gap-6">
+            
+            {/* --- BÖLÜM 1: TEMEL BİLGİLER --- */}
+            <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-sky-500"></div>
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>1. Temel Bilgiler</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* 1. Barkod / Karekod */}
             <div className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Barkod / Karekod *</span>
@@ -1911,6 +1930,16 @@ const [products, setProducts] = useState<Product[]>([]);
               </div>
             )}
 
+              </div>
+            </div>
+
+            {/* --- BÖLÜM 2: DONANIM & MODEL BİLGİLERİ --- */}
+            <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>2. Donanım & Model Bilgileri</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* 3. Marka */}
             <div className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Marka</span>
@@ -2336,6 +2365,16 @@ const [products, setProducts] = useState<Product[]>([]);
               </div>
             )}
 
+              </div>
+            </div>
+
+            {/* --- BÖLÜM 3: TANIM & GÖRSELLER --- */}
+            <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-fuchsia-500"></div>
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>3. Tanım & Görseller</span>
+              </h3>
+              <div className="flex flex-col gap-4">
             {/* 7. Ürün Adı */}
             <label className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Ürün Adı (Boş bırakılırsa otomatik oluşturulur)</span>
@@ -2423,6 +2462,16 @@ const [products, setProducts] = useState<Product[]>([]);
               </div>
             </div>
 
+              </div>
+            </div>
+
+            {/* --- BÖLÜM 4: FİYAT & STOK --- */}
+            <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>4. Fiyat & Stok</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* 9. Stok Adedi */}
             <label className="grid gap-2 text-sm text-slate-700">
               <span className="font-medium">Stok Adedi</span>
@@ -2485,6 +2534,16 @@ const [products, setProducts] = useState<Product[]>([]);
               />
             </label>
 
+              </div>
+            </div>
+
+            {/* --- BÖLÜM 5: AYARLAR & KAMPANYA --- */}
+            <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>5. Ayarlar & Kampanya</span>
+              </h3>
+              <div className="flex flex-col gap-4">
             {/* 13. Web Sitesinde Gösterilsin mi? */}
             <label className="flex items-center gap-3 text-sm text-slate-700 select-none cursor-pointer mt-2">
               <input
@@ -2702,13 +2761,18 @@ const [products, setProducts] = useState<Product[]>([]);
               </div>
             )}
           </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="mt-6 inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving ? "Kaydediliyor..." : "Ürün Ekle"}
-          </button>
+          </div>
+          </div> {/* Form içerik bitişi */}
+          {/* Sticky Ürün Ekle Butonu */}
+          <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 border-t border-slate-200 bg-white/95 p-4 backdrop-blur-md z-10 rounded-b-3xl flex justify-end shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-8 py-3.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-slate-900/20"
+            >
+              {saving ? "Kaydediliyor..." : "Ürün Ekle"}
+            </button>
+          </div>
         </form>
 
         {/* CANLI ÜRÜN ÖNİZLEME KARTI */}
@@ -3104,7 +3168,7 @@ const [products, setProducts] = useState<Product[]>([]);
       {/* TÜM ÜRÜNLER MODALI */}
       {showAllProductsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6">
-          <div className="relative w-full max-w-5xl max-h-[90vh] flex flex-col bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-[95vw] max-h-[90vh] flex flex-col bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
               <div>
@@ -3222,7 +3286,7 @@ const [products, setProducts] = useState<Product[]>([]);
                             {editingId === product.id ? (
                               <td colSpan={5} className="p-4 bg-slate-50/50">
                                 <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4">
-                                  <div className="grid gap-4 sm:grid-cols-2">
+                                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
                                     <label className="grid gap-2 text-[11px] text-slate-700">
                                       <span>Barkod / Karekod</span>
                                       <input
@@ -3896,14 +3960,14 @@ const [products, setProducts] = useState<Product[]>([]);
                                           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                                       }`}
                                     >
-                                      {product.is_b2b_visible ? "Toptan Ayarları" : "Toptana Aç"}
+                                      {product.is_b2b_visible ? "📦 Toptan" : "📦 Toptana Aç"}
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => handleStartEdit(product)}
                                       className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 transition cursor-pointer"
                                     >
-                                      Düzenle
+                                      ✏️ Düzenle
                                     </button>
 
                                     <button
@@ -3911,7 +3975,7 @@ const [products, setProducts] = useState<Product[]>([]);
                                       onClick={() => setCampaignModalProduct(product)}
                                       className="rounded-lg border border-blue-200 bg-white hover:bg-blue-50 px-2.5 py-1.5 text-[10px] font-semibold text-blue-600 transition cursor-pointer"
                                     >
-                                      Bu Üründen Kampanya Oluştur
+                                      📢 Kampanya
                                     </button>
 
                                     <button
@@ -3919,7 +3983,7 @@ const [products, setProducts] = useState<Product[]>([]);
                                       onClick={() => handleDelete(product.id)}
                                       className="rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 text-[10px] font-semibold text-rose-700 transition cursor-pointer"
                                     >
-                                      Sil
+                                      🗑️ Sil
                                     </button>
                                   </div>
                                 </td>

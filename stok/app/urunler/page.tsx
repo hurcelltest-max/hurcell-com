@@ -3237,7 +3237,7 @@ const [products, setProducts] = useState<Product[]>([]);
                                       />
                                     </label>
 
-                                    {isEditDevice && editForm.device_condition_type && (
+                                    {isTelefonCategory(editForm.category) && editForm.device_condition_type && (
                                       <>
                                         <label className="grid gap-2 text-[11px] text-slate-700">
                                           <span>IMEI 1 / Seri No *</span>

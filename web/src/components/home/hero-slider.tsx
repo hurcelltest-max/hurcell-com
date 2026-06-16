@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, ArrowRight, Tag } from 'lucide-react'
 import type { Product } from '@/types'
 import { getFallbackImage, formatPriceTRY, getPublicProductTitle } from '@/lib/constants'
@@ -12,6 +13,7 @@ interface HeroSliderProps {
 }
 
 export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
+  const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -68,7 +70,14 @@ export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
           return (
             <div 
               key={product.id} 
-              className={`w-full flex-shrink-0 relative flex items-center justify-center min-h-[450px] md:min-h-[500px] bg-gradient-to-r ${bgGradient}`}
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('button, a')) return;
+                router.push(`/shop/${product.id}`);
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`${product.name} ürününü incele`}
+              className={`w-full flex-shrink-0 relative flex items-center justify-center min-h-[450px] md:min-h-[500px] bg-gradient-to-r ${bgGradient} cursor-pointer group/slider`}
             >
               {/* Arka plan dekorasyon */}
               <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -125,13 +134,13 @@ export function HeroSlider({ products, campaignsMap }: HeroSliderProps) {
                     <img 
                       src={product.image_url} 
                       alt={product.name} 
-                      className="w-full h-full object-contain relative z-10 drop-shadow-2xl scale-95 md:scale-100 hover:scale-105 transition-transform duration-700" 
+                      className="w-full h-full object-contain relative z-10 drop-shadow-2xl scale-95 md:scale-100 group-hover/slider:scale-105 transition-transform duration-700" 
                     />
                   ) : (
                     <img 
                       src={getFallbackImage(product.category || '')} 
                       alt="Fallback" 
-                      className="w-3/4 h-3/4 object-contain opacity-50 relative z-10 grayscale invert brightness-200" 
+                      className="w-3/4 h-3/4 object-contain opacity-50 relative z-10 grayscale invert brightness-200 group-hover/slider:scale-105 transition-transform duration-700" 
                     />
                   )}
                 </div>

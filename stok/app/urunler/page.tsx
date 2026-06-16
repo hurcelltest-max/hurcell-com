@@ -3173,7 +3173,7 @@ const [products, setProducts] = useState<Product[]>([]);
                         return (
                           <tr key={product.id} className="hover:bg-slate-50/50 transition">
                             {editingId === product.id ? (
-                              <td colSpan={4} className="p-4 bg-slate-50/50">
+                              <td colSpan={5} className="p-4 bg-slate-50/50">
                                 <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4">
                                   <div className="grid gap-4 sm:grid-cols-2">
                                     <label className="grid gap-2 text-[11px] text-slate-700">

@@ -1698,20 +1698,21 @@ const [products, setProducts] = useState<Product[]>([]);
         </div>
       ) : null}
 
-      
-    <form onSubmit={handleAddProduct} className="grid grid-cols-1 xl:grid-cols-2 gap-8 w-full items-start">
-      {/* Orta Kolon */}
-      <div className="flex flex-col gap-8">
-        
-    <div className="rounded-3xl border border-slate-200 border-l-[6px] border-l-blue-500 bg-white/95 p-6 shadow-sm shadow-slate-900/5 flex flex-col gap-6">
-      <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
+      <div>
+        <div className="space-y-6">
+          <form
+            onSubmit={handleAddProduct}
+            className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5 max-w-4xl"
+          >
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
             Yeni Ürün Ekle
           </p>
           <div className="mt-6 flex flex-col gap-6">
             
             {/* --- BÖLÜM 1: TEMEL BİLGİLER --- */}
             <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-sky-500"></div>\n<h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+              <div className="absolute top-0 left-0 w-1 h-full bg-sky-500"></div>
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
                 <span>1. Temel Bilgiler</span>
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1943,11 +1944,7 @@ const [products, setProducts] = useState<Product[]>([]);
             {/* --- BÖLÜM 2: DONANIM & MODEL BİLGİLERİ --- */}
             <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
-    </div>
-  
-        
-    <div className="rounded-3xl border border-slate-200 border-l-[6px] border-l-blue-500 bg-white/95 p-6 shadow-sm shadow-slate-900/5 flex flex-col gap-6">
-      <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
                 <span>2. Donanım & Model Bilgileri</span>
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2382,261 +2379,7 @@ const [products, setProducts] = useState<Product[]>([]);
             {/* --- BÖLÜM 3: TANIM & GÖRSELLER --- */}
             <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-fuchsia-500"></div>
-    </div>
-  
-        
-    <div className="rounded-3xl border border-slate-200 border-l-[6px] border-l-blue-500 bg-white/95 p-6 shadow-sm shadow-slate-900/5 flex flex-col gap-6">
-      <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
-                <span>4. Fiyat & Stok</span>
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* 9. Stok Adedi */}
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">Stok Adedi</span>
-              <input
-                type="number"
-                name="stock"
-                id="product-stock"
-                value={form.stock}
-                onChange={(e) => handleFormChange("stock", formatAmount(e.target.value))}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
-
-            {/* 10. Alış Fiyatı */}
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">Alış Fiyatı</span>
-              <input
-                type="text"
-                name="buy_price"
-                id="product-buy_price"
-                value={buyPriceFocused ? form.buy_price : formatCurrencyTRY(form.buy_price)}
-                onFocus={() => setBuyPriceFocused(true)}
-                onBlur={(e) => {
-                  setBuyPriceFocused(false);
-                  handleFormChange("buy_price", parseCurrencyTRY(e.target.value));
-                }}
-                onChange={(e) => handleFormChange("buy_price", e.target.value)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
-
-            {/* 11. Satış Fiyatı */}
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">Satış Fiyatı</span>
-              <input
-                type="text"
-                name="sell_price"
-                id="product-sell_price"
-                value={sellPriceFocused ? form.sell_price : formatCurrencyTRY(form.sell_price)}
-                onFocus={() => setSellPriceFocused(true)}
-                onBlur={(e) => {
-                  setSellPriceFocused(false);
-                  handleFormChange("sell_price", parseCurrencyTRY(e.target.value));
-                }}
-                onChange={(e) => handleFormChange("sell_price", e.target.value)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
-
-            {/* 12. Azalan Stok Alarmı */}
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span className="font-medium">Azalan Stok Alarmı</span>
-              <input
-                type="number"
-                name="min_stock"
-                id="product-min_stock"
-                value={form.min_stock}
-                onChange={(e) => handleFormChange("min_stock", formatAmount(e.target.value))}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-              />
-            </label>
-
-              </div>
-            </div>
-
-            {/* --- BÖLÜM 5: AYARLAR & KAMPANYA --- */}
-            <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
-    </div>
-  
-        {/* CANLI ÜRÜN ÖNİZLEME KARTI */}
-        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5 space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
-              Canlı Ürün Önizleme
-            </p>
-            <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-[10px] font-semibold text-sky-700 border border-sky-100">
-              Web Sitesi Görünümü
-            </span>
-          </div>
-          
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5 p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
-            {/* Sol: Fotoğraf veya Kategori İkonu */}
-            <div className="shrink-0">
-              <div className="h-20 w-20 overflow-hidden rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm text-3xl select-none">
-                {form.image_url ? (
-                  <img
-                    src={form.image_url}
-                    alt="Önizleme"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  (() => {
-                    const cat = form.category.trim().toLowerCase();
-                    if (cat === "telefon") return "📱";
-                    if (cat === "tablet") return "📟";
-                    if (cat === "bilgisayar") return "💻";
-                    if (cat === "aksesuar") return "🎧";
-                    if (cat === "akıllı saat") return "⌚";
-                    return "📦";
-                  })()
-                )}
-              </div>
-            </div>
-            
-            {/* Sağ: Bilgiler */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                <h4 className="text-sm font-bold text-slate-900 leading-snug">
-                  {(() => {
-                    const colorVal = selColor === "_other" ? customColor : (selColor || form.color);
-                    const isL = form.category.trim().toLowerCase() === "bilgisayar";
-                    if (isL) {
-                      return getCleanedLaptopTitle(
-                        form.name.trim(),
-                        form.brand,
-                        form.model,
-                        form.ram,
-                        form.storage,
-                        form.processor,
-                        form.screen_size,
-                        colorVal
-                      );
-                    }
-                    const computedName = buildProductName(
-                      form.brand,
-                      form.model,
-                      colorVal,
-                      form.category.trim().toLowerCase() === "bilgisayar" ? null : (selMemory === "_other" ? customMemory : (selMemory || form.memory)),
-                      form.ram,
-                      form.storage,
-                      form.processor,
-                      form.screen_size,
-                      false
-                    );
-                    return form.name.trim() || computedName || "Yeni Ürün Adı";
-                  })()}
-                </h4>
-                {form.is_web_visible ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">✓ Webde</span>
-                ) : (
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 border border-slate-200">Gizli</span>
-                )}
-                {form.is_b2b_visible && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">B2B</span>
-                )}
-                {form.device_condition_type && (() => {
-                  switch (form.device_condition_type) {
-                    case 'new_sealed':
-                      return <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">Sıfır Kapalı Kutu</span>;
-                    case 'new_open_box':
-                      return <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 border border-indigo-200">Açık Kutu</span>;
-                    case 'display':
-                      return <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200">Teşhir</span>;
-                    case 'used':
-                      return <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 border border-slate-200">İkinci El</span>;
-                    case 'refurbished':
-                      return <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">Yenilenmiş</span>;
-                    case 'authorized_refurbished':
-                      return <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">Yetkili Raporlu Yenilenmiş</span>;
-                    default:
-                      return null;
-                  }
-                })()}
-              </div>
-              
-              {/* Kategori • Marka • Model (Sadeleştirilmiş) */}
-              <p className="text-xs text-slate-500 mb-1 leading-relaxed">
-                {(() => {
-                  const parts = [];
-                  if (form.category) parts.push(form.category);
-                  
-                  const brandStr = (form.brand || "").trim();
-                  const modelStr = (form.model || "").trim();
-                  
-                  if (brandStr && modelStr) {
-                    if (modelStr.toLowerCase().startsWith(brandStr.toLowerCase())) {
-                      parts.push(modelStr);
-                    } else {
-                      parts.push(`${brandStr} ${modelStr}`);
-                    }
-                  } else if (modelStr) {
-                    parts.push(modelStr);
-                  } else if (brandStr) {
-                    parts.push(brandStr);
-                  }
-                  return parts.join(' • ') || "Kategori • Model";
-                })()}
-              </p>
-              
-              {/* Özellikler: Renk • Hafıza */}
-              {((form.category.trim().toLowerCase() === "bilgisayar" ? (form.ram || form.storage || form.processor || form.screen_size) : (selColor || selMemory || form.color || form.memory)) && (
-                <p className="text-xs text-slate-500 mb-2">
-                  {(() => {
-                    const colorVal = selColor === "_other" ? customColor : (selColor || form.color);
-                    if (form.category.trim().toLowerCase() === "bilgisayar") {
-                      const features = [];
-                      if (colorVal) features.push(`🎨 ${colorVal}`);
-                      if (form.ram) features.push(`💾 RAM: ${form.ram}`);
-                      if (form.storage) features.push(`📁 Depolama: ${form.storage}`);
-                      if (form.processor) features.push(`⚙️ İşlemci: ${form.processor}`);
-                      if (form.screen_size) {
-                        const s = form.screen_size;
-                        const sizeStr = s.toLowerCase().includes("inç") || s.includes("\"") || s.toLowerCase().includes("inch") ? s : `${s} inç`;
-                        features.push(`🖥️ Ekran: ${sizeStr}`);
-                      }
-                      return features.join('  ');
-                    } else {
-                      const memVal = selMemory === "_other" ? customMemory : (selMemory || form.memory);
-                      const features = [];
-                      if (colorVal) features.push(`🎨 ${colorVal}`);
-                      if (memVal) features.push(`💾 ${memVal}`);
-                      return features.join('  ');
-                    }
-                  })()}
-                </p>
-              ))}
-              
-              {/* Barkod */}
-              <p className="text-[10px] text-slate-400 font-mono mb-2">#{form.barcode || "Barkod / Karekod"}</p>
-              
-              {/* Fiyat Satırı */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-base font-bold text-slate-900">
-                    {formatCurrencyTRY(form.sell_price) || "₺0,00"}
-                  </span>
-                </div>
-                {Number(form.buy_price) > 0 && (
-                  <span className="text-xs text-slate-400">
-                    Alış: {formatCurrencyTRY(form.buy_price)}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-        <div className="space-y-6 self-start xl:sticky xl:top-6">
-      </div>
-
-      {/* Sağ Kolon */}
-      <div className="flex flex-col gap-8">
-        
-    <div className="rounded-3xl border border-slate-200 border-l-[6px] border-l-blue-500 bg-white/95 p-6 shadow-sm shadow-slate-900/5 flex flex-col gap-6">
-      <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
                 <span>3. Tanım & Görseller</span>
               </h3>
               <div className="flex flex-col gap-4">
@@ -2733,11 +2476,79 @@ const [products, setProducts] = useState<Product[]>([]);
             {/* --- BÖLÜM 4: FİYAT & STOK --- */}
             <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
-    </div>
-  
-        
-    <div className="rounded-3xl border border-slate-200 border-l-[6px] border-l-blue-500 bg-white/95 p-6 shadow-sm shadow-slate-900/5 flex flex-col gap-6">
-      <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>4. Fiyat & Stok</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* 9. Stok Adedi */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Stok Adedi</span>
+              <input
+                type="number"
+                name="stock"
+                id="product-stock"
+                value={form.stock}
+                onChange={(e) => handleFormChange("stock", formatAmount(e.target.value))}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 10. Alış Fiyatı */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Alış Fiyatı</span>
+              <input
+                type="text"
+                name="buy_price"
+                id="product-buy_price"
+                value={buyPriceFocused ? form.buy_price : formatCurrencyTRY(form.buy_price)}
+                onFocus={() => setBuyPriceFocused(true)}
+                onBlur={(e) => {
+                  setBuyPriceFocused(false);
+                  handleFormChange("buy_price", parseCurrencyTRY(e.target.value));
+                }}
+                onChange={(e) => handleFormChange("buy_price", e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 11. Satış Fiyatı */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Satış Fiyatı</span>
+              <input
+                type="text"
+                name="sell_price"
+                id="product-sell_price"
+                value={sellPriceFocused ? form.sell_price : formatCurrencyTRY(form.sell_price)}
+                onFocus={() => setSellPriceFocused(true)}
+                onBlur={(e) => {
+                  setSellPriceFocused(false);
+                  handleFormChange("sell_price", parseCurrencyTRY(e.target.value));
+                }}
+                onChange={(e) => handleFormChange("sell_price", e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+            {/* 12. Azalan Stok Alarmı */}
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span className="font-medium">Azalan Stok Alarmı</span>
+              <input
+                type="number"
+                name="min_stock"
+                id="product-min_stock"
+                value={form.min_stock}
+                onChange={(e) => handleFormChange("min_stock", formatAmount(e.target.value))}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+
+              </div>
+            </div>
+
+            {/* --- BÖLÜM 5: AYARLAR & KAMPANYA --- */}
+            <div className="border border-slate-200 rounded-3xl p-5 bg-white shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+              <h3 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
                 <span>5. Ayarlar & Kampanya</span>
               </h3>
               <div className="flex flex-col gap-4">
@@ -2959,9 +2770,8 @@ const [products, setProducts] = useState<Product[]>([]);
             )}
           </div>
           </div>
-    </div>
-  
-        {/* Sticky Ürün Ekle Butonu */}
+          </div> {/* Form içerik bitişi */}
+          {/* Sticky Ürün Ekle Butonu */}
           <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 border-t border-slate-200 bg-white/95 p-4 backdrop-blur-md z-10 rounded-b-3xl flex justify-end shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <button
               type="submit"
@@ -2971,7 +2781,262 @@ const [products, setProducts] = useState<Product[]>([]);
               {saving ? "Kaydediliyor..." : "Ürün Ekle"}
             </button>
           </div>
-        {/* Son Eklenen 5 Ürün */}
+        </form>
+
+        {/* CANLI ÜRÜN ÖNİZLEME KARTI */}
+        <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
+              Canlı Ürün Önizleme
+            </p>
+            <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-[10px] font-semibold text-sky-700 border border-sky-100">
+              Web Sitesi Görünümü
+            </span>
+          </div>
+          
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5 p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
+            {/* Sol: Fotoğraf veya Kategori İkonu */}
+            <div className="shrink-0">
+              <div className="h-20 w-20 overflow-hidden rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm text-3xl select-none">
+                {form.image_url ? (
+                  <img
+                    src={form.image_url}
+                    alt="Önizleme"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  (() => {
+                    const cat = form.category.trim().toLowerCase();
+                    if (cat === "telefon") return "📱";
+                    if (cat === "tablet") return "📟";
+                    if (cat === "bilgisayar") return "💻";
+                    if (cat === "aksesuar") return "🎧";
+                    if (cat === "akıllı saat") return "⌚";
+                    return "📦";
+                  })()
+                )}
+              </div>
+            </div>
+            
+            {/* Sağ: Bilgiler */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                  {(() => {
+                    const colorVal = selColor === "_other" ? customColor : (selColor || form.color);
+                    const isL = form.category.trim().toLowerCase() === "bilgisayar";
+                    if (isL) {
+                      return getCleanedLaptopTitle(
+                        form.name.trim(),
+                        form.brand,
+                        form.model,
+                        form.ram,
+                        form.storage,
+                        form.processor,
+                        form.screen_size,
+                        colorVal
+                      );
+                    }
+                    const computedName = buildProductName(
+                      form.brand,
+                      form.model,
+                      colorVal,
+                      form.category.trim().toLowerCase() === "bilgisayar" ? null : (selMemory === "_other" ? customMemory : (selMemory || form.memory)),
+                      form.ram,
+                      form.storage,
+                      form.processor,
+                      form.screen_size,
+                      false
+                    );
+                    return form.name.trim() || computedName || "Yeni Ürün Adı";
+                  })()}
+                </h4>
+                {form.is_web_visible ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">✓ Webde</span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 border border-slate-200">Gizli</span>
+                )}
+                {form.is_b2b_visible && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">B2B</span>
+                )}
+                {form.device_condition_type && (() => {
+                  switch (form.device_condition_type) {
+                    case 'new_sealed':
+                      return <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">Sıfır Kapalı Kutu</span>;
+                    case 'new_open_box':
+                      return <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 border border-indigo-200">Açık Kutu</span>;
+                    case 'display':
+                      return <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200">Teşhir</span>;
+                    case 'used':
+                      return <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700 border border-slate-200">İkinci El</span>;
+                    case 'refurbished':
+                      return <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">Yenilenmiş</span>;
+                    case 'authorized_refurbished':
+                      return <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">Yetkili Raporlu Yenilenmiş</span>;
+                    default:
+                      return null;
+                  }
+                })()}
+              </div>
+              
+              {/* Kategori • Marka • Model (Sadeleştirilmiş) */}
+              <p className="text-xs text-slate-500 mb-1 leading-relaxed">
+                {(() => {
+                  const parts = [];
+                  if (form.category) parts.push(form.category);
+                  
+                  const brandStr = (form.brand || "").trim();
+                  const modelStr = (form.model || "").trim();
+                  
+                  if (brandStr && modelStr) {
+                    if (modelStr.toLowerCase().startsWith(brandStr.toLowerCase())) {
+                      parts.push(modelStr);
+                    } else {
+                      parts.push(`${brandStr} ${modelStr}`);
+                    }
+                  } else if (modelStr) {
+                    parts.push(modelStr);
+                  } else if (brandStr) {
+                    parts.push(brandStr);
+                  }
+                  return parts.join(' • ') || "Kategori • Model";
+                })()}
+              </p>
+              
+              {/* Özellikler: Renk • Hafıza */}
+              {((form.category.trim().toLowerCase() === "bilgisayar" ? (form.ram || form.storage || form.processor || form.screen_size) : (selColor || selMemory || form.color || form.memory)) && (
+                <p className="text-xs text-slate-500 mb-2">
+                  {(() => {
+                    const colorVal = selColor === "_other" ? customColor : (selColor || form.color);
+                    if (form.category.trim().toLowerCase() === "bilgisayar") {
+                      const features = [];
+                      if (colorVal) features.push(`🎨 ${colorVal}`);
+                      if (form.ram) features.push(`💾 RAM: ${form.ram}`);
+                      if (form.storage) features.push(`📁 Depolama: ${form.storage}`);
+                      if (form.processor) features.push(`⚙️ İşlemci: ${form.processor}`);
+                      if (form.screen_size) {
+                        const s = form.screen_size;
+                        const sizeStr = s.toLowerCase().includes("inç") || s.includes("\"") || s.toLowerCase().includes("inch") ? s : `${s} inç`;
+                        features.push(`🖥️ Ekran: ${sizeStr}`);
+                      }
+                      return features.join('  ');
+                    } else {
+                      const memVal = selMemory === "_other" ? customMemory : (selMemory || form.memory);
+                      const features = [];
+                      if (colorVal) features.push(`🎨 ${colorVal}`);
+                      if (memVal) features.push(`💾 ${memVal}`);
+                      return features.join('  ');
+                    }
+                  })()}
+                </p>
+              ))}
+              
+              {/* Barkod */}
+              <p className="text-[10px] text-slate-400 font-mono mb-2">#{form.barcode || "Barkod / Karekod"}</p>
+              
+              {/* Fiyat Satırı */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-base font-bold text-slate-900">
+                    {formatCurrencyTRY(form.sell_price) || "₺0,00"}
+                  </span>
+                </div>
+                {Number(form.buy_price) > 0 && (
+                  <span className="text-xs text-slate-400">
+                    Alış: {formatCurrencyTRY(form.buy_price)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+        <div className="space-y-6 self-start xl:sticky xl:top-6">
+          {/* Stok Özeti Panel Kartı */}
+          <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600 mb-4">Stok Özeti</h3>
+            
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 xl:grid-cols-2">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Toplam Ürün</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{totalProductsCount}</span>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Toplam Stok</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{totalStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Telefon</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{phoneStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tablet</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{tabletStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Bilgisayar</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{computerStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Aksesuar</span>
+                <span className="text-xl font-bold text-slate-800 mt-1">{accessoryStockCount}</span>
+              </div>
+              <div className="rounded-2xl border border-sky-100 bg-sky-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wider">Sıfır Kapalı Kutu</span>
+                <span className="text-xl font-bold text-sky-700 mt-1">{newSealedCount}</span>
+              </div>
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider">İkinci El / Diğer</span>
+                <span className="text-xl font-bold text-indigo-700 mt-1">{usedDeviceCount}</span>
+              </div>
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider">Stoku Azalan</span>
+                <span className="text-xl font-bold text-amber-700 mt-1">{lowStockProductsCount}</span>
+              </div>
+              <div className="rounded-2xl border border-rose-100 bg-rose-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-rose-600 uppercase tracking-wider">Stoku Biten</span>
+                <span className="text-xl font-bold text-rose-700 mt-1">{outOfStockProductsCount}</span>
+              </div>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">B2B’ye Açık Ürün</span>
+                <span className="text-xl font-bold text-blue-700 mt-1">{b2bProductsCount}</span>
+              </div>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
+                <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Toptan Stok Adedi</span>
+                <span className="text-xl font-bold text-blue-700 mt-1">{b2bTotalStockCount}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Düşük Stok Uyarıları (Varsa) */}
+          {lowStockWarnings.length > 0 && (
+            <div className="rounded-3xl border border-amber-200 bg-white/95 p-6 shadow-sm shadow-amber-900/5 space-y-4 animate-in fade-in duration-200">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-600 flex items-center gap-2">
+                <span className="text-lg">⚠️</span> Düşük Stok Uyarıları
+              </h3>
+              <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto scrollbar-thin pr-2">
+                {lowStockWarnings.slice(0, 10).map((p) => (
+                  <div 
+                    key={p.id} 
+                    className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4 cursor-pointer hover:bg-amber-50/50 px-2 -mx-2 rounded-xl transition-colors"
+                    onClick={() => {
+                      setModalSearchQuery(p.barcode || p.name);
+                      handleStartEdit(p);
+                      setShowAllProductsModal(true);
+                    }}
+                  >
+                    <span className="text-xs font-bold text-slate-800 truncate" title={p.name}>{p.name}</span>
+                    <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black shrink-0 ${p.stock === 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                      {p.stock} Adet Kaldı
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Son Eklenen 5 Ürün */}
           <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
@@ -3105,101 +3170,10 @@ const [products, setProducts] = useState<Product[]>([]);
             >
               👁️ Tüm Ürünleri Gör
             </button>
-          </div></div>
-      </div>
-    </form>
-  
-<div style={{ display: "contents" }}>
-
-      {portalTarget && createPortal(
-        <div className="flex flex-col gap-8 pb-6 w-[280px] lg:w-[300px] xl:w-[360px]">
-          {/* Stok Özeti Panel Kartı */}
-          <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm shadow-slate-900/5">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600 mb-4">Stok Özeti</h3>
-            
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 xl:grid-cols-2">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Toplam Ürün</span>
-                <span className="text-xl font-bold text-slate-800 mt-1">{totalProductsCount}</span>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Toplam Stok</span>
-                <span className="text-xl font-bold text-slate-800 mt-1">{totalStockCount}</span>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Telefon</span>
-                <span className="text-xl font-bold text-slate-800 mt-1">{phoneStockCount}</span>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tablet</span>
-                <span className="text-xl font-bold text-slate-800 mt-1">{tabletStockCount}</span>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Bilgisayar</span>
-                <span className="text-xl font-bold text-slate-800 mt-1">{computerStockCount}</span>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Aksesuar</span>
-                <span className="text-xl font-bold text-slate-800 mt-1">{accessoryStockCount}</span>
-              </div>
-              <div className="rounded-2xl border border-sky-100 bg-sky-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wider">Sıfır Kapalı Kutu</span>
-                <span className="text-xl font-bold text-sky-700 mt-1">{newSealedCount}</span>
-              </div>
-              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider">İkinci El / Diğer</span>
-                <span className="text-xl font-bold text-indigo-700 mt-1">{usedDeviceCount}</span>
-              </div>
-              <div className="rounded-2xl border border-amber-100 bg-amber-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider">Stoku Azalan</span>
-                <span className="text-xl font-bold text-amber-700 mt-1">{lowStockProductsCount}</span>
-              </div>
-              <div className="rounded-2xl border border-rose-100 bg-rose-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-rose-600 uppercase tracking-wider">Stoku Biten</span>
-                <span className="text-xl font-bold text-rose-700 mt-1">{outOfStockProductsCount}</span>
-              </div>
-              <div className="rounded-2xl border border-blue-100 bg-blue-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">B2B’ye Açık Ürün</span>
-                <span className="text-xl font-bold text-blue-700 mt-1">{b2bProductsCount}</span>
-              </div>
-              <div className="rounded-2xl border border-blue-100 bg-blue-50/20 p-3 flex flex-col justify-between animate-in fade-in duration-200">
-                <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Toptan Stok Adedi</span>
-                <span className="text-xl font-bold text-blue-700 mt-1">{b2bTotalStockCount}</span>
-              </div>
-            </div>
           </div>
+        </div>
 
-          {/* Düşük Stok Uyarıları (Varsa) */}
-          {lowStockWarnings.length > 0 && (
-            <div className="rounded-3xl border border-amber-200 bg-white/95 p-6 shadow-sm shadow-amber-900/5 space-y-4 animate-in fade-in duration-200">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-600 flex items-center gap-2">
-                <span className="text-lg">⚠️</span> Düşük Stok Uyarıları
-              </h3>
-              <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto scrollbar-thin pr-2">
-                {lowStockWarnings.slice(0, 10).map((p) => (
-                  <div 
-                    key={p.id} 
-                    className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-4 cursor-pointer hover:bg-amber-50/50 px-2 -mx-2 rounded-xl transition-colors"
-                    onClick={() => {
-                      setModalSearchQuery(p.barcode || p.name);
-                      handleStartEdit(p);
-                      setShowAllProductsModal(true);
-                    }}
-                  >
-                    <span className="text-xs font-bold text-slate-800 truncate" title={p.name}>{p.name}</span>
-                    <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black shrink-0 ${p.stock === 0 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
-                      {p.stock} Adet Kaldı
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>,
-        portalTarget
-      )}
-  
-{/* TÜM ÜRÜNLER MODALI */}
+      {/* TÜM ÜRÜNLER MODALI */}
       {showAllProductsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6">
           <div className="relative w-full max-w-[95vw] max-h-[90vh] flex flex-col bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">

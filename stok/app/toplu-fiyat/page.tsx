@@ -128,45 +128,64 @@ export default function TopluFiyatPage() {
         {/* Sol Panel: Arama ve Seçim */}
         <div className="space-y-6">
           <div className="bg-white p-4 rounded-lg shadow border">
-            <h2 className="text-xl font-semibold mb-4">Ürün Ara</h2>
+            <h2 className="text-xl font-semibold mb-4 text-slate-900">Ürün Ara</h2>
             <form onSubmit={handleSearch} className="flex space-x-2">
               <input 
                 type="text" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
                 placeholder="Barkod, isim, marka, model (min 3 harf)"
-                className="flex-1 border p-2 rounded"
+                className="flex-1 border border-slate-300 p-2 rounded bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
-              <button type="submit" disabled={loadingSearch} className="bg-gray-800 text-white px-4 py-2 rounded">
-                Ara
+              <button 
+                type="submit" 
+                disabled={loadingSearch} 
+                className="bg-slate-800 text-white px-4 py-2 rounded hover:bg-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100 disabled:cursor-not-allowed transition-colors"
+              >
+                {loadingSearch ? 'Aranıyor...' : 'Ara'}
               </button>
             </form>
             <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
               {searchResults.map(p => (
-                <div key={p.id} className="flex justify-between items-center p-2 hover:bg-gray-50 border-b">
+                <div key={p.id} className="flex justify-between items-center p-2 hover:bg-slate-50 border-b border-slate-100">
                   <div>
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-xs text-gray-500">{p.barcode} | {p.brand}</div>
+                    <div className="font-medium text-slate-900">{p.name}</div>
+                    <div className="text-xs text-slate-500">{p.barcode} | {p.brand}</div>
                   </div>
-                  <button onClick={() => handleSelect(p)} className="text-indigo-600 text-sm font-semibold border border-indigo-600 px-2 py-1 rounded">Ekle</button>
+                  <button 
+                    onClick={() => handleSelect(p)} 
+                    className="text-indigo-600 hover:text-indigo-800 text-sm font-semibold border border-indigo-600 hover:border-indigo-800 px-2 py-1 rounded bg-white transition-colors"
+                  >
+                    Ekle
+                  </button>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="bg-white p-4 rounded-lg shadow border">
-            <h2 className="text-xl font-semibold mb-4">Seçilen Ürünler ({selectedItems.length})</h2>
+            <h2 className="text-xl font-semibold mb-4 text-slate-900">Seçilen Ürünler ({selectedItems.length})</h2>
             <div className="max-h-80 overflow-y-auto space-y-2">
               {selectedItems.map(p => (
-                <div key={p.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <div className="truncate text-sm mr-2">{p.name}</div>
-                  <button onClick={() => handleRemove(p.id)} className="text-red-500 text-xs">Kaldır</button>
+                <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 border border-slate-100 rounded">
+                  <div className="truncate text-sm mr-2 text-slate-800">{p.name}</div>
+                  <button 
+                    onClick={() => handleRemove(p.id)} 
+                    className="text-red-600 hover:text-red-800 text-xs font-medium transition-colors"
+                  >
+                    Kaldır
+                  </button>
                 </div>
               ))}
-              {selectedItems.length === 0 && <p className="text-gray-500 text-sm">Henüz ürün seçilmedi.</p>}
+              {selectedItems.length === 0 && <p className="text-slate-500 text-sm">Henüz ürün seçilmedi.</p>}
             </div>
             {selectedItems.length > 0 && (
-              <button onClick={() => setSelectedItems([])} className="mt-4 text-sm text-red-600">Tümünü Temizle</button>
+              <button 
+                onClick={() => setSelectedItems([])} 
+                className="mt-4 text-sm text-red-600 hover:text-red-800 font-medium transition-colors"
+              >
+                Tümünü Temizle
+              </button>
             )}
           </div>
         </div>
@@ -174,11 +193,15 @@ export default function TopluFiyatPage() {
         {/* Sağ Panel: İşlem ve Önizleme */}
         <div className="space-y-6">
           <div className="bg-white p-4 rounded-lg shadow border">
-            <h2 className="text-xl font-semibold mb-4">İşlem Ayarları</h2>
+            <h2 className="text-xl font-semibold mb-4 text-slate-900">İşlem Ayarları</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium">İşlem Türü</label>
-                <select value={actionType} onChange={(e) => setActionType(e.target.value as BatchActionType)} className="w-full border p-2 rounded mt-1">
+                <label className="block text-sm font-medium text-slate-700">İşlem Türü</label>
+                <select 
+                  value={actionType} 
+                  onChange={(e) => setActionType(e.target.value as BatchActionType)} 
+                  className="w-full border border-slate-300 p-2 rounded mt-1 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
                   <option value="markup">Maliyete Eklenen Kâr (Markup %)</option>
                   <option value="margin">Kâr Marjı (Margin %)</option>
                   <option value="flat_increase">Sabit Artış (TL)</option>
@@ -191,19 +214,35 @@ export default function TopluFiyatPage() {
 
               {actionType !== 'currency_update' ? (
                 <div>
-                  <label className="block text-sm font-medium">Oran / Tutar</label>
-                  <input type="number" step="0.01" value={value} onChange={(e) => setValue(Number(e.target.value))} className="w-full border p-2 rounded mt-1" />
+                  <label className="block text-sm font-medium text-slate-700">Oran / Tutar</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={value} 
+                    onChange={(e) => setValue(Number(e.target.value))} 
+                    className="w-full border border-slate-300 p-2 rounded mt-1 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" 
+                  />
                 </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-medium">Yeni Döviz Kuru (₺)</label>
-                  <input type="number" step="0.0001" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value))} className="w-full border p-2 rounded mt-1" />
+                  <label className="block text-sm font-medium text-slate-700">Yeni Döviz Kuru (₺)</label>
+                  <input 
+                    type="number" 
+                    step="0.0001" 
+                    value={exchangeRate} 
+                    onChange={(e) => setExchangeRate(Number(e.target.value))} 
+                    className="w-full border border-slate-300 p-2 rounded mt-1 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" 
+                  />
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium">Yuvarlama</label>
-                <select value={rounding} onChange={(e) => setRounding(e.target.value as RoundingType)} className="w-full border p-2 rounded mt-1">
+                <label className="block text-sm font-medium text-slate-700">Yuvarlama</label>
+                <select 
+                  value={rounding} 
+                  onChange={(e) => setRounding(e.target.value as RoundingType)} 
+                  className="w-full border border-slate-300 p-2 rounded mt-1 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
                   <option value="none">Yuvarlama Yok (İki Ondalık)</option>
                   <option value="tam_tl">Tam TL (Yukarı)</option>
                   <option value="yakin_10">En Yakın Üst 10 TL</option>
@@ -215,32 +254,32 @@ export default function TopluFiyatPage() {
           </div>
 
           <div className="bg-white p-4 rounded-lg shadow border overflow-x-auto">
-            <h2 className="text-xl font-semibold mb-4">Önizleme</h2>
+            <h2 className="text-xl font-semibold mb-4 text-slate-900">Önizleme</h2>
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-100">
+              <thead className="bg-slate-100 text-slate-700">
                 <tr>
-                  <th className="p-2">Ürün</th>
-                  <th className="p-2">Mevcut TL Satış</th>
-                  <th className="p-2 text-indigo-600">Yeni Satış</th>
+                  <th className="p-2 border-b border-slate-200">Ürün</th>
+                  <th className="p-2 border-b border-slate-200">Mevcut TL Satış</th>
+                  <th className="p-2 border-b border-slate-200 text-indigo-700 font-semibold">Yeni Satış</th>
                 </tr>
               </thead>
               <tbody>
                 {previewItems.slice(0, 5).map(p => (
-                  <tr key={p.id} className="border-b">
-                    <td className="p-2 truncate max-w-[150px]">{p.name}</td>
-                    <td className="p-2">{p.sell_price.toFixed(2)} ₺</td>
-                    <td className="p-2 font-semibold text-indigo-600">{p.new_sell_price.toFixed(2)} ₺</td>
+                  <tr key={p.id} className="border-b border-slate-100 text-slate-800 hover:bg-slate-50/50">
+                    <td className="p-2 truncate max-w-[150px] font-medium text-slate-900" title={p.name}>{p.name}</td>
+                    <td className="p-2 text-slate-700">{p.sell_price.toFixed(2)} ₺</td>
+                    <td className="p-2 font-semibold text-indigo-700">{p.new_sell_price.toFixed(2)} ₺</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {previewItems.length > 5 && <div className="text-xs text-gray-500 mt-2">... ve {previewItems.length - 5} ürün daha</div>}
+            {previewItems.length > 5 && <div className="text-xs text-slate-500 mt-2 font-medium">... ve {previewItems.length - 5} ürün daha</div>}
             
             <div className="mt-6">
               <button 
                 onClick={handleSubmit} 
                 disabled={loadingSubmit || selectedItems.length === 0} 
-                className="w-full bg-green-600 text-white font-bold py-3 rounded hover:bg-green-700 disabled:opacity-50"
+                className="w-full bg-green-600 text-white font-bold py-3 rounded hover:bg-green-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:border-slate-200 disabled:opacity-100 disabled:cursor-not-allowed transition-colors"
               >
                 {loadingSubmit ? 'İşleniyor...' : `Seçili ${selectedItems.length} Ürünü Kaydet`}
               </button>

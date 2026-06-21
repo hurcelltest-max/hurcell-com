@@ -145,6 +145,8 @@ export default function StokSayimPage() {
       stock: 1,
       buy_price: Number(form.buy_price) || 0,
       sell_price: Number(form.sell_price) || 0,
+      buy_currency: 'TRY',
+      foreign_buy_price: null,
       min_stock: Number(form.min_stock) || 0,
       location: form.location.trim() || null,
       description: null,

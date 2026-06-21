@@ -6,6 +6,8 @@ export type Product = {
   stock: number;
   buy_price: number;
   sell_price: number;
+  buy_currency: string;
+  foreign_buy_price: number | null;
   min_stock: number;
   location: string | null;
   created_at: string;
@@ -74,6 +76,7 @@ export type AdminUser = {
   user_id: string;
   email: string;
   role: string;
+  is_active?: boolean;
   created_at: string;
 };
 
@@ -90,6 +93,35 @@ export type B2bDealer = {
   status: 'pending' | 'approved' | 'rejected' | 'passive';
   created_at: string;
   updated_at: string;
+};
+
+export type BatchStatus = 'completed' | 'rolled_back' | 'failed';
+
+export type BatchActionType = 'markup' | 'margin' | 'flat_increase' | 'flat_decrease' | 'percent_increase' | 'percent_decrease' | 'currency_update';
+
+export type PriceUpdateBatch = {
+  id: string;
+  admin_user_id: string;
+  action_type: BatchActionType;
+  parameters: any;
+  status: BatchStatus;
+  rolled_back_at: string | null;
+  rolled_back_by: string | null;
+  created_at: string;
+};
+
+export type PriceUpdateItem = {
+  id: string;
+  batch_id: string;
+  product_id: string;
+  old_buy_currency: string;
+  old_foreign_buy_price: number | null;
+  old_buy_price: number;
+  old_sell_price: number;
+  new_buy_currency: string;
+  new_foreign_buy_price: number | null;
+  new_buy_price: number;
+  new_sell_price: number;
 };
 
 export interface SupabaseTableDefinitions {
@@ -121,6 +153,18 @@ export interface SupabaseTableDefinitions {
     Row: B2bDealer;
     Insert: Omit<B2bDealer, 'id' | 'created_at' | 'updated_at'>;
     Update: Partial<Omit<B2bDealer, 'id' | 'created_at' | 'updated_at'>>;
+    Relationships: [];
+  };
+  price_update_batches: {
+    Row: PriceUpdateBatch;
+    Insert: Omit<PriceUpdateBatch, 'id' | 'created_at'>;
+    Update: Partial<Omit<PriceUpdateBatch, 'id' | 'created_at'>>;
+    Relationships: [];
+  };
+  price_update_items: {
+    Row: PriceUpdateItem;
+    Insert: Omit<PriceUpdateItem, 'id'>;
+    Update: Partial<Omit<PriceUpdateItem, 'id'>>;
     Relationships: [];
   };
 }

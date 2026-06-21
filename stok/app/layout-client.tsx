@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabaseClient';
 const navItems = [
   { href: "/", label: "Dashboard" },
   { href: "/urunler", label: "Ürünler" },
+  { href: "/toplu-fiyat", label: "Toplu Fiyat" },
   { href: "/stok-sayim", label: "Stok Sayımı" },
   { href: "/satis", label: "Satış" },
   { href: "/iade", label: "İade" },
@@ -16,6 +17,7 @@ const navItems = [
   { href: "/kampanyalar", label: "Kampanyalar" },
   { href: "/hareketler", label: "Hareketler" },
   { href: "/ayarlar/bayiler", label: "B2B Bayiler" },
+  { href: "/ayarlar/basvurular", label: "Bayi Başvuruları" },
   { href: "/ayarlar", label: "Ayarlar" },
 ];
 

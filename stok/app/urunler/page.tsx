@@ -491,6 +491,8 @@ const initialFormState = {
   supplier_name: "",
   supplier_invoice_no: "",
   service_report_no: "",
+  buy_currency: "TRY",
+  foreign_buy_price: "",
 };
 
 type FormFieldKey = keyof typeof initialFormState;
@@ -1174,6 +1176,8 @@ const [products, setProducts] = useState<Product[]>([]);
       stock: Number(form.stock) || 0,
       buy_price: Number(form.buy_price) || 0,
       sell_price: Number(form.sell_price) || 0,
+      buy_currency: form.buy_currency || 'TRY',
+      foreign_buy_price: form.foreign_buy_price ? Number(form.foreign_buy_price) : null,
       min_stock: Number(form.min_stock) || 0,
       location: form.location.trim() || null,
       description: form.description.trim() || null,
@@ -1284,6 +1288,8 @@ const [products, setProducts] = useState<Product[]>([]);
       supplier_name: product.supplier_name || "",
       supplier_invoice_no: product.supplier_invoice_no || "",
       service_report_no: product.service_report_no || "",
+      buy_currency: product.buy_currency || "TRY",
+      foreign_buy_price: product.foreign_buy_price != null ? String(product.foreign_buy_price) : "",
     });
   };
 
@@ -1386,6 +1392,8 @@ const [products, setProducts] = useState<Product[]>([]);
       stock: Number(editForm.stock) || 0,
       buy_price: Number(editForm.buy_price) || 0,
       sell_price: Number(editForm.sell_price) || 0,
+      buy_currency: editForm.buy_currency || 'TRY',
+      foreign_buy_price: editForm.foreign_buy_price ? Number(editForm.foreign_buy_price) : null,
       min_stock: Number(editForm.min_stock) || 0,
       location: editForm.location.trim() || null,
       description: editForm.description.trim() || null,
@@ -1588,6 +1596,57 @@ const [products, setProducts] = useState<Product[]>([]);
   const activeModelsForBrand = activeCatalog
     ? activeCatalog.filter((p) => p.brand.toLowerCase() === selBrand.toLowerCase())
     : [];
+
+  const [showBrandSuggestions, setShowBrandSuggestions] = useState(false);
+  const [showModelSuggestions, setShowModelSuggestions] = useState(false);
+
+  const uniqueBrands = Array.from(new Set(products.map(p => p.brand).filter(Boolean))) as string[];
+  const filterSuggestions = (items: string[], query: string) => {
+    if (!query) return [];
+    const lowerQuery = query.toLocaleLowerCase('tr-TR');
+    return items
+      .filter(item => item.toLocaleLowerCase('tr-TR').includes(lowerQuery))
+      .slice(0, 8);
+  };
+  const filteredBrandSuggestions = filterSuggestions(uniqueBrands, form.brand);
+
+  const filteredModelSuggestions = (() => {
+    if (!form.model) return [];
+    const lowerQuery = form.model.toLocaleLowerCase('tr-TR');
+    const brandLower = form.brand ? form.brand.toLocaleLowerCase('tr-TR') : "";
+    
+    const brandModels = brandLower 
+      ? products.filter(p => p.brand && p.brand.toLocaleLowerCase('tr-TR') === brandLower && p.model).map(p => p.model as string)
+      : [];
+      
+    const allModels = products.filter(p => p.model).map(p => p.model as string);
+    const sourceList = brandModels.length > 0 ? brandModels : allModels;
+    const uniqueSourceModels = Array.from(new Set(sourceList));
+    
+    return uniqueSourceModels
+      .filter(item => item.toLocaleLowerCase('tr-TR').includes(lowerQuery))
+      .slice(0, 8);
+  })();
+
+  const handleBrandKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && showBrandSuggestions && filteredBrandSuggestions.length > 0) {
+      e.preventDefault();
+      handleFormChange("brand", filteredBrandSuggestions[0]);
+      setShowBrandSuggestions(false);
+    } else if (e.key === "Escape") {
+      setShowBrandSuggestions(false);
+    }
+  };
+
+  const handleModelKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && showModelSuggestions && filteredModelSuggestions.length > 0) {
+      e.preventDefault();
+      handleFormChange("model", filteredModelSuggestions[0]);
+      setShowModelSuggestions(false);
+    } else if (e.key === "Escape") {
+      setShowModelSuggestions(false);
+    }
+  };
 
   return (
     <section className="space-y-6">
@@ -1994,14 +2053,36 @@ const [products, setProducts] = useState<Product[]>([]);
                   )}
                 </>
               ) : (
-                <input
-                  type="text"
-                  name="brand"
-                  id="product-brand"
-                  value={form.brand}
-                  onChange={(e) => handleFormChange("brand", e.target.value)}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="brand"
+                    id="product-brand"
+                    value={form.brand}
+                    onChange={(e) => handleFormChange("brand", e.target.value)}
+                    onFocus={() => setShowBrandSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowBrandSuggestions(false), 200)}
+                    onKeyDown={handleBrandKeyDown}
+                    autoComplete="off"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+                  />
+                  {showBrandSuggestions && filteredBrandSuggestions.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                      {filteredBrandSuggestions.map((brand, idx) => (
+                        <div
+                          key={idx}
+                          className="px-4 py-2 text-sm text-slate-700 hover:bg-sky-50 cursor-pointer"
+                          onClick={() => {
+                            handleFormChange("brand", brand);
+                            setShowBrandSuggestions(false);
+                          }}
+                        >
+                          {brand}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
@@ -2053,15 +2134,37 @@ const [products, setProducts] = useState<Product[]>([]);
                   )}
                 </>
               ) : (
-                <input
-                  type="text"
-                  name="model"
-                  id="product-model"
-                  value={form.model}
-                  disabled={isAccessory && !selBrand}
-                  onChange={(e) => handleFormChange("model", e.target.value)}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="model"
+                    id="product-model"
+                    value={form.model}
+                    disabled={isAccessory && !selBrand}
+                    onChange={(e) => handleFormChange("model", e.target.value)}
+                    onFocus={() => setShowModelSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowModelSuggestions(false), 200)}
+                    onKeyDown={handleModelKeyDown}
+                    autoComplete="off"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  {showModelSuggestions && filteredModelSuggestions.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                      {filteredModelSuggestions.map((model, idx) => (
+                        <div
+                          key={idx}
+                          className="px-4 py-2 text-sm text-slate-700 hover:bg-sky-50 cursor-pointer"
+                          onClick={() => {
+                            handleFormChange("model", model);
+                            setShowModelSuggestions(false);
+                          }}
+                        >
+                          {model}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

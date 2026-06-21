@@ -79,3 +79,40 @@ function applyRounding(price: Decimal, rounding: RoundingType): number {
   }
 }
 
+export function validateExchangeRate(rate: any): number {
+  if (rate === undefined || rate === null || rate === '') {
+    throw new Error('Exchange rate is required.');
+  }
+  const num = Number(rate);
+  if (isNaN(num) || num <= 0) {
+    throw new Error('Exchange rate must be a positive number.');
+  }
+  return num;
+}
+
+export function validateForeignBuyPrice(price: any): number {
+  if (price === undefined || price === null || price === '') {
+    throw new Error('Foreign buy price is missing.');
+  }
+  const num = Number(price);
+  if (isNaN(num) || num <= 0) {
+    throw new Error('Foreign buy price must be positive.');
+  }
+  return num;
+}
+
+export function calculateKeepRatioPrice(
+  buyPrice: number,
+  sellPrice: number,
+  newBuyPrice: number,
+  rounding: RoundingType
+): number {
+  if (buyPrice <= 0) {
+    return calculateNewPrice(newBuyPrice, 'flat_increase', 0, rounding);
+  }
+  const ratio = new Decimal(sellPrice).div(new Decimal(buyPrice));
+  const result = new Decimal(newBuyPrice).mul(ratio);
+  return applyRounding(result, rounding);
+}
+
+

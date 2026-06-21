@@ -1,5 +1,10 @@
 import assert from 'node:assert';
-import { calculateNewPrice } from '../src/lib/priceMath';
+import { 
+  calculateNewPrice, 
+  validateExchangeRate, 
+  validateForeignBuyPrice, 
+  calculateKeepRatioPrice 
+} from '../src/lib/priceMath';
 
 console.log('--- RUNNING PRICEMATH AUTOMATED TESTS ---');
 
@@ -72,6 +77,53 @@ try {
     calculateNewPrice(10, 'currency_update', 0, 'none', -1);
   }, /Exchange rate must be/, 'Expected negative exchange rate to throw error');
   console.log('✓ Test 12: Invalid exchange rates rejected correctly');
+
+  // Test 13: Satış fiyatına %15 zam: 100 => 115
+  const t13 = calculateNewPrice(100, 'percent_increase', 15, 'none');
+  assert.strictEqual(t13, 115, `Expected percent_increase 15% on 100 -> 115, got ${t13}`);
+  console.log('✓ Test 13: Satış fiyatına %15 zam: 100 => 115');
+
+  // Test 14: Satış fiyatına %15 zam + sonu 9,90: 100 => 119.90
+  const t14 = calculateNewPrice(100, 'percent_increase', 15, 'sonu_9_90');
+  assert.strictEqual(t14, 119.90, `Expected percent_increase 15% on 100 with sonu_9_90 -> 119.90, got ${t14}`);
+  console.log('✓ Test 14: Satış fiyatına %15 zam + sonu 9,90: 100 => 119.90');
+
+  // Test 15: USD foreign_buy_price 10, kur 33.50 => buy_price 335.00
+  const t15 = calculateNewPrice(10, 'currency_update', 0, 'none', 33.50);
+  assert.strictEqual(t15, 335.00, `Expected currency_update with rate 33.50 on 10 -> 335.00, got ${t15}`);
+  console.log('✓ Test 15: USD foreign_buy_price 10, kur 33.50 => buy_price 335.00');
+
+  // Test 16: USD 10, kur 33.50, %20 markup => sell_price 402.00
+  const t16_buy = calculateNewPrice(10, 'currency_update', 0, 'none', 33.50);
+  const t16_sell = calculateNewPrice(t16_buy, 'markup', 20, 'none');
+  assert.strictEqual(t16_sell, 402.00, `Expected markup 20% on 335 -> 402.00, got ${t16_sell}`);
+  console.log('✓ Test 16: USD 10, kur 33.50, %20 markup => sell_price 402.00');
+
+  // Test 17: USD 10, kur 33.50, %20 margin => sell_price 418.75
+  const t17_buy = calculateNewPrice(10, 'currency_update', 0, 'none', 33.50);
+  const t17_sell = calculateNewPrice(t17_buy, 'margin', 20, 'none');
+  assert.strictEqual(t17_sell, 418.75, `Expected margin 20% on 335 -> 418.75, got ${t17_sell}`);
+  console.log('✓ Test 17: USD 10, kur 33.50, %20 margin => sell_price 418.75');
+
+  // Test 18: Keep ratio calculation
+  const t18 = calculateKeepRatioPrice(100, 150, 200, 'none');
+  assert.strictEqual(t18, 300, `Expected ratio of 1.5 on 200 -> 300, got ${t18}`);
+  const t18_rounded = calculateKeepRatioPrice(100, 150, 200, 'sonu_9_90');
+  assert.strictEqual(t18_rounded, 309.90, `Expected ratio of 1.5 on 200 with sonu_9_90 -> 309.90, got ${t18_rounded}`);
+  console.log('✓ Test 18: Keep ratio price calculations');
+
+  // Test 19: Validators checks
+  assert.throws(() => validateExchangeRate(0), /Exchange rate must be/, 'Expected 0 rate to throw');
+  assert.throws(() => validateExchangeRate(-5), /Exchange rate must be/, 'Expected negative rate to throw');
+  assert.throws(() => validateExchangeRate(''), /Exchange rate is required/, 'Expected empty rate to throw');
+  const rateResult = validateExchangeRate('33.50');
+  assert.strictEqual(rateResult, 33.50, `Expected 33.50, got ${rateResult}`);
+
+  assert.throws(() => validateForeignBuyPrice(null), /Foreign buy price is missing/, 'Expected missing foreign price to throw');
+  assert.throws(() => validateForeignBuyPrice(-10), /Foreign buy price must be positive/, 'Expected negative foreign price to throw');
+  const foreignResult = validateForeignBuyPrice(12.50);
+  assert.strictEqual(foreignResult, 12.50, `Expected 12.50, got ${foreignResult}`);
+  console.log('✓ Test 19: Input validator helpers correctly throw and resolve');
 
   console.log('\n--- ALL TESTS PASSED SUCCESSFULLY ---');
   process.exit(0);

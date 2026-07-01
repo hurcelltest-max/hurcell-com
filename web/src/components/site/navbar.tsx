@@ -1,18 +1,20 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { Search, Menu, FileSignature, LogIn } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Search, Menu, FileSignature, LogIn, X } from 'lucide-react'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { B2B_LOGIN_URL, WHATSAPP_NUMBER } from '@/lib/constants'
 
 export const Navbar = () => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           <div className="flex items-center">
-            <Link href="/" className="text-2xl font-bold tracking-tighter">
+            <Link href="/" className="text-2xl font-bold tracking-tighter" onClick={() => setIsMobileMenuOpen(false)}>
               <span className="text-slate-900">HUR</span><span className="text-blue-600">CELL</span>
             </Link>
           </div>
@@ -27,30 +29,78 @@ export const Navbar = () => {
           </div>
 
           <div className="flex items-center space-x-4">
-            <Link href="/shop" aria-label="Arama yap">
-              <Button variant="ghost" size="icon" className="text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors">
-                <Search className="w-5 h-5" />
-              </Button>
+            <Link 
+              href="/shop" 
+              aria-label="Arama yap" 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={buttonVariants({ variant: "ghost", size: "icon" }) + " text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"}
+            >
+              <Search className="w-5 h-5" />
             </Link>
-            <Link href="/satis-sozlesmesi" aria-label="Satış sözleşmesi">
-              <Button variant="ghost" size="icon" className="text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors">
-                <FileSignature className="w-5 h-5" />
-              </Button>
+            <Link 
+              href="/satis-sozlesmesi" 
+              aria-label="Satış sözleşmesi" 
+              className={buttonVariants({ variant: "ghost", size: "icon" }) + " hidden sm:flex text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"} 
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <FileSignature className="w-5 h-5" />
             </Link>
             
-            <a href={B2B_LOGIN_URL} target="_blank" rel="noopener noreferrer">
-              <Button size="sm" className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-mono tracking-widest text-[10px] uppercase transition-colors px-4 py-2">
-                <LogIn className="w-3.5 h-3.5" />
-                B2B Girişi
-              </Button>
+            <a 
+              href="https://stok.hurcell.com/b2b/login" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={buttonVariants({ size: "sm" }) + " hidden sm:inline-flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-mono tracking-widest text-[10px] uppercase transition-colors px-4 py-2"}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              B2B Girişi
             </a>
 
-            <Button variant="ghost" size="icon" className="md:hidden text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors">
-              <Menu className="w-5 h-5" />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="md:hidden text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label={isMobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"}
+              aria-expanded={isMobileMenuOpen}
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden absolute top-20 left-0 right-0 bg-white border-b border-slate-200/80 shadow-lg z-50 flex flex-col px-4 py-6 space-y-4 max-h-[calc(100vh-5rem)] overflow-y-auto">
+          <Link href="/" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Ana Sayfa</Link>
+          <Link href="/shop" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Tüm Ürünler</Link>
+          <Link href="/kampanyalar" className="text-sm font-semibold text-rose-500 hover:text-rose-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Kampanyalar</Link>
+          <Link href="/indirimli-urunler" className="text-sm font-semibold text-orange-500 hover:text-orange-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>İndirimli Ürünler</Link>
+          <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletişime geçmek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>WhatsApp / İletişim</a>
+          
+          <div className="flex flex-col space-y-3 pt-4">
+            <a 
+              href="https://stok.hurcell.com/b2b/login" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={buttonVariants({ variant: "outline" }) + " w-full justify-center border-slate-300 text-slate-700"}
+            >
+              Bayi Girişi
+            </a>
+            <a 
+              href="https://stok.hurcell.com/b2b/register" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={buttonVariants() + " w-full justify-center bg-blue-600 hover:bg-blue-700 text-white"}
+            >
+              Bayilik Başvurusu
+            </a>
+          </div>
+        </div>
+      )}
     </nav>
   )
 }

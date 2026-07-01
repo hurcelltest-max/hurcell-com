@@ -124,6 +124,10 @@ function CheckoutContent() {
         customer_phone: formData.phone.trim(),
         billing_address: fullBillingAddress,
         shipping_address: fullAddress,
+        shipping_address_line: formData.address?.trim() || "",
+        shipping_city: formData.city?.trim() || "",
+        shipping_district: formData.district?.trim() || "",
+        shipping_postal_code: formData.postalCode?.trim() || "",
         items: [
           {
             product_id: product.id,

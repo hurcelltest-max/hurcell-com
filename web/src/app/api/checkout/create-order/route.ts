@@ -10,6 +10,10 @@ export async function POST(req: Request) {
       customer_phone,
       billing_address,
       shipping_address,
+      shipping_address_line,
+      shipping_city,
+      shipping_district,
+      shipping_postal_code,
       items,
     } = body;
 
@@ -305,6 +309,10 @@ export async function POST(req: Request) {
         shipping_provider: 'dhl',
         shipping_status: 'pending',
         dhl_status: 'dhl_pending',
+        shipping_address_line: shipping_address_line || null,
+        shipping_city: shipping_city || null,
+        shipping_district: shipping_district || null,
+        shipping_postal_code: shipping_postal_code || null,
       })
       .select('id, order_number, lookup_token, total_amount, currency')
       .single();

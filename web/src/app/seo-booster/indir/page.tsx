@@ -126,20 +126,33 @@ export default function DownloadPage() {
         </div>
 
         {/* Windows Security Alert Notice */}
-        <div className="bg-amber-950/20 border border-amber-900/40 rounded-xl p-6 space-y-3">
+        <div className="bg-amber-950/25 border border-amber-900/40 rounded-xl p-6 space-y-4">
           <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
             <ShieldAlert size={18} />
             <span>Windows Defender / SmartScreen Uyarısı Hakkında</span>
           </h3>
-          <p className="text-sm text-slate-400 leading-relaxed">
-            Windows Defender veya SmartScreen, dijital olarak henüz dünya genelinde çok yüksek indirme sayılarına ulaşmamış tüm yeni dosyaları uyarı eşliğiyle engelleyebilir. Kurulum sırasında koruma ekranıyla karşılaşırsanız:
-          </p>
-          <p className="text-sm text-slate-300 font-semibold">
-            👉 "Ek Bilgi" linkine tıklayıp ardından çıkan "Yine de Çalıştır" butonuna basarak kuruluma devam edebilirsiniz.
-          </p>
-          <p className="text-xs text-slate-400">
-            Detaylı kılavuza projenizle birlikte gelen müşteri rehberinden veya destek ekibimizden ulaşabilirsiniz.
-          </p>
+          <div className="text-sm text-slate-300 space-y-3 leading-relaxed">
+            <p>
+              Kurulum sırasında <strong className="text-amber-300">"Windows kişisel bilgisayarınızı korudu"</strong> veya Microsoft Defender SmartScreen uyarı ekranıyla karşılaşabilirsiniz.
+            </p>
+            <p className="text-slate-400 text-xs">
+              Bu uyarı, uygulamamız yeni yayınlandığı ve henüz Microsoft SmartScreen veri tabanı tarafından dünya genelinde yaygın olarak tanınmadığı için gösterilen standart bir Windows güvenlik uyarısıdır (Güvenilir Yayıncı Sertifikası başvuru süreçlerimiz devam etmektedir).
+            </p>
+            <p className="text-slate-400 text-xs font-semibold">
+              Eğer kurulum dosyasını yalnızca bu resmî HurCELL sayfasından indirdiyseniz, güvenle devam edebilirsiniz.
+            </p>
+            <div className="bg-slate-950/50 border border-slate-800/80 rounded-lg p-4 space-y-2 text-slate-300 text-xs">
+              <p className="font-bold text-slate-200">Kuruluma devam etmek için:</p>
+              <ol className="list-decimal pl-5 space-y-1.5 text-slate-400">
+                <li>Uyarı ekranındaki <strong className="text-slate-200">"Ek bilgi"</strong> (More Info) bağlantısına tıklayın.</li>
+                <li>Pencerenin altında beliren <strong className="text-slate-200">"Yine de çalıştır"</strong> (Run anyway) butonuna basın.</li>
+                <li>Kurulum sihirbazı adımlarını takip edin.</li>
+              </ol>
+            </div>
+            <p className="text-xs text-indigo-400 leading-normal">
+              🛡️ <strong>Güvenlik Notu:</strong> Güvenliğiniz için kurulum dosyasını yalnızca hurcell.com resmî indirme sayfasından indirmenizi öneririz. Dosya bütünlüğünü kontrol etmek isteyen kullanıcılar yukarıdaki SHA256 kodunu indirilen dosya ile karşılaştırabilir.
+            </p>
+          </div>
         </div>
 
         {/* FAQ Section */}

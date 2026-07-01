@@ -1,0 +1,35 @@
+Değerli Müşterimiz,
+
+HurCELL SEO Booster siparişiniz için teşekkür ederiz! Dijital lisans teslimatınız başarıyla gerçekleştirilmiştir. 
+
+Lütfen bu siparişin fiziksel bir ürün gönderimi olmadığını, dijital bir yazılım lisans teslimatı olduğunu unutmayınız.
+
+---------------------------------------------------------
+Sipariş Numaranız: {{ORDER_NO}}
+Lisans Anahtarınız: {{LICENSE_KEY}}
+---------------------------------------------------------
+
+Hızlı Kurulum Adımları:
+
+1. Aşağıdaki linke tıklayarak HurCELL SEO Booster kurulum programını bilgisayarınıza indirin:
+   https://hurcell.com/seo-booster/indir
+
+2. İndirdiğiniz setup dosyasını çalıştırarak kurulumu tamamlayın. Kurulum yönetici yetkisi gerektirmemektedir.
+
+3. **Önemli Güvenlik Notu (Windows Defender / SmartScreen Uyarısı):**
+   Uygulamayı çalıştırırken "Windows kişisel bilgisayarınızı korudu" veya SmartScreen uyarısıyla karşılaşırsanız; devam etmek için sırasıyla "Ek bilgi" bağlantısına ve ardından beliren "Yine de çalıştır" butonuna tıklayabilirsiniz. Kurulum dosyasını yalnızca resmi hurcell.com indirme sayfasından indiriniz.
+
+4. Kurulum tamamlandıktan sonra Masaüstünüzde yer alan "HurCELL SEO Booster" kısayoluna çift tıklayın.
+
+5. Açılan tarayıcı ekranındaki kilit kutusuna yukarıda yer alan lisans anahtarınızı yapıştırarak "Aktifleştir" butonuna tıklayın.
+
+Kullanım Koşulları & Teknik Detaylar:
+- Lisansınız tek bir (1) Windows cihazı için geçerlidir.
+- Lisans anahtarı ve sipariş doğrulama işlemleri internet bağlantısı gerektirir.
+- Herhangi bir bilgisayar değişikliği, lisans taşıma veya teknik sorun durumunda bize 7/24 e-posta yoluyla ulaşabilirsiniz.
+
+Destek E-Posta: destek@hurcell.com
+Resmi Web Sitesi: hurcell.com
+
+Bol dönüşümlü ve yüksek sıralamalı SEO optimizasyonları dileriz!
+HurCELL Destek Ekibi

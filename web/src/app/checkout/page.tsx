@@ -10,17 +10,21 @@ import type { Product } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import { useCart } from '@/components/cart-provider'
 
 function CheckoutContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const supabase = createClient()
+  const { items: cartItems, clearCart } = useCart()
 
   const productId = searchParams.get('product_id')
   const qtyParam = searchParams.get('qty')
   const quantity = parseInt(qtyParam || '1', 10) || 1
 
-  const [product, setProduct] = useState<Product | null>(null)
+  const isFallbackMode = !!productId;
+
+  const [fallbackProduct, setFallbackProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -38,40 +42,42 @@ function CheckoutContent() {
   })
 
   useEffect(() => {
-    if (!productId) {
-      setErrorMsg('Sipariş edilecek ürün bulunamadı. Lütfen mağazadan bir ürün seçin.')
-      setLoading(false)
-      return
-    }
+    if (isFallbackMode) {
+      async function fetchProduct() {
+        try {
+          setLoading(true)
+          const { data, error } = await supabase
+            .from('products')
+            .select('id, name, brand, model, color, memory, ram, storage, sell_price, image_url, stock, is_web_visible, barcode, category')
+            .eq('id', productId)
+            .single()
 
-    async function fetchProduct() {
-      try {
-        setLoading(true)
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, brand, model, color, memory, ram, storage, sell_price, image_url, stock, is_web_visible, barcode')
-          .eq('id', productId)
-          .single()
+          if (error || !data) {
+            throw new Error('Ürün bilgileri alınamadı.')
+          }
 
-        if (error || !data) {
-          throw new Error('Ürün bilgileri alınamadı.')
+          if (!data.is_web_visible || data.stock <= 0) {
+            throw new Error('Bu ürün şu an perakende satışa açık değildir.')
+          }
+
+          setFallbackProduct(data)
+        } catch (err: any) {
+          console.error('Error fetching product for checkout:', err)
+          setErrorMsg(err.message || 'Ürün bilgileri sorgulanırken hata oluştu.')
+        } finally {
+          setLoading(false)
         }
-
-        if (!data.is_web_visible || data.stock <= 0) {
-          throw new Error('Bu ürün şu an perakende satışa açık değildir.')
-        }
-
-        setProduct(data)
-      } catch (err: any) {
-        console.error('Error fetching product for checkout:', err)
-        setErrorMsg(err.message || 'Ürün bilgileri sorgulanırken hata oluştu.')
-      } finally {
-        setLoading(false)
       }
-    }
 
-    fetchProduct()
-  }, [productId])
+      fetchProduct()
+    } else {
+      // Cart mode
+      if (cartItems.length === 0) {
+        setErrorMsg('Sepetiniz boş. Lütfen mağazadan ürün ekleyin.')
+      }
+      setLoading(false)
+    }
+  }, [productId, isFallbackMode, cartItems.length]) // omitted supabase to avoid infinite loops if it's not memoized
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -81,9 +87,21 @@ function CheckoutContent() {
     }))
   }
 
+  const itemsToCheckout = isFallbackMode 
+    ? (fallbackProduct ? [{
+        product_id: fallbackProduct.id,
+        name: getPublicProductTitle(fallbackProduct),
+        image: fallbackProduct.image_url || getFallbackImage(fallbackProduct.category),
+        price: fallbackProduct.sell_price || 0,
+        quantity: quantity,
+        barcode: fallbackProduct.barcode
+      }] : [])
+    : cartItems;
+
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!product) return
+    
+    if (itemsToCheckout.length === 0) return
 
     // Validate inputs
     if (!formData.fullName.trim()) {
@@ -128,12 +146,10 @@ function CheckoutContent() {
         shipping_city: formData.city?.trim() || "",
         shipping_district: formData.district?.trim() || "",
         shipping_postal_code: formData.postalCode?.trim() || "",
-        items: [
-          {
-            product_id: product.id,
-            quantity: quantity
-          }
-        ]
+        items: itemsToCheckout.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity
+        }))
       }
 
       const response = await fetch('/api/checkout/create-order', {
@@ -151,6 +167,10 @@ function CheckoutContent() {
       }
 
       toast.success('Siparişiniz başarıyla alındı!')
+      
+      if (!isFallbackMode) {
+        clearCart()
+      }
       
       // Redirect to the success order tracking page
       router.push(`/siparis/${result.order_number}?token=${result.lookup_token}`)
@@ -173,7 +193,7 @@ function CheckoutContent() {
     )
   }
 
-  if (errorMsg || !product) {
+  if (errorMsg || itemsToCheckout.length === 0) {
     return (
       <div className="flex flex-col justify-center items-center py-20 px-4 space-y-4">
         <div className="text-4xl">⚠️</div>
@@ -181,37 +201,54 @@ function CheckoutContent() {
         <p className="text-slate-500 text-xs sm:text-sm text-center max-w-sm font-light leading-relaxed">
           {errorMsg || 'Geçersiz veya süresi dolmuş sepet oturumu.'}
         </p>
-        <Link
-          href="/shop"
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold tracking-wider transition-colors shadow-sm"
-        >
-          Mağazaya Geri Dön
-        </Link>
+        <div className="flex gap-4">
+          <Link
+            href="/sepet"
+            className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold tracking-wider transition-colors shadow-sm"
+          >
+            Sepetime Git
+          </Link>
+          <Link
+            href="/shop"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold tracking-wider transition-colors shadow-sm"
+          >
+            Mağazaya Geri Dön
+          </Link>
+        </div>
       </div>
     )
   }
 
-  const sellPrice = product.sell_price || 0
-  const productSubtotal = sellPrice * quantity
+  const productSubtotal = itemsToCheckout.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  
   // Kargo Bedeli Kuralı:
   // Subtotal <= 999 TL -> 125 TL shipping fee
   // Subtotal >= 1000 TL -> Free shipping (0 TL)
   const shippingFee = productSubtotal <= 999 ? 125 : 0
   const grandTotal = productSubtotal + shippingFee
-  const publicTitle = getPublicProductTitle(product)
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       
       {/* Back Link */}
       <div className="flex items-center justify-between">
-        <Link
-          href={`/urun/${product.id}`}
-          className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider text-slate-500 hover:text-slate-850 transition-colors uppercase group"
-        >
-          <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-1" />
-          Ürün Detayına Dön
-        </Link>
+        {isFallbackMode && fallbackProduct ? (
+          <Link
+            href={`/urun/${fallbackProduct.id}`}
+            className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider text-slate-500 hover:text-slate-850 transition-colors uppercase group"
+          >
+            <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-1" />
+            Ürün Detayına Dön
+          </Link>
+        ) : (
+          <Link
+            href="/sepet"
+            className="inline-flex items-center gap-2 text-xs font-semibold tracking-wider text-slate-500 hover:text-slate-850 transition-colors uppercase group"
+          >
+            <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-1" />
+            Sepete Dön
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -358,21 +395,25 @@ function CheckoutContent() {
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider font-mono border-b border-slate-100 pb-3">Sipariş Özeti</h3>
             
-            <div className="flex gap-4 items-center">
-              <div className="relative w-16 h-16 bg-slate-50 rounded-2xl border border-slate-150 overflow-hidden flex items-center justify-center flex-shrink-0">
-                <img
-                  src={product.image_url || getFallbackImage(product.category)}
-                  alt={publicTitle}
-                  className="object-contain max-w-full max-h-full p-1.5"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-sm font-bold text-slate-800 truncate">{publicTitle}</h4>
-                <p className="text-[10px] text-slate-450 font-light mt-0.5">Adet: {quantity} • Barkod: {product.barcode || '-'}</p>
-              </div>
-              <div className="text-right text-sm font-bold text-slate-900 whitespace-nowrap">
-                {formatPriceTRY(productSubtotal)}
-              </div>
+            <div className="flex flex-col gap-4">
+              {itemsToCheckout.map((item, idx) => (
+                <div key={idx} className="flex gap-4 items-center border-b border-slate-50 pb-3 last:border-0 last:pb-0">
+                  <div className="relative w-16 h-16 bg-slate-50 rounded-2xl border border-slate-150 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    <img
+                      src={item.image || getFallbackImage()}
+                      alt={item.name}
+                      className="object-contain max-w-full max-h-full p-1.5"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-bold text-slate-800 truncate">{item.name}</h4>
+                    <p className="text-[10px] text-slate-450 font-light mt-0.5">Adet: {item.quantity} • Barkod: {item.barcode || '-'}</p>
+                  </div>
+                  <div className="text-right text-sm font-bold text-slate-900 whitespace-nowrap">
+                    {formatPriceTRY(item.price * item.quantity)}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Price Calculations */}

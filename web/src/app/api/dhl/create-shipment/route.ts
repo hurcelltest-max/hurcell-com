@@ -43,6 +43,7 @@ export async function POST(req: Request) {
       order: {
         referenceId: order.order_number || order.id.substring(0, 8).toUpperCase(),
         barcode: order.order_number || order.id.substring(0, 8).toUpperCase(),
+        billOfLandingId: order.order_number || order.id.substring(0, 8).toUpperCase(),
         isCOD,
         codAmount,
         shipmentServiceType: 1,
@@ -50,12 +51,19 @@ export async function POST(req: Request) {
         paymentType: 1,
         deliveryType: 1,
         description: `HurCELL Sipariş - ${order.order_number || order.id}`,
+        printReferenceBarcodeOnError: 0,
+        message: 'Kırılacak eşya / Dikkatli taşıyınız',
+        additionalContent1: '',
+        additionalContent2: '',
+        additionalContent3: '',
+        additionalContent4: '',
       },
       orderPieceList: [
         {
           barcode: `${order.order_number || order.id}-P1`,
           desi: 2,
           kg: 2,
+          content: 'HurCELL Ürünleri',
         },
       ],
       recipient: {
@@ -69,6 +77,10 @@ export async function POST(req: Request) {
     };
 
     // Token ve Auth kontrolü (Mock/Dry-run)
+    // ASSUMED TOKEN ENDPOINT: MNG Barcode Command ZIP dosyasında auth/login endpoint'i açıkça belirtilmediğinden
+    // token'ın 'https://testapi.mngkargo.com.tr/mngapi/api/token' adresinden alınacağı varsayılmıştır.
+    // DHL_MNG_TOKEN_URL ortam değişkeninden gelmesi beklenmektedir.
+    // Gerçek API çağrısı, token endpoint'i kesinleşmeden aktif edilmemiştir.
     const tokenUrl = process.env.DHL_MNG_TOKEN_URL;
     if (!tokenUrl) {
       return NextResponse.json({

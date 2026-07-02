@@ -2,16 +2,22 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   const envStatus = {
-    DHL_MNG_API_BASE_URL: process.env.DHL_MNG_API_BASE_URL ? 'configured' : 'missing',
+    DHL_MNG_TEST_MODE: process.env.DHL_MNG_TEST_MODE ? 'configured' : 'missing',
+    DHL_MNG_SANDBOX_BASE_URL: process.env.DHL_MNG_SANDBOX_BASE_URL ? 'configured' : 'missing',
+    DHL_MNG_PROD_BASE_URL: process.env.DHL_MNG_PROD_BASE_URL ? 'configured' : 'missing',
+    DHL_MNG_TOKEN_TEST_URL: process.env.DHL_MNG_TOKEN_TEST_URL ? 'confirmed' : 'missing',
+    DHL_MNG_TOKEN_PROD_URL: process.env.DHL_MNG_TOKEN_PROD_URL ? 'confirmed' : 'missing',
     DHL_MNG_CLIENT_ID: process.env.DHL_MNG_CLIENT_ID ? 'configured' : 'missing',
     DHL_MNG_CLIENT_SECRET: process.env.DHL_MNG_CLIENT_SECRET ? 'configured' : 'missing',
-    DHL_MNG_TOKEN_URL: process.env.DHL_MNG_TOKEN_URL ? 'configured' : 'missing',
-    DHL_MNG_USERNAME: process.env.DHL_MNG_USERNAME ? 'configured' : 'missing',
-    DHL_MNG_PASSWORD: process.env.DHL_MNG_PASSWORD ? 'configured' : 'missing',
-    DHL_MNG_CUSTOMER_CODE: process.env.DHL_MNG_CUSTOMER_CODE ? 'configured' : 'missing',
+    DHL_MNG_CUSTOMER_NUMBER: process.env.DHL_MNG_CUSTOMER_NUMBER ? 'configured' : 'missing',
+    DHL_MNG_API_PASSWORD: process.env.DHL_MNG_API_PASSWORD ? 'configured' : 'missing',
+    DHL_MNG_APP_NAME: process.env.DHL_MNG_APP_NAME ? 'configured' : 'missing',
+    DHL_MNG_STATIC_OUTBOUND_IP: process.env.DHL_MNG_STATIC_OUTBOUND_IP ? 'configured' : 'missing',
+    DHL_MNG_USE_STATIC_PROXY: process.env.DHL_MNG_USE_STATIC_PROXY ? 'configured' : 'missing',
+    DHL_MNG_PROXY_URL: process.env.DHL_MNG_PROXY_URL ? 'configured' : 'missing',
   };
 
-  const allConfigured = Object.values(envStatus).every(val => val === 'configured');
+  const allConfigured = Object.values(envStatus).every(val => val === 'configured' || val === 'confirmed');
 
   if (allConfigured) {
     return NextResponse.json({ ok: true, message: 'DHL/MNG API yapılandırması tam.', envStatus });

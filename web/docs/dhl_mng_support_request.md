@@ -43,4 +43,13 @@ Sistemi canlı ortama almadan önce eksiksiz bir entegrasyon sağlamak adına a�
 - Sistemimiz şu an tamamen **dry-run / payload preview (önizleme)** modunda bekletilmektedir.
 - Tarafınızdan resmi token bilgisi ve Client anahtarları geldiğinde, entegrasyonu gerçek API çağrılarına açarak test gönderimi yapacağız.
 
+---
+
+### (GÜNCELLEME) Cevap Alındı / Yeni Bilgiler
+Vendor'dan (DHL/MNG) yeni dokümanlar ve Postman Collection iletilmiştir. 
+- **Token Endpointi Kesinleşti:** Token alınacak adres `POST /mngapi/api/token` olarak doğrulanmıştır. 
+- **3 Aşamalı Akış:** Barkod alımından önce mutlaka `createRecipient` ve `CreateOrder` servislerinin çağrılması gerektiği kesinleşmiştir.
+- **Statik IP Zorunluluğu:** Prod ortamında Statik IP kullanımı zorunlu kılınmıştır.
+- **Eksik Bilgi:** `createRecipient` servisinin detayları Rest API PDF belgesinde çok kısıtlıdır, gerekli durumlarda destek ekibinden ek belge veya JSON şeması talep edilebilir.
+
 Destekleriniz için teşekkür ederiz.

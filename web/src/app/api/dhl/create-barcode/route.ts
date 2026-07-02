@@ -39,25 +39,18 @@ export async function POST(req: Request) {
     const normalizedPhone = order.customer_phone.replace(/[^0-9]/g, '');
 
     // Payload hazırlığı
-    const payload = {
-      order: {
-        referenceId: order.order_number || order.id.substring(0, 8).toUpperCase(),
-        barcode: order.order_number || order.id.substring(0, 8).toUpperCase(),
-        billOfLandingId: order.order_number || order.id.substring(0, 8).toUpperCase(),
-        isCOD,
-        codAmount,
-        shipmentServiceType: 1,
-        packagingType: 3,
-        paymentType: 1,
-        deliveryType: 1,
-        description: `HurCELL Sipariş - ${order.order_number || order.id}`,
-        printReferenceBarcodeOnError: 0,
-        message: 'Kırılacak eşya / Dikkatli taşıyınız',
-        additionalContent1: '',
-        additionalContent2: '',
-        additionalContent3: '',
-        additionalContent4: '',
-      },
+    const payloadPreview = {
+      referenceId: order.order_number || order.id.substring(0, 8).toUpperCase(),
+      billOfLandingId: order.order_number || order.id.substring(0, 8).toUpperCase(),
+      isCOD,
+      codAmount,
+      packagingType: 3,
+      printReferenceBarcodeOnError: 0,
+      message: 'HurCELL Sipariş - Dikkatli taşıyınız',
+      additionalContent1: '',
+      additionalContent2: '',
+      additionalContent3: '',
+      additionalContent4: '',
       orderPieceList: [
         {
           barcode: `${order.order_number || order.id}-P1`,
@@ -65,15 +58,7 @@ export async function POST(req: Request) {
           kg: 2,
           content: 'HurCELL Ürünleri',
         },
-      ],
-      recipient: {
-        cityName: order.shipping_city,
-        districtName: order.shipping_district,
-        address: order.shipping_address_line,
-        email: order.customer_email || 'info@hurcell.com',
-        fullName: order.customer_name,
-        mobilePhoneNumber: normalizedPhone,
-      },
+      ]
     };
 
     // Token ve Auth kontrolü (Mock/Dry-run)
@@ -81,20 +66,20 @@ export async function POST(req: Request) {
     // token'ın 'https://testapi.mngkargo.com.tr/mngapi/api/token' adresinden alınacağı varsayılmıştır.
     // DHL_MNG_TOKEN_URL ortam değişkeninden gelmesi beklenmektedir.
     // Gerçek API çağrısı, token endpoint'i kesinleşmeden aktif edilmemiştir.
-    const tokenUrl = process.env.DHL_MNG_TOKEN_URL;
+    const tokenUrl = process.env.DHL_MNG_TOKEN_URL || process.env.DHL_MNG_TOKEN_TEST_URL;
     if (!tokenUrl) {
       return NextResponse.json({
         ok: false,
-        message: 'DHL/MNG token bilgisi eksik olduğu için gerçek barkod oluşturulamadı (Preview Modu)',
-        payloadPreview: payload
+        message: 'Token URL eksik. Sistem dry-run / payload preview modunda çalışıyor.',
+        payloadPreview
       });
     }
 
     // Gerçek API çağrısı ileride buraya gelecek. Şimdilik başarılı dry-run.
     return NextResponse.json({
-      ok: true,
-      message: 'Dry-run başarılı. Token url mevcut ancak henüz canlı istek atılmıyor.',
-      payloadPreview: payload
+      ok: false,
+      message: 'Dry-run modunda çalışıyor. DHL/MNG tarafında gerçek CreateBarcode kaydı oluşturulmadı.',
+      payloadPreview
     });
 
   } catch (err: any) {

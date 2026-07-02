@@ -143,15 +143,15 @@ function OrderTrackingContent() {
 
   const handleCreateDhlShipment = async () => {
     try {
-      setDhlStatus({ loading: true, message: 'DHL kargo barkodu hazırlanıyor...' })
-      const res = await fetch('/api/dhl/create-shipment', {
+      setDhlStatus({ loading: true, message: 'DHL kargo akışı başlatılıyor (Dry-Run)...' })
+      const res = await fetch('/api/dhl/create-shipment-flow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: order.id }),
       })
       const data = await res.json()
       
-      if (!res.ok) {
+      if (!res.ok && !data.payloadPreview) {
         throw new Error(data.error || data.message || 'Bilinmeyen bir hata oluştu.')
       }
       

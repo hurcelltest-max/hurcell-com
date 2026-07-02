@@ -1,0 +1,20 @@
+{
+  "referenceId": "SP_123456",
+  "billOfLandingId": "İrsaliye 1",
+  "isCOD": 0,
+  "codAmount": 0,
+  "printReferenceBarcodeOnError": 1,
+  "message": "Mesaj 1",
+  "additionalContent1": "",
+  "additionalContent2": "",
+  "additionalContent3": "",
+  "additionalContent4": "",
+  "orderPieceList": [
+    {
+      "barcode": "SIPARIS34567_PARCA1",
+      "desi": 2,
+      "kg": 2,
+      "content": "Parça açıklama 1"
+    }
+  ]
+}

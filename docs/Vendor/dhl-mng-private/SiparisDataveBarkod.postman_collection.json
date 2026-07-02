@@ -1,0 +1,250 @@
+{
+	"info": {
+		"_postman_id": "ec71f7b1-d0a6-4661-9ab8-ea641f8fb8b2",
+		"name": "SiparisDataveBarkod",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "14643984",
+		"_collection_link": "https://galactic-eclipse-283904.postman.co/workspace/My-Workspace~2b84198a-28bf-4e5b-84fd-89cec50f8675/collection/14643984-ec71f7b1-d0a6-4661-9ab8-ea641f8fb8b2?action=share&source=collection_link&creator=14643984"
+	},
+	"item": [
+		{
+			"name": "Token-Test",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"connection": true,
+					"accept-encoding": true,
+					"accept": true,
+					"user-agent": true
+				}
+			},
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-ibm-client-secret",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "x-ibm-client-id",
+						"value": "",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"customerNumber\": \"\",\r\n  \"password\": \"\",\r\n  \"identityType\": 1\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://testapi.mngkargo.com.tr/mngapi/api/token",
+					"protocol": "https",
+					"host": [
+						"testapi",
+						"mngkargo",
+						"com",
+						"tr"
+					],
+					"path": [
+						"mngapi",
+						"api",
+						"token"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "CreateRecipent - Test",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-ibm-client-secret",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "x-ibm-client-id",
+						"value": "",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"recipient\": {\r\n    \"customerId\": \"\",\r\n    \"refCustomerId\": \"\",\r\n    \"cityName\": \"\",\r\n    \"districtName\": \"\",\r\n    \"cityCode\": 34,\r\n    \"districtCode\": 56,\r\n    \"address\": \"TEST ALICI ADRES DETAY\",\r\n    \"bussinessPhoneNumber\": \"\",\r\n    \"email\": \"\",\r\n    \"taxOffice\": \"\",\r\n    \"taxNumber\": \"\",\r\n    \"fullName\": \"\",\r\n    \"homePhoneNumber\": \"\",\r\n    \"mobilePhoneNumber\": \"5555555555\"\r\n  }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://testapi.mngkargo.com.tr/mngapi/api/pluscmdapi/createRecipient",
+					"protocol": "https",
+					"host": [
+						"testapi",
+						"mngkargo",
+						"com",
+						"tr"
+					],
+					"path": [
+						"mngapi",
+						"api",
+						"pluscmdapi",
+						"createRecipient"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Order-Test",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"content-type": true
+				}
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-ibm-client-secret",
+						"value": ""
+					},
+					{
+						"key": "x-ibm-client-id",
+						"value": ""
+					},
+					{
+						"key": "Content-Type",
+						"value": "",
+						"type": "text",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"order\":{\"referenceId\":\"8522885891\",\r\n\"barcode\":\"SIP201-0001\",\r\n\"billOfLandingId\":\"İrsaliye-20250711-01\",\r\n\"isCOD\":0,\r\n\"codAmount\":0,\r\n\"shipmentServiceType\":1,\r\n\"packagingType\":3,\r\n\"content\":\"Ürünler\",\r\n\"smsPreference1\":1,\r\n\"smsPreference2\":0,\r\n\"smsPreference3\":0,\r\n\"paymentType\":1,\r\n\"deliveryType\":1,\r\n\"description\":\"Sipariş hazırlık\",\r\n\"marketPlaceShortCode\":\"\",\r\n\"marketPlaceSaleCode\":\"\",\r\n\"pudoId\":\"\"},\r\n\"orderPieceList\":[{\"barcode\":\"SIP20250711-0001-P1\",\"desi\":2,\"kg\":2,\"content\":\"Adaptör\"}]\r\n,\"recipient\":{\"customerId\":\"\",\r\n\"refCustomerId\":\"\",\r\n\"cityName\":\"NİĞDE\",\r\n\"districtName\":\"MERKEZ\",\r\n\"cityCode\":0,\r\n\"districtCode\":0,\r\n\"address\":\"ADRES DETAY\",\r\n\"bussinessPhoneNumber\":\"\",\r\n\"email\":\"tilsever@dhl.com\",\r\n\"taxOffice\":\"\",\r\n\"taxNumber\":\"\",\r\n\"fullName\":\"Taşkın HP\",\r\n\"homePhoneNumber\":\"\",\r\n\"mobilePhoneNumber\":\"\"}}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://testapi.mngkargo.com.tr/mngapi/api/standardcmdapi/createOrder",
+					"protocol": "https",
+					"host": [
+						"testapi",
+						"mngkargo",
+						"com",
+						"tr"
+					],
+					"path": [
+						"mngapi",
+						"api",
+						"standardcmdapi",
+						"createOrder"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "CreateBarcode-Test",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-ibm-client-secret",
+						"value": ""
+					},
+					{
+						"key": "x-ibm-client-id",
+						"value": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"referenceId\": \"8522885891\",\r\n  \"isCOD\": 0,\r\n  \"codAmount\": 0,\r\n  \"printReferenceBarcodeOnError\": 1,\r\n  \"message\": \"Mesaj 3\",\r\n  \"additionalContent1\": \"89744556988523698545698540\",\r\n  \"additionalContent2\": \"\",\r\n  \"additionalContent3\": \"\",\r\n  \"additionalContent4\": \"\",\r\n  \"orderPieceList\": [\r\n        {\r\n            \"barcode\": \"1-WS-6-368168_F06168143\",\r\n            \"desi\": 2,\r\n            \"kg\": 2,\r\n            \"content\": \"\"\r\n        }\r\n    ]\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://testapi.mngkargo.com.tr/mngapi/api/barcodecmdapi/createbarcode",
+					"protocol": "https",
+					"host": [
+						"testapi",
+						"mngkargo",
+						"com",
+						"tr"
+					],
+					"path": [
+						"mngapi",
+						"api",
+						"barcodecmdapi",
+						"createbarcode"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

@@ -5,10 +5,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, ShoppingBag, MessageSquare, ArrowRight, ShieldCheck, Cpu, Zap, Search, Phone, Smartphone, Tablet, Laptop, Watch, Cable } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { getWhatsAppLink, getFallbackImage, formatPriceTRY, B2B_LOGIN_URL, WHATSAPP_NUMBER, getPublicProductTitle, formatCategoryName } from '@/lib/constants'
+import { getWhatsAppLink, getFallbackImage, formatPriceTRY, WHATSAPP_NUMBER, getPublicProductTitle, formatCategoryName } from '@/lib/constants'
 import type { Product } from '@/types'
 import { ProductCard } from '@/components/product/product-card'
 import { HeroSlider } from '@/components/home/hero-slider'
+import { AddToCartButton } from '@/components/cart/add-to-cart-button'
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([])
@@ -254,19 +255,16 @@ export default function Home() {
                         )}
                       </div>
 
-                      <div className="mt-4 flex items-end justify-between">
-                        <div className="flex flex-col">
-                          <span className="text-xs text-slate-500 font-medium">Satış Fiyatı</span>
-                          <span className="text-lg font-black text-slate-900 tracking-tight">
-                            {formatPriceTRY(product.sell_price || 0)}
-                          </span>
+                      <div className="mt-4 flex flex-col gap-2">
+                        <div className="flex items-end justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-xs text-slate-500 font-medium">Satış Fiyatı</span>
+                            <span className="text-lg font-black text-slate-900 tracking-tight">
+                              {formatPriceTRY(product.sell_price || 0)}
+                            </span>
+                          </div>
                         </div>
-                        <Link 
-                          href={`/shop/${product.id}`}
-                          className="bg-slate-900 hover:bg-blue-600 text-white p-2.5 rounded-xl transition-colors"
-                        >
-                          <ChevronRight size={16} />
-                        </Link>
+                        <AddToCartButton product={product} fullWidth />
                       </div>
                     </div>
                   </div>

@@ -9,7 +9,6 @@ export default function B2bRegisterPage() {
   const router = useRouter();
   const [session, setSession] = useState<any>(null);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
@@ -33,66 +32,38 @@ export default function B2bRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) return;
 
     setErrorMsg('');
     setSuccessMsg('');
     setLoading(true);
 
     try {
-      let userId = session?.user?.id;
-      let finalEmail = email.trim();
+      const payload = {
+        sessionUserId: session?.user?.id,
+        email: email.trim(),
+        companyName: companyName.trim(),
+        contactName: contactName.trim(),
+        phone: phone.trim(),
+        taxNumber: taxNumber.trim(),
+        city: city.trim(),
+        note: note.trim()
+      };
 
-      // 1. If not logged in, create Auth account first
-      if (!session) {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: finalEmail,
-          password: password,
-        });
+      const res = await fetch('/api/b2b/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
 
-        if (authError) {
-          setErrorMsg(`Hesap oluşturulamadı: ${authError.message}`);
-          setLoading(false);
-          return;
-        }
+      const data = await res.json();
 
-        userId = authData.user?.id;
-        
-        // If email confirmation is enabled, session might be null.
-        // We will try to log in them, or guide them.
-        if (!userId) {
-          setSuccessMsg('Kayıt oluşturuldu! Lütfen e-posta kutunuzu kontrol edip hesabınızı doğrulayın, ardından giriş yapın.');
-          setLoading(false);
-          return;
-        }
-      }
-
-      // 2. Create B2B dealer profile
-      const { error: dbError } = await (supabase as any).from('b2b_dealers').insert([
-        {
-          user_id: userId,
-          company_name: companyName.trim(),
-          contact_name: contactName.trim(),
-          phone: phone.trim(),
-          email: finalEmail,
-          tax_number: taxNumber.trim() || null,
-          city: city.trim() || null,
-          note: note.trim() || null,
-          status: 'pending'
-        }
-      ]);
-
-      if (dbError) {
-        console.error('Error inserting dealer profile:', dbError);
-        // If insert fails because of RLS (e.g. unconfirmed email), handle it
-        if (dbError.message.includes('row-level security')) {
-          setErrorMsg('Başvuru kaydedilemedi. E-posta onayınız eksik olabilir veya oturum yetkiniz bulunmuyor.');
-        } else {
-          setErrorMsg(`Başvuru kaydedilemedi: ${dbError.message}`);
-        }
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Başvuru kaydedilemedi.');
         setLoading(false);
       } else {
-        setSuccessMsg('Başvurunuz başarıyla alındı! Yönlendiriliyorsunuz...');
+        setSuccessMsg(data.message || 'Başvurunuz başarıyla alındı! Yönlendiriliyorsunuz...');
         setTimeout(() => {
           window.location.href = '/b2b/pending';
         }, 1500);
@@ -144,8 +115,8 @@ export default function B2bRegisterPage() {
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           {/* Account Credentials (Only if not logged in) */}
           {!session && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 p-4 rounded-2xl border border-white/5 bg-white/2 space-y-4 sm:space-y-0">
-              <div className="sm:col-span-2">
+            <div className="grid grid-cols-1 gap-4 p-4 rounded-2xl border border-white/5 bg-white/2 space-y-4 sm:space-y-0">
+              <div className="sm:col-span-1">
                 <p className="text-xs font-bold text-sky-400 uppercase tracking-wider mb-2">Hesap Bilgileri</p>
               </div>
               <div className="space-y-1.5">
@@ -156,17 +127,6 @@ export default function B2bRegisterPage() {
                   placeholder="bayi@firma.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-white outline-none focus:border-sky-500"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Şifre</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="En az 6 karakter"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs text-white outline-none focus:border-sky-500"
                 />
               </div>

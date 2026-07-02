@@ -19,13 +19,13 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "HurCELL | Telefon, Aksesuar, Teknik Servis ve Kargo Hizmetleri",
-  description: "Ä°zmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gÃ¶nderi, Western Union ve baskÄ± hizmetleri sunan HurCELL'in online maÄŸazasÄ±.",
-  keywords: "telefon, tablet, bilgisayar, aksesuar, teknik servis, Ä°zmir, DHL, Western Union",
+  description: "İzmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gönderi, Western Union ve baskı hizmetleri sunan HurCELL'in online mağazası.",
+  keywords: "telefon, tablet, bilgisayar, aksesuar, teknik servis, İzmir, DHL, Western Union",
   metadataBase: new URL("https://www.hurcell.com"),
   canonical: "https://www.hurcell.com",
   openGraph: {
     title: "HurCELL | Telefon, Aksesuar, Teknik Servis ve Kargo Hizmetleri",
-    description: "Ä°zmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gÃ¶nderi, Western Union ve baskÄ± hizmetleri sunan HurCELL'in online maÄŸazasÄ±.",
+    description: "İzmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gönderi, Western Union ve baskı hizmetleri sunan HurCELL'in online mağazası.",
     url: "https://www.hurcell.com",
     type: "website",
     siteName: "HurCELL",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "HurCELL | Telefon, Aksesuar, Teknik Servis ve Kargo Hizmetleri",
-    description: "Ä°zmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gÃ¶nderi, Western Union ve baskÄ± hizmetleri sunan HurCELL'in online maÄŸazasÄ±.",
+    description: "İzmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gönderi, Western Union ve baskı hizmetleri sunan HurCELL'in online mağazası.",
   },
   robots: {
     index: true,
@@ -55,14 +55,14 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     name: "HurCELL",
-    description: "Ä°zmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gÃ¶nderi, Western Union ve baskÄ± hizmetleri sunan online maÄŸazasÄ±.",
+    description: "İzmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gönderi, Western Union ve baskı hizmetleri sunan online mağazası.",
     url: "https://www.hurcell.com",
     areaServed: {
       "@type": "City",
-      name: "Ä°zmir",
+      name: "İzmir",
       "@id": "https://www.wikidata.org/wiki/Q35928",
     },
-    serviceArea: "TÃ¼rkiye",
+    serviceArea: "Türkiye",
   };
 
   return (

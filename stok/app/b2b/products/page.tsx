@@ -22,6 +22,7 @@ export default function B2bProductsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const fetchB2bProducts = async () => {
     if (!supabase) return;
@@ -49,6 +50,16 @@ export default function B2bProductsPage() {
   useEffect(() => {
     fetchB2bProducts();
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewImage(null);
+    };
+    if (previewImage) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewImage]);
 
   // Filter products by search query and category
   const filteredProducts = products.filter((p) => {
@@ -142,7 +153,12 @@ export default function B2bProductsPage() {
                 {/* Product Image Box */}
                 <div className="relative flex h-48 items-center justify-center bg-slate-50 border-b border-slate-100">
                   {p.image_url ? (
-                    <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
+                    <img 
+                      src={p.image_url} 
+                      alt={p.name} 
+                      className="h-full w-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
+                      onClick={() => setPreviewImage(p.image_url)}
+                    />
                   ) : (
                     <span className="text-6xl select-none">
                       {p.category?.toLowerCase() === 'telefon' ? '📱'
@@ -268,6 +284,34 @@ export default function B2bProductsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div 
+            className="relative max-h-full max-w-5xl w-full flex flex-col items-center justify-center gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex justify-end">
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="rounded-full bg-white/10 p-2.5 text-white hover:bg-white/20 transition backdrop-blur-md"
+                aria-label="Kapat"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            <img 
+              src={previewImage} 
+              alt="Büyük Önizleme" 
+              className="max-h-[80vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl bg-white/5" 
+            />
+          </div>
         </div>
       )}
     </div>

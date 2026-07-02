@@ -1,0 +1,42 @@
+{
+  "order": {
+    "referenceId": "YOURORDERNUMBER1",
+    "barcode": "YOURORDERNUMBER1",
+    "billOfLandingId": "CUSTOMERINVOICE",
+    "isCOD": 0,
+    "codAmount": 0,
+    "shipmentServiceType": 1,
+    "packagingType": 1,
+    "content": "İçerik 1",
+    "smsPreference1": 0,
+    "smsPreference2": 0,
+    "smsPreference3": 0,
+    "paymentType": 1,
+    "deliveryType": 1,
+    "description": "EXPLANATION",
+    "marketPlaceShortCode": "",
+    "marketPlaceSaleCode": ""
+  },
+  "orderPieceList": [
+    {
+      "barcode": "YOURPACKAGENUMBER1",
+      "desi": 2,
+      "kg": 1,
+      "content": "PACKAGE DETAIL"
+    }
+  ],
+  "recipient": {
+    "customerId": "",
+    "refCustomerId": "",
+    "cityName": "İSTANBUL",
+    "districtName": "BAHÇELİEVLER",  
+    "address": "RECIPIENT FULL TEXT ADDRESS",
+    "bussinessPhoneNumber": "",
+    "email": "A@A.COM.TR",
+    "taxOffice": "",
+    "taxNumber": "",
+    "fullName": "RECIPIENT NAME SURNAME",
+    "homePhoneNumber": "",
+    "mobilePhoneNumber": "5551231212"
+  }
+}

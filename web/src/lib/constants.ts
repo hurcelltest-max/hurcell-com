@@ -1,5 +1,5 @@
 export const WHATSAPP_NUMBER = '905322269362';
-export const B2B_LOGIN_URL = 'https://stok.hurcell.com/b2b/login';
+
 
 // ─────────────────────────────────────────────────────────────────
 // Brand Normalization Helpers

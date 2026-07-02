@@ -35,7 +35,7 @@ export function AddToCartButton({
     const cartItem: CartItem = {
       product_id: product.id,
       name: getPublicProductTitle(product),
-      image: product.image_url || getFallbackImage(product),
+      image: product.image_url || getFallbackImage(product.category),
       price: product.sell_price,
       quantity: 1,
       stock_quantity: product.stock,

@@ -23,10 +23,10 @@ export const Navbar = () => {
           <div className="hidden md:flex items-center space-x-6">
             <Link href="/shop" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">MAÄAZA</Link>
             <Link href="/kampanyalar" className="text-[13px] font-medium tracking-wide text-rose-500 hover:text-rose-600 transition-colors uppercase">KAMPANYALAR</Link>
-            <Link href="/indirimli-urunler" className="text-[13px] font-medium tracking-wide text-orange-500 hover:text-orange-600 transition-colors uppercase">% Ä°NDÄ°RÄ°MLER</Link>
+            <Link href="/indirimli-urunler" className="text-[13px] font-medium tracking-wide text-orange-500 hover:text-orange-600 transition-colors uppercase">% İNDİRİMLER</Link>
             <Link href="/shop?category=Telefon" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">TELEFON</Link>
             <Link href="/shop?category=Aksesuar" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">AKSESUAR</Link>
-            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletiÅŸime geÃ§mek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">Ä°LETÄ°ÅÄ°M</a>
+            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletiŞŸime geçmek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">İLETİŞİM</a>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -40,7 +40,7 @@ export const Navbar = () => {
             </Link>
             <Link 
               href="/satis-sozlesmesi" 
-              aria-label="SatÄ±ÅŸ SÃ¶zleÅŸmesi" 
+              aria-label="Satış Sözleşmesi" 
               className={buttonVariants({ variant: "ghost", size: "icon" }) + " hidden sm:flex text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"} 
               onClick={() => setIsMobileMenuOpen(false)}
             >
@@ -65,7 +65,7 @@ export const Navbar = () => {
               size="icon" 
               className="md:hidden text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label={isMobileMenuOpen ? "MenÃ¼yÃ¼ Kapat" : "MenÃ¼yÃ¼ AÃ§"}
+              aria-label={isMobileMenuOpen ? "Menüyü Kapat" : "Menüyü Aç"}
               aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -78,10 +78,10 @@ export const Navbar = () => {
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-20 left-0 right-0 bg-white border-b border-slate-200/80 shadow-lg z-50 flex flex-col px-4 py-6 space-y-4 max-h-[calc(100vh-5rem)] overflow-y-auto">
           <Link href="/" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Ana Sayfa</Link>
-          <Link href="/shop" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>TÃ¼m ÃœrÃ¼nler</Link>
+          <Link href="/shop" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Tüm Ürünler</Link>
           <Link href="/kampanyalar" className="text-sm font-semibold text-rose-500 hover:text-rose-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Kampanyalar</Link>
-          <Link href="/indirimli-urunler" className="text-sm font-semibold text-orange-500 hover:text-orange-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Ä°ndirimli ÃœrÃ¼nler</Link>
-          <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletiÅŸime geÃ§mek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>WhatsApp / Ä°letiÅŸim</a>
+          <Link href="/indirimli-urunler" className="text-sm font-semibold text-orange-500 hover:text-orange-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>İndirimli Ürünler</Link>
+          <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletiŞŸime geçmek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>WhatsApp / İletişim</a>
           
           <div className="flex flex-col space-y-3 pt-4 border-t border-slate-100">
             <Link 

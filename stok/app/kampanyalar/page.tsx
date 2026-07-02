@@ -178,6 +178,26 @@ export default function CampaignsPage() {
       return;
     }
 
+    if (formIsActive) {
+      if (!formCampaignId) {
+        alert("Aktif kampanya için en az 1 ürün bağlanmalıdır. Lütfen önce pasif kaydedip ürün bağlayın.");
+        return;
+      }
+      try {
+        const { count, error: countError } = await (supabase as any)
+          .from("campaign_products")
+          .select("product_id", { count: "exact", head: true })
+          .eq("campaign_id", formCampaignId);
+        if (countError) throw countError;
+        if (count === 0) {
+          alert("Aktif kampanya için en az 1 ürün bağlanmalıdır.");
+          return;
+        }
+      } catch (err) {
+        console.error("Ürün sayısı kontrol edilirken hata:", err);
+      }
+    }
+
     try {
       if (!supabase) return;
 
@@ -245,6 +265,19 @@ export default function CampaignsPage() {
   const handleToggleActive = async (camp: Campaign) => {
     try {
       if (!supabase) return;
+      
+      if (!camp.is_active) {
+        const { count, error: countError } = await (supabase as any)
+          .from("campaign_products")
+          .select("product_id", { count: "exact", head: true })
+          .eq("campaign_id", camp.id);
+        if (countError) throw countError;
+        if (count === 0) {
+          alert("Aktif kampanya için en az 1 ürün bağlanmalıdır.");
+          return;
+        }
+      }
+
       const { error: uError } = await (supabase as any)
         .from("campaigns")
         .update({ is_active: !camp.is_active })
@@ -414,12 +447,28 @@ export default function CampaignsPage() {
                   ) : (
                     filteredProducts.map((p) => {
                       const isLinked = campaignProducts.includes(p.id);
+                      
+                      let discountedPrice = p.sell_price;
+                      if (selectedCampaign && isLinked) {
+                        if (selectedCampaign.discount_type === "percent") {
+                          discountedPrice = p.sell_price - (p.sell_price * selectedCampaign.discount_value / 100);
+                        } else {
+                          discountedPrice = p.sell_price - selectedCampaign.discount_value;
+                        }
+                        if (discountedPrice < 0) discountedPrice = 0;
+                      }
+
                       return (
                         <div key={p.id} className="p-3 flex items-center justify-between gap-4 text-xs">
                           <div>
                             <p className="font-bold text-slate-700">{p.name}</p>
                             <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              {p.brand} {p.model} · Barkod: {p.barcode} · Fiyat: {p.sell_price} TRY
+                              {p.brand} {p.model} · Barkod: {p.barcode} · Fiyat: <span className={isLinked ? "line-through text-rose-400" : ""}>{p.sell_price} TRY</span>
+                              {isLinked && (
+                                <span className="ml-2 font-bold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded">
+                                  İndirimli: {discountedPrice.toFixed(2)} TRY
+                                </span>
+                              )}
                             </p>
                           </div>
                           

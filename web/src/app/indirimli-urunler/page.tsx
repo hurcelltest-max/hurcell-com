@@ -4,16 +4,16 @@ import { ProductCard } from '@/components/product/product-card';
 import { PercentCircle } from 'lucide-react';
 
 export const metadata = {
-  title: 'İndirimli Ürünler | HurCELL Teknoloji Mağazası',
-  description: 'HurCELL Teknoloji Mağazası ndaki tüm indirimli telefon, bilgisayar ve aksesuarlar. İndirimli ürünleri ve fiyat avantajlarını inceleyin.',
+  title: 'İİndirimli Ürünler | HurCELL Tçeknoloji Mağazası',
+  description: 'HurCELL Tçeknoloji Mağazası ndaki tüm iİndirimli telefon, bilgisayar ve aksesuarlar. İİndirimli ürünleri ve fiyat avantajlarıını inceleyin.',
 };
 
 export const revalidate = 60; // 1 minute caching
 
-export default async function IndirimliUrunlerPage() {
+export default async function IİndirimliUrunlerPage() {
   const supabase = createClient();
   
-  // Sadece web'de aktif olan, stokta bulunan ve indirimi olan ürünleri çek
+  // Sadece web'de aktif olan, stokta bulunan ve indirimi olan ürünleri ççek
   const { data: products, error } = await supabase
     .from('products')
     .select('*')
@@ -26,7 +26,7 @@ export default async function IndirimliUrunlerPage() {
     console.error('Error fetching discounted products:', error);
   }
 
-  // Yalnızca eski fiyatı satış fiyatından büyük olan gerçek indirimleri filtrele
+  // Yalnızca eski fiyatı satış fiyatından büyük olan gerççek indirimleri filtrele
   const discountedProducts = (products || []).filter(p => 
     p.old_price && p.sell_price && p.old_price > p.sell_price
   );
@@ -41,9 +41,9 @@ export default async function IndirimliUrunlerPage() {
             <PercentCircle size={16} className="animate-spin-slow" />
             <span className="text-sm font-bold uppercase tracking-widest">% İndirimler</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tight">İndirimli Ürünler</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tight">İİndirimli Ürünler</h1>
           <p className="mt-4 text-slate-500 max-w-2xl text-sm sm:text-base">
-            Fiyatı düşen teknoloji ürünlerini keşfedin. Büyük indirim fırsatlarını yakalayın.
+            Fiyatı düşen tçeknoloji ürünlerini keşfedin. Büyük indirim fırsatlarını yakalayın.
           </p>
         </div>
 
@@ -66,10 +66,10 @@ export default async function IndirimliUrunlerPage() {
               <PercentCircle size={32} className="text-slate-300" />
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-2">
-              Şu anda indirimli ürün bulunmamaktadır.
+              Şu anda iİndirimli ürün bulunmamaktadır.
             </h2>
             <p className="text-slate-500 text-sm max-w-md">
-              İndirimlerimiz sürekli güncellenmektedir. Lütfen daha sonra tekrar kontrol edin veya mağazamızdaki diğer ürünleri inceleyin.
+              İndirimlerimiz sürçekli güncellenmçektedir. Lütfen daha sonra tçekrar kontrol edin veya mağazamızdaki diğer ürünleri inceleyin.
             </p>
           </div>
         )}

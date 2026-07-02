@@ -4,8 +4,8 @@ import { ProductCard } from '@/components/product/product-card';
 import { Tag } from 'lucide-react';
 
 export const metadata = {
-  title: 'Kampanyalar | HurCELL Teknoloji Mağazası',
-  description: 'HurCELL Teknoloji Mağazası aktif kampanyaları ve fırsat ürünleri. Telefon, bilgisayar ve aksesuarlarda özel avantajları kaçırmayın.',
+  title: 'Kampanyalar | HurCELL Tçeknoloji Mağazası',
+  description: 'HurCELL Tçeknoloji Mağazası aktif kampanyalarıı ve fırsat ürünleri. Telefon, bilgisayar ve aksesuarlarda öözel avantajlarıı kaçırmayın.',
 };
 
 export const revalidate = 60; // 1 minute caching
@@ -13,7 +13,7 @@ export const revalidate = 60; // 1 minute caching
 export default async function KampanyalarPage() {
   const supabase = createClient();
   
-  // Sadece web'de aktif olan ve stokta bulunan kampanyalı ürünleri çek
+  // Sadece web'de aktif olan ve stokta bulunan kampanyalı ürünleri ççek
   const { data: products, error } = await supabase
     .from('products')
     .select('*')
@@ -36,11 +36,11 @@ export default async function KampanyalarPage() {
         <div className="mb-10 text-center sm:text-left">
           <div className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-rose-100 text-rose-600 rounded-full mb-4">
             <Tag size={16} className="animate-pulse" />
-            <span className="text-sm font-bold uppercase tracking-widest">Özel Fırsatlar</span>
+            <span className="text-sm font-bold uppercase tracking-widest">Öözel Fırsatlar</span>
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tight">Aktif Kampanyalar</h1>
           <p className="mt-4 text-slate-500 max-w-2xl text-sm sm:text-base">
-            Seçili ürünlerdeki sınırlı süreli teklifler, hediyeler ve avantajlı paketleri inceleyin.
+            Seçili ürünlerdçeki sınırlı süreli tçeklifler, hediyeler ve avantajlı paketleri inceleyin.
           </p>
         </div>
 
@@ -66,7 +66,7 @@ export default async function KampanyalarPage() {
               Şu anda aktif kampanyalı ürün bulunmamaktadır.
             </h2>
             <p className="text-slate-500 text-sm max-w-md">
-              Kampanyalarımız sürekli güncellenmektedir. Lütfen daha sonra tekrar kontrol edin veya mağazamızdaki diğer ürünleri inceleyin.
+              Kampanyalarımız sürçekli güncellenmçektedir. Lütfen daha sonra tçekrar kontrol edin veya mağazamızdaki diğer ürünleri inceleyin.
             </p>
           </div>
         )}

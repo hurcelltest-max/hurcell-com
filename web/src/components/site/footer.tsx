@@ -19,13 +19,12 @@ export function Footer() {
 
         {/* Security & Trust Text */}
         <p className="text-center max-w-xl mx-auto text-[11px] text-slate-450 leading-relaxed">
-          Ödemelerimiz DHL Kapıda Ödeme modeli ile teslimat anında gerçekleştirilmektedir. 
-          Alışverişleriniz sırasında herhangi bir ön ödeme veya tahsilat alınmamaktadır.
+          Ödemelerimiz DHL Kapıda Ödeme modeli ile teslimat anında gerçekleştirilmektedir. Alışverişleriniz sırasında herhangi bir ön ödeme veya tahsilat alınmamaktadır.
         </p>
 
         {/* Copyright */}
         <p className="text-center text-[10px] text-slate-400">
-          © {new Date().getFullYear()} HurCELL Teknoloji. Tüm hakları saklıdır.
+          &copy; {new Date().getFullYear()} HurCELL Teknoloji. Tüm hakları saklıdır.
         </p>
       </div>
     </footer>

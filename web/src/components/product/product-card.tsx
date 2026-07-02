@@ -174,7 +174,7 @@ export function ProductCard({
             <div className="grid grid-cols-2 gap-2">
               <Link
                 href={`/urun/${product.id}`}
-                className="py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl text-center transition-colors border border-slate-200"
+                className="py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl text-center transition-colors border border-slate-200"
               >
                 Detaylar
               </Link>
@@ -183,7 +183,7 @@ export function ProductCard({
                 href={getWhatsAppLink(displayTitle, product.barcode, product.sell_price)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl text-center transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:shadow"
+                className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl text-center transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:shadow"
               >
                 <span className="hidden sm:inline">WhatsApp</span>
                 <span className="sm:hidden">Sor</span>

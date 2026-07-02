@@ -20,6 +20,9 @@ export default async function KampanyalarPage() {
     .eq('is_campaign', true)
     .eq('is_web_visible', true)
     .gt('stock', 0)
+    .not('image_url', 'is', null)
+    .neq('image_url', '')
+    .gt('sell_price', 0)
     .order('created_at', { ascending: false });
 
   if (error) {

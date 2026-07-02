@@ -28,6 +28,10 @@ export default function Home() {
           .from('products')
           .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price, is_web_visible, is_slider_visible, is_campaign, campaign_title, campaign_benefit, show_campaign_benefit_in_slider, device_condition_type, created_at')
           .eq('is_web_visible', true)
+          .not('image_url', 'is', null)
+          .neq('image_url', '')
+          .gt('stock', 0)
+          .gt('sell_price', 0)
           .eq('is_slider_visible', true)
           .gt('stock', 0)
           .order('created_at', { ascending: false });
@@ -40,6 +44,10 @@ export default function Home() {
           .from('products')
           .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price, is_web_visible, is_slider_visible, is_campaign, campaign_title, campaign_benefit, show_campaign_benefit_in_slider, device_condition_type, created_at')
           .eq('is_web_visible', true)
+          .not('image_url', 'is', null)
+          .neq('image_url', '')
+          .gt('stock', 0)
+          .gt('sell_price', 0)
           .gt('stock', 0)
           .order('created_at', { ascending: false })
           .limit(8);

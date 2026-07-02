@@ -87,9 +87,9 @@ export default function ProductDetailPage() {
 
         if (error) throw error
         
-        // Security check: Only allow showing web visible products
-        if (data && (!data.is_web_visible || data.stock <= 0)) {
-          setErrorMsg('Bu ürün perakende satışta aktif değildir.')
+        // Security check: Only allow showing web visible products with image and price
+        if (data && (!data.is_web_visible || data.stock <= 0 || !data.image_url || data.image_url.trim() === '' || data.sell_price <= 0)) {
+          setErrorMsg('Bu ürün perakende satışta aktif değildir veya güncellenmektedir.')
           return
         }
 

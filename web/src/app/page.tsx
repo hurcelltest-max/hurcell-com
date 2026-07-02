@@ -136,7 +136,7 @@ export default function Home() {
 
               <div className="flex flex-wrap items-center justify-center lg:justify-end gap-3 w-full lg:w-auto">
                 <Link href="/shop" className="px-5 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5">
-                  Tüm Ürünleri İncele <ArrowRight size={14} />
+                  Tüm Ürünleri İİncele <ArrowRight size={14} />
                 </Link>
                 <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL perakende ürünleri hakkında bilgi almak istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5">
                   <MessageSquare size={14} /> WhatsApp'tan Sor
@@ -165,7 +165,7 @@ export default function Home() {
               </h1>
               
               <p className="text-base md:text-lg text-slate-600 font-light max-w-xl mx-auto leading-relaxed">
-                Telefon, tablet, bilgisayar ve aksesuar ürünlerinde güncel stoklarımızı inceleyin.
+                Telefon, tablet, bilgisayar ve aksesuar ürünlerinde güncel stoklarımızı iİnceleyin.
               </p>
 
               {/* Compact Search Bar */}
@@ -191,7 +191,7 @@ export default function Home() {
                   href="/shop"
                   className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-semibold text-xs transition-all shadow-sm flex items-center gap-1.5"
                 >
-                  Ürünleri İncele
+                  Ürünleri İİncele
                   <ArrowRight size={14} />
                 </Link>
                 

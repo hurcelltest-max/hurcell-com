@@ -51,9 +51,9 @@ export function AddToCartButton({
       onClick={handleAddToCart}
       disabled={product.stock <= 0}
       size={size}
-      className={`${fullWidth ? 'w-full' : ''} bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm flex items-center justify-center gap-2 rounded-full py-2 h-auto text-[13px] mx-1 ${className}`}
+      className={`bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm flex items-center justify-center gap-1.5 rounded-full h-8 text-[12px] px-5 max-w-[180px] mx-auto ${fullWidth ? 'w-full' : ''} ${className}`}
     >
-      <ShoppingCart className="w-4 h-4" />
+      <ShoppingCart className="w-3.5 h-3.5" />
       <span>Sepete Ekle</span>
     </Button>
   )

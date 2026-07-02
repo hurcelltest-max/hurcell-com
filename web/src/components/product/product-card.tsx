@@ -37,19 +37,18 @@ export function ProductCard({
   const displayTitle = getPublicProductTitle(product)
   const displayCategory = formatCategoryName(product)
 
-  
   // Stock display rules:
-  // - stock > 5: “Stokta · X adet” (Green theme)
-  // - stock <= 5 ve stock > 1: “Az kaldı · X adet” (Amber theme)
-  // - stock === 1: “Son 1 adet” (Rose theme)
+  // - stock > 5: "Stokta X adet" (Green theme)
+  // - stock <= 5 ve stock > 1: "Az kaldı X adet" (Amber theme)
+  // - stock === 1: "Son 1 adet" (Rose theme)
   let stockLabel = ''
   let stockColorClass = ''
   
   if (product.stock > 5) {
-    stockLabel = `Stokta · ${product.stock} adet`
+    stockLabel = `Stokta - ${product.stock} adet`
     stockColorClass = 'bg-emerald-50 text-emerald-700 border-emerald-100/80'
   } else if (product.stock <= 5 && product.stock > 1) {
-    stockLabel = `Az kaldı · ${product.stock} adet`
+    stockLabel = `Az kaldı - ${product.stock} adet`
     stockColorClass = 'bg-amber-50 text-amber-700 border-amber-100/80'
   } else if (product.stock === 1) {
     stockLabel = 'Son 1 adet'
@@ -63,7 +62,7 @@ export function ProductCard({
   if (product.color) specParts.push(product.color)
   else if (product.memory) specParts.push(product.memory)
   else if (product.storage) specParts.push(product.storage)
-  const specText = specParts.join(' · ') || 'Özellik belirtilmemiş'
+  const specText = specParts.join(' - ') || 'Özellik belirtilmemiş'
 
   const isDiscounted = product.is_discounted && product.old_price && product.old_price > product.sell_price;
   const discountPercent = isDiscounted && product.old_price 
@@ -174,7 +173,7 @@ export function ProductCard({
             <div className="grid grid-cols-2 gap-2">
               <Link
                 href={`/urun/${product.id}`}
-                className="py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-full text-center transition-colors border border-slate-200"
+                className="py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold rounded-full text-center transition-colors border border-slate-200"
               >
                 Detaylar
               </Link>
@@ -183,7 +182,7 @@ export function ProductCard({
                 href={getWhatsAppLink(displayTitle, product.barcode, product.sell_price)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-full text-center transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:shadow"
+                className="py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-full text-center transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:shadow"
               >
                 <span className="hidden sm:inline">WhatsApp</span>
                 <span className="sm:hidden">Sor</span>

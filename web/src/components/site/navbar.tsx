@@ -1,14 +1,15 @@
-'use client'
+﻿'use client'
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { Search, Menu, FileSignature, LogIn, X } from 'lucide-react'
+import { Search, Menu, FileSignature, ShoppingCart, X } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { B2B_LOGIN_URL, WHATSAPP_NUMBER } from '@/lib/constants'
+import { WHATSAPP_NUMBER } from '@/lib/constants'
+import { useCart } from '@/components/cart-provider'
 
 export const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
+  const { totalQuantity } = useCart();
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,12 +21,12 @@ export const Navbar = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-6">
-            <Link href="/shop" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">MAĞAZA</Link>
+            <Link href="/shop" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">MAÄAZA</Link>
             <Link href="/kampanyalar" className="text-xs font-semibold tracking-wider text-rose-500 hover:text-rose-600 transition-colors uppercase">KAMPANYALAR</Link>
-            <Link href="/indirimli-urunler" className="text-xs font-semibold tracking-wider text-orange-500 hover:text-orange-600 transition-colors uppercase">% İNDİRİMLER</Link>
+            <Link href="/indirimli-urunler" className="text-xs font-semibold tracking-wider text-orange-500 hover:text-orange-600 transition-colors uppercase">% Ä°NDÄ°RÄ°MLER</Link>
             <Link href="/shop?category=Telefon" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">TELEFON</Link>
             <Link href="/shop?category=Aksesuar" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">AKSESUAR</Link>
-            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletişime geçmek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">İLETİŞİM</a>
+            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletiÅŸime geÃ§mek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">Ä°LETÄ°ÅÄ°M</a>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -39,29 +40,32 @@ export const Navbar = () => {
             </Link>
             <Link 
               href="/satis-sozlesmesi" 
-              aria-label="Satış sözleşmesi" 
+              aria-label="SatÄ±ÅŸ sÃ¶zleÅŸmesi" 
               className={buttonVariants({ variant: "ghost", size: "icon" }) + " hidden sm:flex text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"} 
               onClick={() => setIsMobileMenuOpen(false)}
             >
               <FileSignature className="w-5 h-5" />
             </Link>
             
-            <a 
-              href="https://stok.hurcell.com/b2b/login" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className={buttonVariants({ size: "sm" }) + " hidden sm:inline-flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-mono tracking-widest text-[10px] uppercase transition-colors px-4 py-2"}
+            <Link 
+              href="/sepet" 
+              className={buttonVariants({ variant: "ghost", size: "icon" }) + " relative text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
-              <LogIn className="w-3.5 h-3.5" />
-              B2B Girişi
-            </a>
+              <ShoppingCart className="w-5 h-5" />
+              {totalQuantity > 0 && (
+                <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-blue-600 rounded-full border-2 border-white">
+                  {totalQuantity}
+                </span>
+              )}
+            </Link>
 
             <Button 
               variant="ghost" 
               size="icon" 
               className="md:hidden text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label={isMobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"}
+              aria-label={isMobileMenuOpen ? "MenÃ¼yÃ¼ kapat" : "MenÃ¼yÃ¼ aÃ§"}
               aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -74,33 +78,24 @@ export const Navbar = () => {
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-20 left-0 right-0 bg-white border-b border-slate-200/80 shadow-lg z-50 flex flex-col px-4 py-6 space-y-4 max-h-[calc(100vh-5rem)] overflow-y-auto">
           <Link href="/" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Ana Sayfa</Link>
-          <Link href="/shop" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Tüm Ürünler</Link>
+          <Link href="/shop" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>TÃ¼m ÃœrÃ¼nler</Link>
           <Link href="/kampanyalar" className="text-sm font-semibold text-rose-500 hover:text-rose-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Kampanyalar</Link>
-          <Link href="/indirimli-urunler" className="text-sm font-semibold text-orange-500 hover:text-orange-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>İndirimli Ürünler</Link>
-          <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletişime geçmek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>WhatsApp / İletişim</a>
+          <Link href="/indirimli-urunler" className="text-sm font-semibold text-orange-500 hover:text-orange-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Ä°ndirimli ÃœrÃ¼nler</Link>
+          <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletiÅŸime geÃ§mek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>WhatsApp / Ä°letiÅŸim</a>
           
-          <div className="flex flex-col space-y-3 pt-4">
-            <a 
-              href="https://stok.hurcell.com/b2b/login" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+          <div className="flex flex-col space-y-3 pt-4 border-t border-slate-100">
+            <Link 
+              href="/sepet" 
               onClick={() => setIsMobileMenuOpen(false)}
-              className={buttonVariants({ variant: "outline" }) + " w-full justify-center border-slate-300 text-slate-700"}
+              className={buttonVariants() + " w-full justify-center bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"}
             >
-              Bayi Girişi
-            </a>
-            <a 
-              href="https://stok.hurcell.com/b2b/register" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={buttonVariants() + " w-full justify-center bg-blue-600 hover:bg-blue-700 text-white"}
-            >
-              Bayilik Başvurusu
-            </a>
+              <ShoppingCart className="w-4 h-4" />
+              Sepetim {totalQuantity > 0 ? `(${totalQuantity})` : ''}
+            </Link>
           </div>
         </div>
       )}
     </nav>
   )
 }
+

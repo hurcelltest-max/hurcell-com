@@ -6,7 +6,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getWhatsAppLink, getFallbackImage, formatPriceTRY, getPublicProductTitle, formatCategoryName, getCategoryGroup } from '@/lib/constants'
 import type { Product } from '@/types'
-import { ArrowLeft, ShoppingBag, CheckCircle, AlertCircle, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
+import { ArrowLeft, ShoppingBag, CheckCircle, AlertCircle, X, ChevronLeft, ChevronRight, ZoomIn, ShoppingCart } from 'lucide-react'
+import { useCart } from '@/components/cart-provider'
+import { toast } from 'sonner'
 
 export default function ProductDetailPage() {
   const params = useParams()
@@ -22,6 +24,32 @@ export default function ProductDetailPage() {
   const [lightboxImageIndex, setLightboxImageIndex] = useState(0)
   
   const supabase = createClient()
+  const { addItem } = useCart()
+
+  const handleAddToCart = (redirect = false) => {
+    if (!product) return;
+    
+    addItem({
+      product_id: product.id,
+      name: publicTitle,
+      image: product.image_url || getFallbackImage(product.category),
+      price: product.sell_price,
+      quantity: 1,
+      stock_quantity: product.stock,
+      barcode: product.barcode
+    });
+
+    if (redirect) {
+      router.push('/checkout');
+    } else {
+      toast.success('Ürün sepete eklendi!', {
+        action: {
+          label: 'Sepete Git',
+          onClick: () => router.push('/sepet')
+        }
+      });
+    }
+  }
 
   const activeImages = product
     ? ([product.image_url, product.image_url_2, product.image_url_3].filter(Boolean) as string[])
@@ -429,13 +457,21 @@ export default function ProductDetailPage() {
 
             {/* Purchase CTA Buttons */}
             <div className="pt-3 space-y-3">
-              <Link
-                href={`/checkout?product_id=${product.id}`}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-2xl transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow cursor-pointer text-center text-sm"
+              <button
+                onClick={() => handleAddToCart(false)}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow cursor-pointer text-center text-sm"
+              >
+                <ShoppingCart size={18} />
+                Sepete Ekle
+              </button>
+              
+              <button
+                onClick={() => handleAddToCart(true)}
+                className="w-full py-3 bg-white hover:bg-slate-50 text-blue-600 font-semibold rounded-2xl transition-all flex items-center justify-center gap-2 border border-blue-200 cursor-pointer text-center text-sm"
               >
                 <ShoppingBag size={16} />
                 Hemen Satın Al (Kapıda Ödeme)
-              </Link>
+              </button>
               
               <a
                 href={getWhatsAppLink(publicTitle, product.barcode, product.sell_price)}

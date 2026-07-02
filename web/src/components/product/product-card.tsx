@@ -12,6 +12,7 @@ import {
   getPublicProductTitle,
   getCategoryGroup
 } from '@/lib/constants'
+import { AddToCartButton } from '@/components/cart/add-to-cart-button'
 
 interface ProductCardProps {
   product: Product
@@ -167,23 +168,27 @@ export function ProductCard({
 
         {/* Action Buttons */}
         {showActions && (
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Link
-              href={`/urun/${product.id}`}
-              className="py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl text-center transition-colors border border-slate-200"
-            >
-              Detaylar
-            </Link>
+          <div className="flex flex-col gap-2 pt-1">
+            <AddToCartButton product={product} fullWidth />
             
-            <a
-              href={getWhatsAppLink(displayTitle, product.barcode, product.sell_price)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl text-center transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:shadow"
-            >
-              <ShoppingBag size={11} className="shrink-0" />
-              <span className="hidden sm:inline">WhatsApp'tan </span>Sor
-            </a>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href={`/urun/${product.id}`}
+                className="py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl text-center transition-colors border border-slate-200"
+              >
+                Detaylar
+              </Link>
+              
+              <a
+                href={getWhatsAppLink(displayTitle, product.barcode, product.sell_price)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl text-center transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:shadow"
+              >
+                <span className="hidden sm:inline">WhatsApp</span>
+                <span className="sm:hidden">Sor</span>
+              </a>
+            </div>
           </div>
         )}
       </div>

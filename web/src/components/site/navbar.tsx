@@ -21,12 +21,12 @@ export const Navbar = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-6">
-            <Link href="/shop" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">MAÄAZA</Link>
-            <Link href="/kampanyalar" className="text-xs font-semibold tracking-wider text-rose-500 hover:text-rose-600 transition-colors uppercase">KAMPANYALAR</Link>
-            <Link href="/indirimli-urunler" className="text-xs font-semibold tracking-wider text-orange-500 hover:text-orange-600 transition-colors uppercase">% Ä°NDÄ°RÄ°MLER</Link>
-            <Link href="/shop?category=Telefon" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">TELEFON</Link>
-            <Link href="/shop?category=Aksesuar" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">AKSESUAR</Link>
-            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletiÅŸime geÃ§mek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold tracking-wider text-slate-600 hover:text-blue-600 transition-colors uppercase">Ä°LETÄ°ÅÄ°M</a>
+            <Link href="/shop" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">MAÄAZA</Link>
+            <Link href="/kampanyalar" className="text-[13px] font-medium tracking-wide text-rose-500 hover:text-rose-600 transition-colors uppercase">KAMPANYALAR</Link>
+            <Link href="/indirimli-urunler" className="text-[13px] font-medium tracking-wide text-orange-500 hover:text-orange-600 transition-colors uppercase">% Ä°NDÄ°RÄ°MLER</Link>
+            <Link href="/shop?category=Telefon" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">TELEFON</Link>
+            <Link href="/shop?category=Aksesuar" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">AKSESUAR</Link>
+            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletiÅŸime geÃ§mek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">Ä°LETÄ°ÅÄ°M</a>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -40,7 +40,7 @@ export const Navbar = () => {
             </Link>
             <Link 
               href="/satis-sozlesmesi" 
-              aria-label="SatÄ±ÅŸ sÃ¶zleÅŸmesi" 
+              aria-label="SatÄ±ÅŸ SÃ¶zleÅŸmesi" 
               className={buttonVariants({ variant: "ghost", size: "icon" }) + " hidden sm:flex text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"} 
               onClick={() => setIsMobileMenuOpen(false)}
             >
@@ -65,7 +65,7 @@ export const Navbar = () => {
               size="icon" 
               className="md:hidden text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label={isMobileMenuOpen ? "MenÃ¼yÃ¼ kapat" : "MenÃ¼yÃ¼ aÃ§"}
+              aria-label={isMobileMenuOpen ? "MenÃ¼yÃ¼ Kapat" : "MenÃ¼yÃ¼ AÃ§"}
               aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

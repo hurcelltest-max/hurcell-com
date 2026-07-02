@@ -1,0 +1,9 @@
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: 'Dry-run modunda çalışıyor. DHL/MNG tarafında gerçek Track Shipment sorgulanmadı.',
+    data: null
+  });
+}

@@ -1,26 +1,21 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  try {
-    const dhlUsername = process.env.DHL_API_USERNAME;
-    const dhlPassword = process.env.DHL_API_PASSWORD;
-    const dhlBaseUrl = process.env.DHL_API_BASE_URL;
+  const envStatus = {
+    DHL_MNG_API_BASE_URL: !!process.env.DHL_MNG_API_BASE_URL,
+    DHL_MNG_CLIENT_ID: !!process.env.DHL_MNG_CLIENT_ID,
+    DHL_MNG_CLIENT_SECRET: !!process.env.DHL_MNG_CLIENT_SECRET,
+    DHL_MNG_TOKEN_URL: !!process.env.DHL_MNG_TOKEN_URL,
+    DHL_MNG_USERNAME: !!process.env.DHL_MNG_USERNAME,
+    DHL_MNG_PASSWORD: !!process.env.DHL_MNG_PASSWORD,
+    DHL_MNG_CUSTOMER_CODE: !!process.env.DHL_MNG_CUSTOMER_CODE,
+  };
 
-    if (!dhlUsername || !dhlPassword || !dhlBaseUrl) {
-      return NextResponse.json(
-        { ok: false, message: "DHL API bilgileri tanımlı değil." },
-        { status: 500 }
-      );
-    }
+  const allConfigured = Object.values(envStatus).every(Boolean);
 
-    return NextResponse.json(
-      { ok: true, message: "DHL API bilgileri tanımlı.", configured: true },
-      { status: 200 }
-    );
-  } catch (err) {
-    return NextResponse.json(
-      { ok: false, message: "Beklenmeyen bir hata oluştu." },
-      { status: 500 }
-    );
+  if (allConfigured) {
+    return NextResponse.json({ ok: true, message: 'DHL/MNG API yapılandırması tam.', envStatus });
   }
+
+  return NextResponse.json({ ok: false, message: 'DHL/MNG API eksik yapılandırma.', envStatus }, { status: 400 });
 }

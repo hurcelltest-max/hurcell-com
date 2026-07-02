@@ -10,7 +10,8 @@ HurCELL B2C/D2C müşteri deneyimi için şifresiz, sadece telefon numarası ile
 
 ## SMS OTP Teknik Kuralları
 - **Kod Tipi:** 6 haneli numerik kod.
-- **Güvenlik (Hash):** OTP kodları veritabanında açık metin (plaintext) olarak saklanmayacak, **hashlenerek** (örn: SHA-256) tutulacaktır.
+- **Güvenlik (Hash):** OTP kodu düz SHA-256 ile değil, **HMAC-SHA256** ile hashlenerek saklanacaktır. Bu işlem için bir `SMS_OTP_HASH_SECRET` (sadece server-side env) kullanılacaktır. Production ortamında bu secret olmadan OTP doğrulama çalışmayacaktır.
+- **Güvenli Doğrulama:** OTP hash içinde, telefon numarası ve "purpose" (örn: "login") gibi bağlayıcı context verileri kullanılacaktır. 6 haneli kısa kodların DB sızıntısına (rainbow table vb.) karşı korunması bu sayede sağlanacaktır.
 - **Geçerlilik Süresi (TTL):** Her kod oluşturulduktan sonra 300 saniye (5 dakika) boyunca geçerli olacaktır.
 - **Deneme Sınırı (Brute-Force Koruması):** Bir OTP kodu için en fazla 5 yanlış girme hakkı tanınacak. Bu sınır aşılırsa kod geçersiz (consumed/expired) sayılacaktır.
 - **Tekrar Gönderme (Cooldown):** Aynı numaraya üst üste SMS atılmasını önlemek için 60 saniyelik bir bekleme (cooldown) süresi uygulanacaktır.

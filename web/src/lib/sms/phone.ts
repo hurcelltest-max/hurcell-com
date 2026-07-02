@@ -3,8 +3,10 @@
  * Specifically targets Turkish phone numbers (+90 or 05XX).
  */
 
-export function normalizeTurkishPhoneNumber(rawPhone: string): string | null {
-  if (!rawPhone) return null;
+export function normalizeTurkishPhoneNumber(rawPhone: string): string {
+  if (!rawPhone || typeof rawPhone !== 'string') {
+    throw new Error('Geçersiz telefon numarası formatı.');
+  }
 
   // Remove all non-numeric characters (except leading +)
   let cleaned = rawPhone.replace(/[^\d+]/g, '');
@@ -14,9 +16,7 @@ export function normalizeTurkishPhoneNumber(rawPhone: string): string | null {
     if (cleaned.startsWith('+905') && cleaned.length === 13) {
       return cleaned; // Already perfectly formatted
     }
-    // If it's a + number but not a valid TR format, we either drop or return null.
-    // For this MVP, we enforce +905. If someone enters +123, we return null.
-    return null; 
+    throw new Error('Sadece Türkiye (+905) mobil numaraları desteklenmektedir.');
   }
 
   // Handle local formats
@@ -36,7 +36,7 @@ export function normalizeTurkishPhoneNumber(rawPhone: string): string | null {
   }
 
   // Any other length or starting digit is invalid for this TR-only scope
-  return null;
+  throw new Error('Geçersiz Türkiye mobil numara uzunluğu veya formatı. Numara 5 ile başlamalıdır.');
 }
 
 export function formatPhoneForDisplay(normalized: string): string {

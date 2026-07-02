@@ -26,3 +26,8 @@ Eğer ileride Node.js (Express vb.) veya Go tabanlı sabit IP'li başka bir arka
    > "Müşteri Numaramız: XXXX. Uygulama Adımız: HurCELL Prod. Statik çıkış IP adresimiz: [PROXY_IP_ADRESI]. Lütfen bu IP'yi whitelist'e ekleyiniz."
 4. `DHL_MNG_STATIC_OUTBOUND_IP`, `DHL_MNG_USE_STATIC_PROXY` (true), ve `DHL_MNG_PROXY_URL` ortam değişkenleri Vercel paneline tanımlanacak.
 5. Kod içerisindeki gerçek `fetch` çağrılarına `https-proxy-agent` eklenecektir.
+
+## Sandbox (Test) vs Production
+- **Sandbox Testleri:** Statik IP olmadan denenebilir. Test ortamı genellikle whitelist kısıtlamasına sahip değildir.
+- **Production (Canlı):** Statik IP zorunlu kabul edilecektir.
+- **Gerçek Çağrılar:** Production gerçek çağrılar QuotaGuard/VPS/proxy planı netleşmeden ve ortam hazır olmadan kesinlikle açılmayacaktır.

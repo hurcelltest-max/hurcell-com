@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   const envStatus = {
     DHL_MNG_TEST_MODE: process.env.DHL_MNG_TEST_MODE ? 'configured' : 'missing',
+    DHL_MNG_ENABLE_REAL_API: process.env.DHL_MNG_ENABLE_REAL_API === 'true',
     DHL_MNG_SANDBOX_BASE_URL: process.env.DHL_MNG_SANDBOX_BASE_URL ? 'configured' : 'missing',
     DHL_MNG_PROD_BASE_URL: process.env.DHL_MNG_PROD_BASE_URL ? 'configured' : 'missing',
     DHL_MNG_TOKEN_TEST_URL: process.env.DHL_MNG_TOKEN_TEST_URL ? 'confirmed' : 'missing',
@@ -17,7 +18,9 @@ export async function GET() {
     DHL_MNG_PROXY_URL: process.env.DHL_MNG_PROXY_URL ? 'configured' : 'missing',
   };
 
-  const allConfigured = Object.values(envStatus).every(val => val === 'configured' || val === 'confirmed');
+  const allConfigured = Object.entries(envStatus).every(([key, val]) => 
+    key === 'DHL_MNG_ENABLE_REAL_API' ? true : (val === 'configured' || val === 'confirmed')
+  );
 
   if (allConfigured) {
     return NextResponse.json({ ok: true, message: 'DHL/MNG API yapılandırması tam.', envStatus });

@@ -50,3 +50,15 @@ Gerçek API çağrısı yapmadan sadece Payload Preview oluşturacak şekilde ta
 > [!IMPORTANT]
 > 1. **Statik IP Zorunluluğu:** MNG Kargo production ortamında sabit IP istemektedir. (Bknz: `dhl_mng_static_ip_plan.md`)
 > 2. **Dry-Run Modu:** Sistem henüz gerçek HTTP fetch isteği atmamaktadır, sadece veri dönüşümü ve yetkilendirme haritası kodlanmıştır.
+
+## Sandbox Gerçek Teste Geçiş Öncesi Checklist
+- [ ] Sandbox portal üyeliği oluşturuldu mu?
+- [ ] Uygulama oluşturuldu mu?
+- [ ] Client ID kaydedildi mi?
+- [ ] Client Secret güvenli şekilde kaydedildi mi?
+- [ ] Identity/Token API aboneliği yapıldı mı?
+- [ ] Plus Command API aboneliği yapıldı mı?
+- [ ] Standard Command API aboneliği yapıldı mı?
+- [ ] Barcode Command API aboneliği yapıldı mı?
+- [ ] Test müşteri numarası ve API şifresi `.env.local` içine girildi mi?
+- [ ] `DHL_MNG_ENABLE_REAL_API` hâlâ `false` mu?

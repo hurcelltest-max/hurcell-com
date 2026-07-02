@@ -6,6 +6,7 @@ import { Search, Menu, FileSignature, ShoppingCart, X } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { WHATSAPP_NUMBER } from '@/lib/constants'
 import { useCart } from '@/components/cart-provider'
+import { NAV_ITEMS } from '@/lib/navigation'
 
 export const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -21,12 +22,11 @@ export const Navbar = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-6">
-            <Link href="/shop" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">MAĞAZA</Link>
-            <Link href="/kampanyalar" className="text-[13px] font-medium tracking-wide text-rose-500 hover:text-rose-600 transition-colors uppercase">KAMPANYALAR</Link>
-            <Link href="/indirimli-urunler" className="text-[13px] font-medium tracking-wide text-orange-500 hover:text-orange-600 transition-colors uppercase">% İNDİRİMLER</Link>
-            <Link href="/shop?category=Telefon" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">TELEFON</Link>
-            <Link href="/shop?category=Aksesuar" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">AKSESUAR</Link>
-            <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletişime geçmek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">İLETİŞİM</a>
+            {NAV_ITEMS.map((item) => (
+              <Link key={item.label} href={item.href} className="text-[13px] font-medium tracking-wide text-slate-600 hover:text-blue-600 transition-colors uppercase">
+                {item.label}
+              </Link>
+            ))}
           </div>
 
           <div className="flex items-center space-x-4">
@@ -78,10 +78,12 @@ export const Navbar = () => {
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-20 left-0 right-0 bg-white border-b border-slate-200/80 shadow-lg z-50 flex flex-col px-4 py-6 space-y-4 max-h-[calc(100vh-5rem)] overflow-y-auto">
           <Link href="/" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Ana Sayfa</Link>
-          <Link href="/shop" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Tüm Ürünler</Link>
-          <Link href="/kampanyalar" className="text-sm font-semibold text-rose-500 hover:text-rose-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>Kampanyalar</Link>
-          <Link href="/indirimli-urunler" className="text-sm font-semibold text-orange-500 hover:text-orange-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>İndirimli Ürünler</Link>
-          <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Merhaba, HurCELL ile iletişime geçmek istiyorum.')}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>WhatsApp / İletişim</a>
+          
+          {NAV_ITEMS.map((item) => (
+            <Link key={item.label} href={item.href} className="text-sm font-semibold text-slate-700 hover:text-blue-600 py-2 border-b border-slate-100" onClick={() => setIsMobileMenuOpen(false)}>
+              {item.label}
+            </Link>
+          ))}
           
           <div className="flex flex-col space-y-3 pt-4 border-t border-slate-100">
             <Link 

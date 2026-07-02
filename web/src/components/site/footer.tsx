@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import { FOOTER_LINKS } from '@/lib/navigation'
 
 export function Footer() {
   return (
@@ -8,13 +9,11 @@ export function Footer() {
         
         {/* Navigation links */}
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 font-semibold text-slate-600">
-          <Link href="/shop" className="hover:text-blue-600 transition-colors">Mağaza</Link>
-          <Link href="/iletisim" className="hover:text-blue-600 transition-colors">İletişim</Link>
-          <Link href="/siparis" className="hover:text-blue-600 transition-colors">Sipariş Takip</Link>
-          <Link href="/iade-talebi" className="hover:text-blue-600 transition-colors">İade / İptal Talebi</Link>
-          <Link href="/iptal-iade-kosullari" className="hover:text-blue-600 transition-colors">İptal ve İade Koşulları</Link>
-          <Link href="/gizlilik-politikasi" className="hover:text-blue-600 transition-colors">Gizlilik Politikası</Link>
-          <Link href="/satis-sozlesmesi" className="hover:text-blue-600 transition-colors">Mesafeli Satış Sözleşmesi</Link>
+          {FOOTER_LINKS.map((item) => (
+            <Link key={item.label} href={item.href} className="hover:text-blue-600 transition-colors">
+              {item.label}
+            </Link>
+          ))}
         </div>
 
         {/* Security & Trust Text */}

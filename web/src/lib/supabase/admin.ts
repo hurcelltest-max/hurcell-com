@@ -16,29 +16,43 @@ export const supabaseAdmin = new Proxy({} as ReturnType<typeof createClient>, {
       const urlConfigured = supabaseUrl ? 'configured' : 'missing';
       const keyConfigured = supabaseServiceRoleKey ? 'configured' : 'missing';
       
-      let keyFormat = 'unknown';
-      let lengthBucket = 'unknown';
-      
-      if (supabaseServiceRoleKey) {
-        if (supabaseServiceRoleKey.startsWith('eyJ')) {
-          keyFormat = 'jwt_like';
-        } else if (supabaseServiceRoleKey.startsWith('sb_publishable_')) {
-          keyFormat = 'publishable_like';
-        } else if (supabaseServiceRoleKey.startsWith('sb_secret_')) {
-          keyFormat = 'secret_like';
-        }
-        
-        const len = supabaseServiceRoleKey.length;
-        if (len < 50) {
-          lengthBucket = 'short';
-        } else if (len <= 200) {
-          lengthBucket = 'normal';
-        } else {
-          lengthBucket = 'long';
-        }
+      let urlProjectRef = 'unknown';
+      if (supabaseUrl) {
+        const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.(co|in|net|space)/);
+        if (match) urlProjectRef = match[1];
       }
-      
-      console.log(`[Supabase Admin Client Diagnostics] supabaseUrl: ${urlConfigured}, serviceRoleKey: ${keyConfigured}, serviceRoleKey format: ${keyFormat}, serviceRoleKey length bucket: ${lengthBucket}`);
+
+      const decodePayload = (token: string | undefined) => {
+        if (!token) return { format: 'missing' };
+        if (!token.startsWith('eyJ')) {
+          return { format: token.startsWith('sb_') ? 'new_opaque_format' : 'unknown_non_jwt' };
+        }
+        const parts = token.split('.');
+        if (parts.length !== 3) return { format: 'malformed_jwt' };
+        try {
+          const payloadJson = Buffer.from(parts[1], 'base64').toString('utf8');
+          const payload = JSON.parse(payloadJson);
+          const isExpired = payload.exp ? (payload.exp < Date.now() / 1000) : false;
+          return {
+            format: 'jwt_like',
+            role: payload.role || 'missing',
+            iss: payload.iss || 'missing',
+            aud: payload.aud || 'missing',
+            expired: isExpired ? 'expired' : 'not_expired',
+            payloadKeys: Object.keys(payload),
+            ref: payload.ref || payload.project || 'missing'
+          };
+        } catch (e) {
+          return { format: 'decode_error' };
+        }
+      };
+
+      const serviceRoleDiag = decodePayload(supabaseServiceRoleKey);
+      const anonDiag = decodePayload(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
+      console.log(`[Supabase Diagnostics] urlProjectRef: ${urlProjectRef}`);
+      console.log(`[Supabase Diagnostics] serviceRoleKey:`, JSON.stringify(serviceRoleDiag));
+      console.log(`[Supabase Diagnostics] anonKey:`, JSON.stringify(anonDiag));
 
       if (!supabaseUrl || !supabaseServiceRoleKey || supabaseServiceRoleKey === 'none') {
         throw new Error('Supabase service role or URL environment variables are missing or misconfigured.');

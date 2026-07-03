@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       .in('id', productIds);
 
     if (dbError || !dbProducts) {
-      console.error('Database query error during checkout:', dbError);
+      console.error('[Checkout Error] Stage: products select query failed. Error details:', dbError ? { message: dbError.message, details: dbError.details, hint: dbError.hint, code: dbError.code } : 'No data returned');
       return NextResponse.json(
         { error: 'Ürün bilgileri doğrulanırken sunucu hatası oluştu.' },
         { status: 500 }
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
       .in('product_id', productIds);
 
     if (campaignError) {
-      console.error('Error querying campaigns during checkout:', campaignError);
+      console.error('[Checkout Error] Stage: campaigns select query failed. Error details:', { message: campaignError.message, details: campaignError.details, hint: campaignError.hint, code: campaignError.code });
       return NextResponse.json(
         { error: 'Kampanya bilgileri doğrulanırken sunucu hatası oluştu.' },
         { status: 500 }
@@ -318,7 +318,7 @@ export async function POST(req: Request) {
       .single();
 
     if (orderError || !order) {
-      console.error('Error creating pending order:', orderError);
+      console.error('[Checkout Error] Stage: orders insert failed. Error details:', orderError ? { message: orderError.message, details: orderError.details, hint: orderError.hint, code: orderError.code } : 'No order data returned');
       return NextResponse.json(
         { error: 'Sipariş oluşturulurken bir hata oluştu.' },
         { status: 500 }
@@ -336,7 +336,7 @@ export async function POST(req: Request) {
       .insert(orderItemsPayload);
 
     if (itemsError) {
-      console.error('Error inserting order items:', itemsError);
+      console.error('[Checkout Error] Stage: order_items insert failed. Error details:', { message: itemsError.message, details: itemsError.details, hint: itemsError.hint, code: itemsError.code });
       await supabaseAdmin.from('orders').delete().eq('id', order.id);
       return NextResponse.json(
         { error: 'Sipariş detayları kaydedilemedi.' },
@@ -353,7 +353,7 @@ export async function POST(req: Request) {
       currency: order.currency,
     });
   } catch (err: any) {
-    console.error('Checkout error:', err);
+    console.error('[Checkout Error] Stage: unexpected catch. Error details:', err ? { message: err.message, name: err.name, stack: err.stack } : 'Unknown error');
     return NextResponse.json(
       { error: 'Sipariş işleme hatası oluştu.' },
       { status: 500 }

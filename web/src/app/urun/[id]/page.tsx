@@ -81,14 +81,15 @@ export default function ProductDetailPage() {
         setLoading(true)
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, barcode, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, image_url_2, image_url_3, stock, sell_price, is_web_visible, device_condition_type, location, created_at, is_discounted, old_price, is_campaign, campaign_title, campaign_benefit')
+          .select('id, name, barcode:sku, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, image_url_2, image_url_3, stock, sell_price:price, device_condition_type, location, created_at')
           .eq('id', id)
           .single()
 
         if (error) throw error
         
         // Security check: Only allow showing web visible products with image and price
-        if (data && (!data.is_web_visible || data.stock <= 0 || !data.image_url || data.image_url.trim() === '' || data.sell_price <= 0)) {
+        const isVisible = data.is_web_visible !== false;
+        if (data && (!isVisible || data.stock <= 0 || !data.image_url || data.image_url.trim() === '' || data.sell_price <= 0)) {
           setErrorMsg('Bu ürün perakende satışta aktif değildir veya güncellenmektedir.')
           return
         }

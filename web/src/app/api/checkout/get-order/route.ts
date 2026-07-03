@@ -63,11 +63,8 @@ export async function GET(req: Request) {
     if (items && items.length > 0) {
       const productIds = items.map((item: any) => item.product_id).filter(Boolean);
       if (productIds.length > 0) {
-        const { data: products } = await supabaseAdmin
-          .from('products')
-          .select('id, campaign_benefit_requires_return, campaign_benefit')
-          .in('id', productIds)
-          .eq('campaign_benefit_requires_return', true);
+        // Since campaign benefit columns do not exist, this check is skipped.
+        const products: any[] = [];
         
         if (products && products.length > 0) {
           hasCampaignBenefitWarning = true;

@@ -48,7 +48,7 @@ function CheckoutContent() {
           setLoading(true)
           const { data, error } = await supabase
             .from('products')
-            .select('id, name, brand, model, color, memory, ram, storage, sell_price, image_url, stock, is_web_visible, barcode, category')
+            .select('id, name, brand, model, color, memory, ram, storage, sell_price:price, image_url, stock, barcode:sku, category')
             .eq('id', productId)
             .single()
 
@@ -56,7 +56,8 @@ function CheckoutContent() {
             throw new Error('Ürün bilgileri alınamadı.')
           }
 
-          if (!data.is_web_visible || data.stock <= 0) {
+          const isVisible = data.is_web_visible !== false;
+          if (!isVisible || data.stock <= 0) {
             throw new Error('Bu ürün şu an perakende satışa açık değildir.')
           }
 

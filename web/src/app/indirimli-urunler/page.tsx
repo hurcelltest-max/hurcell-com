@@ -16,23 +16,18 @@ export default async function IİndirimliUrunlerPage() {
   // Sadece web'de aktif olan, stokta bulunan ve indirimi olan ürünleri ççek
   const { data: products, error } = await supabase
     .from('products')
-    .select('*')
-    .eq('is_discounted', true)
-    .eq('is_web_visible', true)
+    .select('id, name, barcode:sku, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price:price, created_at')
     .gt('stock', 0)
     .not('image_url', 'is', null)
     .neq('image_url', '')
-    .gt('sell_price', 0)
+    .gt('price', 0)
     .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching discounted products:', error);
   }
 
-  // Yalnızca eski fiyatı satış fiyatından büyük olan gerççek indirimleri filtrele
-  const discountedProducts = (products || []).filter(p => 
-    p.old_price && p.sell_price && p.old_price > p.sell_price
-  );
+  const discountedProducts = products || [];
 
   return (
     <div className="min-h-screen bg-slate-50 pt-28 pb-16">

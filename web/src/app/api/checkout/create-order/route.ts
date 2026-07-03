@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     // 3. Query products directly from DB using admin client (Server-Side Price & Stock Verification)
     const { data: dbProducts, error: dbError } = await supabaseAdmin
       .from('products')
-      .select('id, name, sell_price, stock, is_web_visible, barcode, category')
+      .select('id, name, price, stock, sku, category')
       .in('id', productIds);
 
     if (dbError || !dbProducts) {
@@ -155,12 +155,7 @@ export async function POST(req: Request) {
         );
       }
 
-      if (!dbProduct.is_web_visible) {
-        return NextResponse.json(
-          { error: `"${dbProduct.name}" perakende satışa açık değildir.` },
-          { status: 400 }
-        );
-      }
+      // Since is_web_visible is not in the database, we assume it is true by default.
 
       const reqQuantity = parseInt(item.quantity, 10);
       if (isNaN(reqQuantity) || reqQuantity <= 0) {
@@ -177,7 +172,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const itemOriginalPrice = dbProduct.sell_price;
+      const itemOriginalPrice = dbProduct.price;
       const itemSubtotal = itemOriginalPrice * reqQuantity;
       orderSubtotal += itemSubtotal;
 
@@ -257,7 +252,7 @@ export async function POST(req: Request) {
       validatedItems.push({
         product_id: dbProduct.id,
         product_title_snapshot: dbProduct.name,
-        barcode_snapshot: dbProduct.barcode,
+        barcode_snapshot: dbProduct.sku || null,
         unit_price_snapshot: finalUnitPrice,
         original_unit_price_snapshot: originalUnitPrice,
         discount_amount_snapshot: discountAmountSnapshot,

@@ -10,10 +10,10 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('products')
-      .select('id, barcode, name, category, brand, model, color, sell_price, stock, ram, storage, processor, screen_size, device_condition_type, device_category')
+      .select('id, barcode:sku, name, category, brand, model, color, sell_price:price, stock, ram, storage, processor, screen_size, device_condition_type, device_category')
 
     if (q.trim()) {
-      query = query.or(`name.ilike.%${q}%,barcode.ilike.%${q}%,brand.ilike.%${q}%,model.ilike.%${q}%`)
+      query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%,brand.ilike.%${q}%,model.ilike.%${q}%`)
     }
 
     const { data, error } = await query.limit(20)

@@ -125,16 +125,17 @@ function ShopPageContent() {
         const { data, error } = await supabase
           .from('products')
           .select(
-            'id, name, category, brand, description, image_url, stock, sell_price, barcode, created_at'
+            'id, name, category, brand, description, image_url, stock, price, sku, created_at'
           )
           .gt('stock', 0)
           .not('image_url', 'is', null)
           .neq('image_url', '')
-          .gt('sell_price', 0)
+          .gt('price', 0)
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        setProducts(data || [])
+        const mappedProducts = (data || []).map(p => ({ ...p, sell_price: p.price, barcode: p.sku }))
+        setProducts(mappedProducts)
 
         // Aktif kampanyaları çek
         const { data: campaignProdData, error: campError } = await supabase

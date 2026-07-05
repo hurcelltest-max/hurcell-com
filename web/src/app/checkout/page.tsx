@@ -50,7 +50,7 @@ function CheckoutContent() {
           setLoading(true)
           const { data, error } = await supabase
             .from('products')
-            .select('id, name, brand, sell_price, barcode, image_url, stock, category, description')
+            .select('id, name, brand, price, sku, image_url, stock, category, description')
             .eq('id', productId)
             .single()
 
@@ -58,12 +58,12 @@ function CheckoutContent() {
             throw new Error('Ürün bilgileri alınamadı.')
           }
 
-          const isVisible = data.is_web_visible !== false;
-          if (!isVisible || data.stock <= 0) {
+          if (data.stock <= 0) {
             throw new Error('Bu ürün şu an perakende satışa açık değildir.')
           }
 
-          setFallbackProduct(data)
+          const mappedData = { ...data, sell_price: data.price, barcode: data.sku, created_at: data.created_at || new Date().toISOString() };
+          setFallbackProduct(mappedData)
         } catch (err: any) {
           console.error('Error fetching product for checkout:', err)
           setErrorMsg(err.message || 'Ürün bilgileri sorgulanırken hata oluştu.')

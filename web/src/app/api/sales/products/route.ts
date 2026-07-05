@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('products')
-      .select('id, name, category, brand, sell_price, barcode, stock, description, image_url')
+      .select('id, name, category, brand, price, sku, stock, description, image_url')
 
     if (q.trim()) {
       query = query.or(`name.ilike.%${q}%,brand.ilike.%${q}%`)
@@ -22,7 +22,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, message: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, products: data || [] })
+    const mappedData = (data || []).map(p => ({ ...p, sell_price: p.price, barcode: p.sku }));
+    return NextResponse.json({ ok: true, products: mappedData })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ürünler getirilirken hata oluştu.'
     return NextResponse.json({ ok: false, message }, { status: 500 })

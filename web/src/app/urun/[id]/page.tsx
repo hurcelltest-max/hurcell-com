@@ -51,8 +51,8 @@ export default function ProductDetailPage() {
     }
   }
 
-  const activeImages = product
-    ? ([product.image_url, product.image_url_2, product.image_url_3].filter(Boolean) as string[])
+  const activeImages = product && product.image_url
+    ? [product.image_url]
     : []
   const displayImages = activeImages.length > 0 ? activeImages : (product ? [getFallbackImage(product.category)] : [])
 
@@ -81,20 +81,19 @@ export default function ProductDetailPage() {
         setLoading(true)
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, category, brand, description, image_url, image_url_2, image_url_3, stock, sell_price, barcode, created_at')
+          .select('id, name, category, brand, description, image_url, stock, price, sku, created_at')
           .eq('id', id)
           .single()
 
         if (error) throw error
         
-        // Security check: Only allow showing web visible products with image and price
-        const isVisible = data.is_web_visible !== false;
-        if (data && (data.stock <= 0 || !data.image_url || data.image_url.trim() === '' || (data.sell_price ?? data.price ?? 0) <= 0)) {
+        if (data && (data.stock <= 0 || !data.image_url || data.image_url.trim() === '' || (data.price ?? 0) <= 0)) {
           setErrorMsg('Bu ürün perakende satışta aktif değildir veya güncellenmektedir.')
           return
         }
 
-        setProduct(data)
+        const mappedData = data ? { ...data, sell_price: data.price, barcode: data.sku } : null;
+        setProduct(mappedData)
 
         // Check if there are active campaigns for this product
         const { data: campaignProdData, error: campError } = await supabase
@@ -329,7 +328,7 @@ export default function ProductDetailPage() {
 
             {/* Thumbnail Gallery */}
             {(() => {
-              const images = [product.image_url, product.image_url_2, product.image_url_3].filter(Boolean) as string[];
+              const images = product?.image_url ? [product.image_url] : [];
               if (images.length <= 1) return null;
               return (
                 <div className="flex gap-2.5 justify-center w-full overflow-x-auto py-1">

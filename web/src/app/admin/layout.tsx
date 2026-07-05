@@ -13,19 +13,19 @@ export default function AdminLayout({
         <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Navigation</div>
         <nav className="space-y-2">
           <Link href="/admin" className="flex items-center gap-3 p-3 rounded-lg bg-white/5 text-primary">
-            <LayoutDashboard size={20} /> Dashboard
+            <LayoutDashboard size={20} /> Panel
           </Link>
           <Link href="/admin/products" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
-            <Package size={20} /> Products
+            <Package size={20} /> Ürünler
           </Link>
           <Link href="/admin/bulk-upload" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
-            <Upload size={20} /> Bulk Upload
+            <Upload size={20} /> Toplu Yükleme
           </Link>
           <Link href="/admin/orders" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
-            <ShoppingBag size={20} /> Orders
+            <ShoppingBag size={20} /> Siparişler
           </Link>
           <Link href="/admin/users" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
-            <Users size={20} /> Users
+            <Users size={20} /> Kullanıcılar
           </Link>
         </nav>
       </aside>

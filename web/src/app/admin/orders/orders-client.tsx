@@ -14,6 +14,42 @@ export default function OrdersClient({ initialOrders }: { initialOrders: any[] }
     'cancelled', 'returned', 'delivery_failed', 'not_delivered', 'customer_refused'
   ]
 
+  const statusLabels: Record<string, string> = {
+    pending: 'Beklemede',
+    confirmed: 'Onaylandı',
+    preparing: 'Hazırlanıyor',
+    shipped: 'Kargoya Verildi',
+    delivered: 'Teslim Edildi',
+    cancelled: 'İptal Edildi',
+    returned: 'İade Edildi',
+    delivery_failed: 'Teslim Edilemedi',
+    not_delivered: 'Teslim Alınmadı',
+    customer_refused: 'Müşteri Kabul Etmedi'
+  }
+
+  const paymentLabels: Record<string, string> = {
+    pending_on_delivery: 'Kapıda ödeme bekliyor',
+    pending: 'Beklemede',
+    paid: 'Ödendi',
+    failed: 'Başarısız',
+    refunded: 'İade edildi'
+  }
+
+  const shippingLabels: Record<string, string> = {
+    pending: 'Beklemede',
+    shipped: 'Kargoya verildi',
+    delivered: 'Teslim edildi',
+    cancelled: 'İptal edildi'
+  }
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '-'
+    return new Date(dateStr).toLocaleString('tr-TR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })
+  }
+
   const filteredOrders = filter === 'all' ? orders : orders.filter(o => o.status === filter)
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
@@ -62,7 +98,7 @@ export default function OrdersClient({ initialOrders }: { initialOrders: any[] }
             onClick={() => setFilter(s)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${filter === s ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
           >
-            {s}
+            {statusLabels[s] || s}
           </button>
         ))}
       </div>
@@ -73,7 +109,7 @@ export default function OrdersClient({ initialOrders }: { initialOrders: any[] }
             <div className="flex-1 space-y-3 text-sm">
               <div className="flex items-center gap-3">
                 <span className="font-mono font-bold text-lg">{order.order_number}</span>
-                <span className="px-2 py-1 bg-slate-100 rounded-md text-xs font-mono">{new Date(order.created_at).toLocaleString('tr-TR')}</span>
+                <span className="px-2 py-1 bg-slate-100 rounded-md text-xs font-mono">{formatDate(order.created_at)}</span>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -84,10 +120,10 @@ export default function OrdersClient({ initialOrders }: { initialOrders: any[] }
                   <p className="text-slate-600">{order.customer_email}</p>
                 </div>
                 <div>
-                  <p className="text-slate-500 text-xs uppercase">Ödeme & Kargo</p>
+                  <p className="text-slate-500 text-xs uppercase">Ödeme ve Kargo</p>
                   <p>Toplam: <span className="font-bold text-blue-600">{formatPriceTRY(order.total_amount)}</span></p>
-                  <p>Ödeme: {order.payment_status}</p>
-                  <p>Kargo: {order.shipping_status}</p>
+                  <p>Ödeme: {paymentLabels[order.payment_status] || order.payment_status}</p>
+                  <p>Kargo: {shippingLabels[order.shipping_status] || order.shipping_status}</p>
                 </div>
               </div>
 
@@ -106,15 +142,15 @@ export default function OrdersClient({ initialOrders }: { initialOrders: any[] }
               {/* Stock Reservation Debug Info */}
               <div className="pt-3 border-t grid grid-cols-2 gap-2 text-xs font-mono text-slate-500">
                 <div>
-                  <p>Reserved At:</p>
-                  <p>{order.stock_reserved_at ? new Date(order.stock_reserved_at).toLocaleString('tr-TR') : '-'}</p>
+                  <p>Stok Ayrılma Tarihi:</p>
+                  <p>{order.stock_reserved_at ? formatDate(order.stock_reserved_at) : 'Stok ayrılmadı'}</p>
                 </div>
                 <div>
-                  <p>Released At:</p>
-                  <p>{order.stock_released_at ? new Date(order.stock_released_at).toLocaleString('tr-TR') : '-'}</p>
+                  <p>Stok İade Tarihi:</p>
+                  <p>{order.stock_released_at ? formatDate(order.stock_released_at) : 'Henüz iade edilmedi'}</p>
                 </div>
                 <div className="col-span-2">
-                  <p>Release Reason:</p>
+                  <p>Stok İade Nedeni:</p>
                   <p>{order.stock_release_reason || '-'}</p>
                 </div>
               </div>
@@ -130,7 +166,7 @@ export default function OrdersClient({ initialOrders }: { initialOrders: any[] }
                 onChange={(e) => handleStatusChange(order.id, e.target.value)}
               >
                 {statuses.map(s => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>{statusLabels[s] || s}</option>
                 ))}
               </select>
               

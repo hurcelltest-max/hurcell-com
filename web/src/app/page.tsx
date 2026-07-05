@@ -171,7 +171,7 @@ export default function Home() {
               </h1>
               
               <p className="text-base md:text-lg text-slate-600 font-light max-w-xl mx-auto leading-relaxed">
-                Telefon, tablet, bilgisayar ve aksesuar ürünlerinde güncel stoklarımızı iİnceleyin.
+                Telefon, tablet, bilgisayar ve aksesuar ürünlerinde güncel stoklarımızı inceleyin.
               </p>
 
               {/* Compact Search Bar */}

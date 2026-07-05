@@ -26,11 +26,11 @@ export default function Home() {
         // Slider ürünlerini çek (en son eklenen 4 ürünü göster)
         const { data: sliderData, error: sliderError } = await supabase
           .from('products')
-          .select('id, name, barcode:sku, category, brand, description, image_url, stock, sell_price:price, created_at')
+          .select('id, name, category, brand, description, image_url, stock, sell_price, barcode, created_at')
           .not('image_url', 'is', null)
           .neq('image_url', '')
           .gt('stock', 0)
-          .gt('price', 0)
+          .gt('sell_price', 0)
           .order('created_at', { ascending: false })
           .limit(4);
 
@@ -40,11 +40,11 @@ export default function Home() {
         // Yeni gelen ürünleri çek
         const { data: newData, error: newError } = await supabase
           .from('products')
-          .select('id, name, barcode:sku, category, brand, description, image_url, stock, sell_price:price, created_at')
+          .select('id, name, category, brand, description, image_url, stock, sell_price, barcode, created_at')
           .not('image_url', 'is', null)
           .neq('image_url', '')
           .gt('stock', 0)
-          .gt('price', 0)
+          .gt('sell_price', 0)
           .order('created_at', { ascending: false })
           .limit(8);
 

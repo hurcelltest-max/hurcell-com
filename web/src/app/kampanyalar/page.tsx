@@ -16,11 +16,11 @@ export default async function KampanyalarPage() {
   // Sadece web'de aktif olan ve stokta bulunan kampanyalı ürünleri ççek
   const { data: products, error } = await supabase
     .from('products')
-    .select('id, name, barcode:sku, category, brand, description, image_url, stock, sell_price:price, created_at')
+    .select('id, name, category, brand, description, image_url, stock, sell_price, barcode, created_at')
     .gt('stock', 0)
     .not('image_url', 'is', null)
     .neq('image_url', '')
-    .gt('price', 0)
+    .gt('sell_price', 0)
     .order('created_at', { ascending: false });
 
   if (error) {

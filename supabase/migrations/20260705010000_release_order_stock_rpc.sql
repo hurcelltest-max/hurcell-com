@@ -1,10 +1,11 @@
 -- 20260705010000_release_order_stock_rpc.sql
 -- Safely release order stock within a single transaction
 
-CREATE OR REPLACE FUNCTION release_order_stock(p_order_id UUID, p_reason TEXT)
+CREATE OR REPLACE FUNCTION public.release_order_stock(p_order_id UUID, p_reason TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_order RECORD;
@@ -14,7 +15,7 @@ BEGIN
     -- 1. Lock the order row for update
     SELECT id, stock_reserved_at, stock_released_at
     INTO v_order
-    FROM orders
+    FROM public.orders
     WHERE id = p_order_id
     FOR UPDATE;
 
@@ -33,9 +34,9 @@ BEGIN
     END IF;
 
     -- 4. Iterate over order items and restore stock
-    FOR v_item IN (SELECT product_id, quantity FROM order_items WHERE order_id = p_order_id) LOOP
+    FOR v_item IN (SELECT product_id, quantity FROM public.order_items WHERE order_id = p_order_id) LOOP
         IF v_item.product_id IS NOT NULL AND v_item.quantity > 0 THEN
-            UPDATE products
+            UPDATE public.products
             SET stock = stock + v_item.quantity
             WHERE id = v_item.product_id;
             
@@ -48,7 +49,7 @@ BEGIN
     END LOOP;
 
     -- 5. Update order stock release status
-    UPDATE orders
+    UPDATE public.orders
     SET stock_released_at = NOW(),
         stock_release_reason = p_reason
     WHERE id = p_order_id;
@@ -62,5 +63,5 @@ END;
 $$;
 
 -- Secure the RPC
-REVOKE ALL ON FUNCTION release_order_stock(UUID, TEXT) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION release_order_stock(UUID, TEXT) TO service_role;
+REVOKE ALL ON FUNCTION public.release_order_stock(UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.release_order_stock(UUID, TEXT) TO service_role;

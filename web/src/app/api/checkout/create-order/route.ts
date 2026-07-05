@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     // 3. Ürünleri DB'den oku — fiyat/stok server-side doğrulanır
     const { data: dbProducts, error: dbError } = await supabaseAdmin
       .from('products')
-      .select('id, name, sell_price, stock, barcode, category')
+      .select('id, name, price, stock, sku, category')
       .in('id', productIds);
 
     if (dbError || !dbProducts) {
@@ -210,7 +210,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const itemOriginalPrice = dbProduct.sell_price;
+      const itemOriginalPrice = dbProduct.price;
       const itemSubtotal = itemOriginalPrice * reqQuantity;
       orderSubtotal += itemSubtotal;
 
@@ -282,7 +282,7 @@ export async function POST(req: Request) {
       validatedItems.push({
         product_id: dbProduct.id,
         product_title_snapshot: dbProduct.name,
-        barcode_snapshot: dbProduct.barcode || null,
+        barcode_snapshot: dbProduct.sku || null,
         unit_price_snapshot: finalUnitPrice,
         original_unit_price_snapshot: originalUnitPrice,
         discount_amount_snapshot: discountAmountSnapshot,

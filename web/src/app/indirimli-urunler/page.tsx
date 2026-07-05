@@ -16,7 +16,7 @@ export default async function IİndirimliUrunlerPage() {
   // Sadece web'de aktif olan, stokta bulunan ve indirimi olan ürünleri ççek
   const { data: products, error } = await supabase
     .from('products')
-    .select('id, name, barcode:sku, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price:price, created_at')
+    .select('id, name, barcode:sku, category, brand, description, image_url, stock, sell_price:price, created_at')
     .gt('stock', 0)
     .not('image_url', 'is', null)
     .neq('image_url', '')

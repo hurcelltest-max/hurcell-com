@@ -81,7 +81,7 @@ export default function ProductDetailPage() {
         setLoading(true)
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, barcode:sku, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, image_url_2, image_url_3, stock, sell_price:price, device_condition_type, location, created_at')
+          .select('id, name, barcode:sku, category, brand, description, image_url, image_url_2, image_url_3, stock, sell_price:price, created_at')
           .eq('id', id)
           .single()
 
@@ -89,7 +89,7 @@ export default function ProductDetailPage() {
         
         // Security check: Only allow showing web visible products with image and price
         const isVisible = data.is_web_visible !== false;
-        if (data && (!isVisible || data.stock <= 0 || !data.image_url || data.image_url.trim() === '' || data.sell_price <= 0)) {
+        if (data && (data.stock <= 0 || !data.image_url || data.image_url.trim() === '' || (data.sell_price ?? data.price ?? 0) <= 0)) {
           setErrorMsg('Bu ürün perakende satışta aktif değildir veya güncellenmektedir.')
           return
         }

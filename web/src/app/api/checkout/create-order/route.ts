@@ -85,11 +85,8 @@ export async function POST(req: Request) {
       .in('product_id', productIds);
 
     if (campaignError) {
-      console.error('[Checkout Error] Stage: campaigns select query failed. Error details:', { message: campaignError.message, details: campaignError.details, hint: campaignError.hint, code: campaignError.code });
-      return NextResponse.json(
-        { error: 'Kampanya bilgileri doğrulanırken sunucu hatası oluştu.' },
-        { status: 500 }
-      );
+      // Non-blocking: campaign_products tablosu yoksa veya hata varsa boş devam et
+      console.warn('[Checkout Warning] Stage: campaigns select query failed (non-blocking), continuing without campaign discounts. Error:', { message: campaignError.message, code: campaignError.code });
     }
 
     // Group by campaign_id, and track trigger vs eligible/discounted product sets in the cart

@@ -125,7 +125,7 @@ function ShopPageContent() {
         const { data, error } = await supabase
           .from('products')
           .select(
-            'id, name, barcode:sku, category, brand, model, color, memory, ram, storage, processor, screen_size, description, image_url, stock, sell_price:price, device_condition_type, location, created_at'
+            'id, name, barcode:sku, category, brand, description, image_url, stock, sell_price:price, created_at'
           )
           .gt('stock', 0)
           .not('image_url', 'is', null)

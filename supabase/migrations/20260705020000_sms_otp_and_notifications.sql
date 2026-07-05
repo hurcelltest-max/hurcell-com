@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS public.phone_verifications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_phone_verifications_phone ON public.phone_verifications(phone);
-CREATE INDEX IF NOT EXISTS idx_phone_verifications_token ON public.phone_verifications(verification_token_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_phone_verifications_token_unique
+ON public.phone_verifications(verification_token_hash)
+WHERE verification_token_hash IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_phone_verifications_expires ON public.phone_verifications(expires_at);
 
 -- RPC for atomic token consumption

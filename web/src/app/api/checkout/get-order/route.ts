@@ -6,10 +6,11 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const orderNumber = searchParams.get('order_number');
     const emailOrPhone = searchParams.get('emailOrPhone');
+    const token = searchParams.get('token');
 
-    if (!orderNumber || !emailOrPhone) {
+    if (!orderNumber || (!emailOrPhone && !token)) {
       return NextResponse.json(
-        { error: 'Sipariş numarası ve iletişim bilgisi (e-posta veya telefon) gereklidir.' },
+        { error: 'Sipariş numarası ve doğrulama bilgisi (e-posta, telefon veya token) gereklidir.' },
         { status: 400 }
       );
     }
@@ -28,20 +29,29 @@ export async function GET(req: Request) {
       );
     }
 
-    // 2. Security Check: Verify that the provided email or phone matches the order
-    const cleanedInput = emailOrPhone.trim().toLowerCase();
-    const orderEmail = (order.customer_email || '').toLowerCase();
-    const orderPhone = (order.customer_phone || '').replace(/\D/g, '');
-    const inputPhone = cleanedInput.replace(/\D/g, '');
+    // 2. Security Check: Verify token OR email/phone
+    if (token) {
+      if (order.lookup_token !== token) {
+        return NextResponse.json(
+          { error: 'Geçersiz sipariş doğrulama anahtarı.' },
+          { status: 403 }
+        );
+      }
+    } else if (emailOrPhone) {
+      const cleanedInput = emailOrPhone.trim().toLowerCase();
+      const orderEmail = (order.customer_email || '').toLowerCase();
+      const orderPhone = (order.customer_phone || '').replace(/\D/g, '');
+      const inputPhone = cleanedInput.replace(/\D/g, '');
 
-    const isEmailMatch = orderEmail && orderEmail === cleanedInput;
-    const isPhoneMatch = orderPhone && inputPhone && orderPhone.includes(inputPhone); // Simple inclusion check for phone
+      const isEmailMatch = orderEmail && orderEmail === cleanedInput;
+      const isPhoneMatch = orderPhone && inputPhone && orderPhone.includes(inputPhone);
 
-    if (!isEmailMatch && !isPhoneMatch) {
-      return NextResponse.json(
-        { error: 'Girdiğiniz iletişim bilgisi bu siparişe ait değil.' },
-        { status: 403 }
-      );
+      if (!isEmailMatch && !isPhoneMatch) {
+        return NextResponse.json(
+          { error: 'Girdiğiniz iletişim bilgisi bu siparişe ait değil.' },
+          { status: 403 }
+        );
+      }
     }
 
     // 3. Fetch order items snapshot

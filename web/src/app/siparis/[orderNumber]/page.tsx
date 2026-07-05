@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ShoppingBag, ShieldAlert, Clock, CreditCard, XCircle, RefreshCw, CheckCircle2, Truck, Info } from 'lucide-react'
+import { ArrowLeft, ShoppingBag, ShieldAlert, Clock, CreditCard, XCircle, RefreshCw, CheckCircle2, Truck, Info, Search } from 'lucide-react'
 import { formatPriceTRY } from '@/lib/constants'
 
 interface OrderDetails {
@@ -40,7 +40,7 @@ function OrderTrackingContent() {
   
   const orderNumber = params.orderNumber as string
   const token = searchParams.get('token')
-
+  
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [dhlStatus, setDhlStatus] = useState<{ loading: boolean; message: string; payload?: any; ok?: boolean } | null>(null)
@@ -48,35 +48,51 @@ function OrderTrackingContent() {
     order: OrderDetails
     items: OrderItem[]
   } | null>(null)
+  const [emailOrPhoneInput, setEmailOrPhoneInput] = useState('')
+  const [hasSearched, setHasSearched] = useState(false)
+
+  const fetchOrder = async (queryParamStr: string) => {
+    try {
+      setLoading(true)
+      setErrorMsg(null)
+      const res = await fetch(`/api/checkout/get-order?order_number=${orderNumber}&${queryParamStr}`)
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Sipariş yüklenemedi.')
+      }
+
+      setOrderDetails(data)
+    } catch (err: any) {
+      console.error('Error loading order tracking:', err)
+      setErrorMsg(err.message || 'Sipariş detayları yüklenirken hata oluştu.')
+    } finally {
+      setLoading(false)
+      setHasSearched(true)
+    }
+  }
 
   useEffect(() => {
-    if (!orderNumber || !token) {
-      setErrorMsg('Geçersiz sipariş takip bağlantısı. Doğrulama anahtarı (token) eksik.')
+    if (!orderNumber) {
+      setErrorMsg('Geçersiz sipariş numarası.')
       setLoading(false)
       return
     }
 
-    async function fetchOrder() {
-      try {
-        setLoading(true)
-        const res = await fetch(`/api/checkout/get-order?order_number=${orderNumber}&token=${token}`)
-        const data = await res.json()
-
-        if (!res.ok) {
-          throw new Error(data.error || 'Sipariş yüklenemedi.')
-        }
-
-        setOrderDetails(data)
-      } catch (err: any) {
-        console.error('Error loading order tracking:', err)
-        setErrorMsg(err.message || 'Sipariş detayları yüklenirken hata oluştu.')
-      } finally {
-        setLoading(false)
-      }
+    if (token) {
+      // Direct load if token is provided
+      fetchOrder(`token=${token}`)
+    } else {
+      // Need user to enter info
+      setLoading(false)
     }
-
-    fetchOrder()
   }, [orderNumber, token])
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!emailOrPhoneInput.trim()) return
+    fetchOrder(`emailOrPhone=${encodeURIComponent(emailOrPhoneInput.trim())}`)
+  }
 
   if (loading) {
     return (
@@ -84,6 +100,41 @@ function OrderTrackingContent() {
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
           <p className="text-sm text-slate-500 font-light">Sipariş bilgileri sorgulanıyor...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!orderDetails && !token && !hasSearched) {
+    return (
+      <div className="flex flex-col justify-center items-center py-12 px-4 space-y-6">
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-md w-full shadow-sm space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900">Sipariş Takibi</h2>
+            <p className="text-sm text-slate-500 font-light">
+              <span className="font-semibold text-slate-700">{orderNumber}</span> numaralı siparişinizin detaylarını görmek için lütfen e-posta adresinizi veya telefon numaranızı girin.
+            </p>
+          </div>
+          
+          <form onSubmit={handleSearchSubmit} className="space-y-4">
+            <div>
+              <input
+                type="text"
+                placeholder="E-posta veya Telefon"
+                value={emailOrPhoneInput}
+                onChange={(e) => setEmailOrPhoneInput(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <Search size={16} />
+              Siparişi Sorgula
+            </button>
+          </form>
         </div>
       </div>
     )

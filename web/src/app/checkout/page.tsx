@@ -28,6 +28,8 @@ function CheckoutContent() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [agreedKVKK, setAgreedKVKK] = useState(false)
+  const [agreedTerms, setAgreedTerms] = useState(false)
 
   // Customer details form state
   const [formData, setFormData] = useState({
@@ -111,6 +113,10 @@ function CheckoutContent() {
     }
     if (!formData.phone.trim()) {
       toast.error('Telefon numarası zorunludur.')
+      return
+    }
+    if (!agreedKVKK || !agreedTerms) {
+      toast.error('Lütfen siparişi tamamlamadan önce yasal metinleri onaylayın.')
       return
     }
     if (!formData.email.trim()) {
@@ -374,16 +380,54 @@ function CheckoutContent() {
                 />
               </div>
 
+              {/* Legal Checkboxes */}
+              <div className="space-y-3 pt-2">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="relative flex items-center justify-center mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={agreedKVKK}
+                      onChange={(e) => setAgreedKVKK(e.target.checked)}
+                      className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-lg checked:border-blue-600 checked:bg-blue-600 transition-all cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                    />
+                    <CheckCircle2 size={14} className="absolute text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                  </div>
+                  <span className="text-xs text-slate-600 leading-relaxed font-light flex-1">
+                    <Link href="/kvkk" target="_blank" className="font-semibold text-blue-600 hover:underline">KVKK Aydınlatma Metni</Link>'ni okudum ve anladım. Kişisel verilerimin işlenmesini kabul ediyorum. *
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="relative flex items-center justify-center mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={agreedTerms}
+                      onChange={(e) => setAgreedTerms(e.target.checked)}
+                      className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-lg checked:border-blue-600 checked:bg-blue-600 transition-all cursor-pointer focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                    />
+                    <CheckCircle2 size={14} className="absolute text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                  </div>
+                  <span className="text-xs text-slate-600 leading-relaxed font-light flex-1">
+                    <Link href="/mesafeli-satis-sozlesmesi" target="_blank" className="font-semibold text-blue-600 hover:underline">Mesafeli Satış Sözleşmesi</Link> ve Ön Bilgilendirme Formu'nu okudum, anladım ve kabul ediyorum. *
+                  </span>
+                </label>
+              </div>
+
               {/* Submit CTA button */}
               <div className="pt-3">
                 <Button
                   type="submit"
-                  disabled={submitting}
-                  className="w-full py-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={submitting || !agreedKVKK || !agreedTerms}
+                  className="w-full py-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CheckCircle2 size={16} />
                   {submitting ? 'Siparişiniz Kaydediliyor...' : 'Kapıda Ödemeli Sipariş Ver'}
                 </Button>
+                <div className="mt-4 text-center">
+                  <Link href="/iade-degisim" target="_blank" className="text-[10px] text-slate-400 hover:text-blue-500 underline transition-colors">
+                    İade ve Değişim Koşulları
+                  </Link>
+                </div>
               </div>
             </form>
           </div>

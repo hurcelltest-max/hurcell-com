@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ShoppingBag, ShieldCheck, Truck, Info, Clock, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, ShoppingBag, ShieldCheck, Truck, Info, Clock, CheckCircle2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatPriceTRY, getFallbackImage, getPublicProductTitle } from '@/lib/constants'
 import type { Product } from '@/types'
@@ -30,6 +30,11 @@ function CheckoutContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [agreedKVKK, setAgreedKVKK] = useState(false)
   const [agreedTerms, setAgreedTerms] = useState(false)
+
+  // OTP State
+  const [showOtpModal, setShowOtpModal] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [verifyingOtp, setVerifyingOtp] = useState(false)
 
   // Customer details form state
   const [formData, setFormData] = useState({
@@ -64,9 +69,9 @@ function CheckoutContent() {
 
           const mappedData = { ...data, sell_price: data.price, barcode: data.sku, created_at: data.created_at || new Date().toISOString() };
           setFallbackProduct(mappedData)
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error('Error fetching product for checkout:', err)
-          setErrorMsg(err.message || 'Ürün bilgileri sorgulanırken hata oluştu.')
+          setErrorMsg(err instanceof Error ? err.message : 'Ürün bilgileri sorgulanırken hata oluştu.')
         } finally {
           setLoading(false)
         }
@@ -76,11 +81,11 @@ function CheckoutContent() {
     } else {
       // Cart mode
       if (cartItems.length === 0) {
-        setErrorMsg('Sepetiniz boş. Lütfen mağazadan ürün ekleyin.')
+        setTimeout(() => setErrorMsg('Sepetiniz boş. Lütfen mağazadan ürün ekleyin.'), 0)
       }
-      setLoading(false)
+      setTimeout(() => setLoading(false), 0)
     }
-  }, [productId, isFallbackMode, cartItems.length]) // omitted supabase to avoid infinite loops if it's not memoized
+  }, [productId, isFallbackMode, cartItems.length])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -101,47 +106,66 @@ function CheckoutContent() {
       }] : [])
     : cartItems;
 
-  const handleSubmitOrder = async (e: React.FormEvent) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (itemsToCheckout.length === 0) return
 
     // Validate inputs
-    if (!formData.fullName.trim()) {
-      toast.error('Ad Soyad alanı zorunludur.')
-      return
-    }
-    if (!formData.phone.trim()) {
-      toast.error('Telefon numarası zorunludur.')
+    if (!formData.fullName.trim() || !formData.phone.trim() || !formData.email.trim() || !formData.address.trim() || !formData.city.trim() || !formData.district.trim()) {
+      toast.error('Lütfen tüm zorunlu alanları doldurun.')
       return
     }
     if (!agreedKVKK || !agreedTerms) {
       toast.error('Lütfen siparişi tamamlamadan önce yasal metinleri onaylayın.')
       return
     }
-    if (!formData.email.trim()) {
-      toast.error('E-posta adresi zorunludur.')
-      return
+
+    try {
+      setSubmitting(true)
+      
+      const res = await fetch('/api/checkout/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formData.phone.trim() })
+      });
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Doğrulama kodu gönderilemedi.')
+
+      toast.success('Doğrulama kodu SMS ile gönderildi.')
+      setShowOtpModal(true)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Bilinmeyen hata');
+    } finally {
+      setSubmitting(false)
     }
-    if (!formData.address.trim()) {
-      toast.error('Teslimat adresi zorunludur.')
-      return
-    }
-    if (!formData.city.trim()) {
-      toast.error('İl alanı zorunludur.')
-      return
-    }
-    if (!formData.district.trim()) {
-      toast.error('İlçe alanı zorunludur.')
+  }
+
+  const handleVerifyAndSubmitOrder = async () => {
+    if (!otpCode || otpCode.length < 4) {
+      toast.error('Lütfen geçerli bir kod girin.')
       return
     }
 
     try {
-      setSubmitting(true)
+      setVerifyingOtp(true)
 
-      // Build full shipping address combining Address, District, City, Postal Code
+      // 1. Verify OTP
+      const verifyRes = await fetch('/api/checkout/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formData.phone.trim(), code: otpCode })
+      });
+
+      const verifyData = await verifyRes.json()
+      if (!verifyRes.ok) throw new Error(verifyData.error || 'Kod doğrulanamadı.')
+
+      const verificationToken = verifyData.verificationToken;
+
+      // 2. Submit Order
       const fullAddress = `${formData.address.trim()} ${formData.district.trim()} / ${formData.city.trim()}${formData.postalCode.trim() ? ` P.K: ${formData.postalCode.trim()}` : ''}`
-      const fullBillingAddress = fullAddress // simple flow uses shipping address for billing too
+      const fullBillingAddress = fullAddress
 
       const orderPayload = {
         customer_name: formData.fullName.trim(),
@@ -153,39 +177,38 @@ function CheckoutContent() {
         shipping_city: formData.city?.trim() || "",
         shipping_district: formData.district?.trim() || "",
         shipping_postal_code: formData.postalCode?.trim() || "",
+        verification_token: verificationToken,
         items: itemsToCheckout.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity
         }))
       }
 
-      const response = await fetch('/api/checkout/create-order', {
+      const orderRes = await fetch('/api/checkout/create-order', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderPayload)
       })
 
-      const result = await response.json()
+      const orderResult = await orderRes.json()
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Sipariş oluşturulamadı.')
+      if (!orderRes.ok) {
+        throw new Error(orderResult.error || 'Sipariş oluşturulamadı.')
       }
 
+      setShowOtpModal(false)
       toast.success('Siparişiniz başarıyla alındı!')
       
       if (!isFallbackMode) {
         clearCart()
       }
       
-      // Redirect to the success order tracking page
-      router.push(`/siparis/${result.order_number}?token=${result.lookup_token}`)
-    } catch (err: any) {
+      router.push(`/siparis/${orderResult.order_number}?token=${orderResult.lookup_token}`)
+    } catch (err: unknown) {
       console.error('Submit order error:', err)
-      toast.error(err.message || 'Sipariş oluşturulurken bir hata oluştu.')
+      toast.error(err instanceof Error ? err.message : 'Sipariş işlenirken bir hata oluştu.')
     } finally {
-      setSubmitting(false)
+      setVerifyingOtp(false)
     }
   }
 
@@ -227,10 +250,6 @@ function CheckoutContent() {
   }
 
   const productSubtotal = itemsToCheckout.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  
-  // Kargo Bedeli Kuralı:
-  // Subtotal <= 999 TL -> 125 TL shipping fee
-  // Subtotal >= 1000 TL -> Free shipping (0 TL)
   const shippingFee = productSubtotal <= 999 ? 125 : 0
   const grandTotal = productSubtotal + shippingFee
 
@@ -268,7 +287,7 @@ function CheckoutContent() {
               <p className="text-xs text-slate-400 font-light mt-0.5">Siparişinizin ulaştırılabilmesi için bilgileri eksik doldurmayın.</p>
             </div>
 
-            <form onSubmit={handleSubmitOrder} className="space-y-4">
+            <form onSubmit={handleRequestOtp} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="fullName" className="block text-[11px] font-bold text-slate-550 uppercase tracking-wider mb-1.5 font-mono">Ad Soyad *</label>
@@ -393,7 +412,7 @@ function CheckoutContent() {
                     <CheckCircle2 size={14} className="absolute text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
                   </div>
                   <span className="text-xs text-slate-600 leading-relaxed font-light flex-1">
-                    <Link href="/kvkk" target="_blank" className="font-semibold text-blue-600 hover:underline">KVKK Aydınlatma Metni</Link>'ni okudum ve anladım. Kişisel verilerimin işlenmesini kabul ediyorum. *
+                    <Link href="/kvkk" target="_blank" className="font-semibold text-blue-600 hover:underline">KVKK Aydınlatma Metni</Link>&apos;ni okudum ve anladım. Kişisel verilerimin işlenmesini kabul ediyorum. *
                   </span>
                 </label>
 
@@ -408,7 +427,7 @@ function CheckoutContent() {
                     <CheckCircle2 size={14} className="absolute text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
                   </div>
                   <span className="text-xs text-slate-600 leading-relaxed font-light flex-1">
-                    <Link href="/mesafeli-satis-sozlesmesi" target="_blank" className="font-semibold text-blue-600 hover:underline">Mesafeli Satış Sözleşmesi</Link> ve Ön Bilgilendirme Formu'nu okudum, anladım ve kabul ediyorum. *
+                    <Link href="/mesafeli-satis-sozlesmesi" target="_blank" className="font-semibold text-blue-600 hover:underline">Mesafeli Satış Sözleşmesi</Link> ve Ön Bilgilendirme Formu&apos;nu okudum, anladım ve kabul ediyorum. *
                   </span>
                 </label>
               </div>
@@ -421,7 +440,7 @@ function CheckoutContent() {
                   className="w-full py-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CheckCircle2 size={16} />
-                  {submitting ? 'Siparişiniz Kaydediliyor...' : 'Kapıda Ödemeli Sipariş Ver'}
+                  {submitting ? 'Doğrulama İsteniyor...' : 'Kapıda Ödemeli Sipariş Ver'}
                 </Button>
                 <div className="mt-4 text-center">
                   <Link href="/iade-degisim" target="_blank" className="text-[10px] text-slate-400 hover:text-blue-500 underline transition-colors">
@@ -509,6 +528,61 @@ function CheckoutContent() {
         </div>
 
       </div>
+
+      {/* OTP Verification Modal */}
+      {showOtpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 space-y-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 tracking-tight">Telefon Doğrulama</h3>
+                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                    Güvenliğiniz için <strong className="text-slate-700">{formData.phone}</strong> numarasına gönderilen 6 haneli kodu giriniz.
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setShowOtpModal(false)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors bg-slate-100 hover:bg-slate-200 rounded-full p-1"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Input
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    className="text-center text-2xl tracking-[0.5em] font-mono py-6 border-2 border-slate-200 rounded-xl focus:border-blue-500 transition-colors"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleVerifyAndSubmitOrder()
+                      }
+                    }}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleVerifyAndSubmitOrder}
+                  disabled={verifyingOtp || otpCode.length < 4}
+                  className="w-full py-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-all"
+                >
+                  {verifyingOtp ? 'Doğrulanıyor & Sipariş Oluşturuluyor...' : 'Doğrula ve Siparişi Tamamla'}
+                </Button>
+                
+                <p className="text-[11px] text-center text-slate-400 mt-2">
+                  Kod gelmedi mi? Modal&apos;ı kapatıp tekrar &quot;Siparişi Ver&quot; butonuna tıklayarak yeni kod isteyebilirsiniz.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import crypto from 'crypto';
+import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
+import { sendTransactionalSms } from '@/lib/sms/transactional';
 
 /**
  * HurCELL Checkout — Create Order
@@ -55,6 +58,7 @@ export async function POST(req: Request) {
       shipping_postal_code,
       order_note,
       items,
+      verification_token // OTP verification token
     } = body;
 
     // 1. Müşteri bilgilerini doğrula
@@ -69,6 +73,27 @@ export async function POST(req: Request) {
         { error: 'Müşteri bilgileri ve adresler eksik veya geçersiz.' },
         { status: 400 }
       );
+    }
+
+    if (!verification_token) {
+      return NextResponse.json({ error: 'Telefon doğrulaması eksik (OTP Token bulunamadı).' }, { status: 400 });
+    }
+
+    // OTP Token Validation
+    const normalizedPhone = normalizeTurkishPhoneNumber(customer_phone);
+    const tokenHash = crypto.createHash('sha256').update(verification_token).digest('hex');
+
+    // Atomic consumption via RPC
+    const { data: verificationId, error: verificationError } = await supabaseAdmin.rpc(
+      'consume_phone_verification_token',
+      {
+        p_phone: normalizedPhone,
+        p_token_hash: tokenHash
+      }
+    );
+
+    if (verificationError || !verificationId) {
+      return NextResponse.json({ error: 'Geçersiz, süresi dolmuş veya zaten kullanılmış doğrulama kodu. Lütfen tekrar SMS doğrulayın.' }, { status: 400 });
     }
 
     // 2. Sepet öğelerini doğrula
@@ -101,7 +126,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Kampanyaları oku (non-blocking — tablo yoksa boş devam et)
+    // 4. Kampanyaları oku (non-blocking)
     const { data: dbCampaignProducts, error: campaignError } = await supabaseAdmin
       .from('campaign_products')
       .select(`
@@ -124,14 +149,12 @@ export async function POST(req: Request) {
       .in('product_id', productIds);
 
     if (campaignError) {
-      // Non-blocking: campaign_products tablosu yoksa veya hata varsa boş devam et
       console.warn('[Checkout Warning] campaigns query failed (non-blocking):', {
         message: campaignError.message,
         code: campaignError.code,
       });
     }
 
-    // Aktif kampanyaları gruplandır
     const activeCampaigns = new Map<string, {
       campaign: any;
       triggers: Set<string>;
@@ -140,7 +163,7 @@ export async function POST(req: Request) {
 
     if (dbCampaignProducts) {
       dbCampaignProducts.forEach((row: any) => {
-        const camp: any = row.campaigns;
+        const camp: any /* eslint-disable-line */ = row.campaigns;
         if (camp && camp.is_active) {
           const startsAt = new Date(camp.starts_at);
           const endsAt = camp.ends_at ? new Date(camp.ends_at) : null;
@@ -164,7 +187,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // Ürün ve miktar map'leri
     const productsMap = new Map<string, typeof dbProducts[number]>();
     dbProducts.forEach((p) => productsMap.set(p.id, p));
 
@@ -176,9 +198,6 @@ export async function POST(req: Request) {
       }
     });
 
-    // 5. Ön kontrol: tüm ürünler mevcut mu ve stok yeterli mi?
-    //    Bu aşama race condition'a karşı kesin güvence değil (atomik RPC bunu sağlar),
-    //    ama gereksiz RPC çağrısını önlemek için hızlı ön filtredir.
     let orderSubtotal = 0;
     let orderTotalDiscount = 0;
     const validatedItems: any[] = [];
@@ -202,7 +221,6 @@ export async function POST(req: Request) {
         );
       }
 
-      // Ön stok kontrolü (hızlı ret — asıl güvence atomik RPC'de)
       if (dbProduct.stock < reqQuantity) {
         return NextResponse.json(
           { error: `"${dbProduct.name}" için stok yetersiz. Mevcut stok: ${dbProduct.stock}` },
@@ -214,8 +232,7 @@ export async function POST(req: Request) {
       const itemSubtotal = itemOriginalPrice * reqQuantity;
       orderSubtotal += itemSubtotal;
 
-      // Kampanya indirimi hesapla
-      let bestCampaign: any = null;
+      let bestCampaign: any /* eslint-disable-line */ = null;
       let maxCampaignDiscount = 0;
 
       activeCampaigns.forEach((entry) => {
@@ -277,7 +294,6 @@ export async function POST(req: Request) {
 
       const originalUnitPrice = itemOriginalPrice;
       const discountAmountSnapshot = rowDiscount;
-      const finalUnitPrice = parseFloat((finalRowTotal / reqQuantity).toFixed(2));
 
       validatedItems.push({
         product_id: dbProduct.id,
@@ -308,14 +324,7 @@ export async function POST(req: Request) {
     const shippingFee = orderFinalTotal <= 999 ? 125 : 0;
     const orderGrandTotal = orderFinalTotal + shippingFee;
 
-    // ----------------------------------------------------------------
     // 6. ATOMIK STOK DÜŞME
-    //    Her ürün için decrement_product_stock_safe RPC çağrılır.
-    //    Başarısız olan ilk üründe:
-    //      - Daha önce düşülen stoklar geri alınır.
-    //      - Sipariş oluşturulmaz.
-    //    Bu aşama race condition'a karşı kesin güvence sağlar.
-    // ----------------------------------------------------------------
     const reservedStocks: Array<{ product_id: string; qty: number }> = [];
 
     for (const item of validatedItems) {
@@ -328,7 +337,6 @@ export async function POST(req: Request) {
       );
 
       if (rpcError) {
-        // RPC çağrısı başarısız — sistem hatası
         console.error('[Checkout Error] Stage: decrement_product_stock_safe RPC error:', {
           product_id: item.product_id,
           qty: item.quantity,
@@ -342,11 +350,9 @@ export async function POST(req: Request) {
         );
       }
 
-      // rpcResult bir dizi döner: [{ success, new_stock, product_name }]
       const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult;
 
       if (!result || !result.success) {
-        // Stok yetersiz — önceki rezervasyonları geri al
         const name = result?.product_name || item.product_title_snapshot;
         console.warn('[Checkout Warning] decrement_product_stock_safe returned success=false:', {
           product_id: item.product_id,
@@ -359,13 +365,10 @@ export async function POST(req: Request) {
         );
       }
 
-      // Bu ürün için stok başarıyla düşüldü — rollback listesine ekle
       reservedStocks.push({ product_id: item.product_id, qty: item.quantity });
     }
 
-    // ----------------------------------------------------------------
     // 7. Sipariş oluştur (stok düşmeler başarılıysa)
-    // ----------------------------------------------------------------
     const now = new Date().toISOString();
 
     const { data: order, error: orderError } = await supabaseAdmin
@@ -393,15 +396,12 @@ export async function POST(req: Request) {
         shipping_city: shipping_city || null,
         shipping_district: shipping_district || null,
         shipping_postal_code: shipping_postal_code || null,
-        // order_note: order_note || null, // Kolon DB'de mevcut değil
-        // Stok rezervasyon takip alanı (migration sonrası aktif)
         stock_reserved_at: now,
       })
       .select('id, order_number, lookup_token, total_amount, currency')
       .single();
 
     if (orderError || !order) {
-      // orders insert başarısız — tüm stokları geri ekle
       console.error('[Checkout Error] Stage: orders insert failed. Rolling back stock.', orderError ? {
         message: orderError.message,
         code: orderError.code,
@@ -413,9 +413,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ----------------------------------------------------------------
     // 8. Sipariş öğelerini ekle
-    // ----------------------------------------------------------------
     const orderItemsPayload = validatedItems.map((item) => ({
       order_id: order.id,
       ...item,
@@ -426,7 +424,6 @@ export async function POST(req: Request) {
       .insert(orderItemsPayload);
 
     if (itemsError) {
-      // order_items insert başarısız — siparişi sil ve stokları geri ekle
       console.error('[Checkout Error] Stage: order_items insert failed. Rolling back.', {
         message: itemsError.message,
         code: itemsError.code,
@@ -439,9 +436,25 @@ export async function POST(req: Request) {
       );
     }
 
-    // ----------------------------------------------------------------
-    // 9. Başarı — sipariş pending, stok düşmüş
-    // ----------------------------------------------------------------
+    // 9. Send Transactional SMS Notifications
+    const smsData = {
+      order_number: order.order_number,
+      amount: order.total_amount.toString(),
+      city: shipping_city || '',
+      district: shipping_district || ''
+    };
+
+    // Customer
+    sendTransactionalSms(order.id, 'order_created', 'customer', customer_phone, smsData)
+      .catch(e => console.error('[SMS ERROR Customer]', e));
+
+    // Internal Alerts
+    const internalPhones = (process.env.SMS_INTERNAL_ALERT_PHONES || '').split(',').map(p => p.trim()).filter(Boolean);
+    for (const phone of internalPhones) {
+      sendTransactionalSms(order.id, 'order_created', 'internal', phone, smsData)
+        .catch(e => console.error('[SMS ERROR Internal]', e));
+    }
+
     return NextResponse.json({
       order_id: order.id,
       order_number: order.order_number,
@@ -450,7 +463,7 @@ export async function POST(req: Request) {
       currency: order.currency,
     });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Checkout Error] Stage: unexpected catch.', err ? {
       message: err.message,
       name: err.name,

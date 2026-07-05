@@ -8,31 +8,22 @@ export function normalizeTurkishPhoneNumber(rawPhone: string): string {
     throw new Error('Geçersiz telefon numarası formatı.');
   }
 
-  // Remove all non-numeric characters (except leading +)
-  let cleaned = rawPhone.replace(/[^\d+]/g, '');
+  // Remove all non-numeric characters
+  const cleaned = rawPhone.replace(/[^\d]/g, '');
 
-  // If starts with +, ensure it's exactly +905XXXXXXXXX
-  if (cleaned.startsWith('+')) {
-    if (cleaned.startsWith('+905') && cleaned.length === 13) {
-      return cleaned; // Already perfectly formatted
-    }
-    throw new Error('Sadece Türkiye (+905) mobil numaraları desteklenmektedir.');
-  }
-
-  // Handle local formats
   // 1. Starts with 905 (e.g. 905551234567) -> length 12
   if (cleaned.startsWith('905') && cleaned.length === 12) {
-    return '+' + cleaned;
+    return cleaned;
   }
 
   // 2. Starts with 05 (e.g. 05551234567) -> length 11
   if (cleaned.startsWith('05') && cleaned.length === 11) {
-    return '+9' + cleaned;
+    return '9' + cleaned;
   }
 
   // 3. Starts with 5 (e.g. 5551234567) -> length 10
   if (cleaned.startsWith('5') && cleaned.length === 10) {
-    return '+90' + cleaned;
+    return '90' + cleaned;
   }
 
   // Any other length or starting digit is invalid for this TR-only scope

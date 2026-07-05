@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { releaseOrderStock } from '@/lib/orders/stock'
+import { sendTransactionalSms } from '@/lib/sms/transactional'
 
 export async function POST(req: Request) {
   try {
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Kargoya verilmiş siparişlerde manuel iade/iptal işlemi yapılamaz.' }, { status: 400 })
     }
 
-    let updatedFields: any = { status, updated_at: new Date().toISOString() }
+    const updatedFields: any = { status, updated_at: new Date().toISOString() }
 
     // 3. Handle Restock
     if (requiresRestock) {
@@ -68,9 +69,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Sipariş durumu güncellenirken hata oluştu.' }, { status: 500 })
     }
 
+    // 5. Send Notifications
+    const smsData = {
+      order_number: order.order_number,
+      amount: order.total_amount.toString(),
+      city: order.shipping_city || '',
+      district: order.shipping_district || '',
+      tracking_number: order.tracking_number || '',
+      cargo_company: 'DHL'
+    }
+
+    const internalPhones = (process.env.SMS_INTERNAL_ALERT_PHONES || '').split(',').map(p => p.trim()).filter(Boolean);
+    const notify = async (eventType: any) => {
+      sendTransactionalSms(order.id, eventType, 'customer', order.customer_phone, smsData)
+        .catch(e => console.error('[SMS ERROR Customer]', e));
+      for (const phone of internalPhones) {
+        sendTransactionalSms(order.id, eventType, 'internal', phone, smsData)
+          .catch(e => console.error('[SMS ERROR Internal]', e));
+      }
+    };
+
+    if (status === 'shipped') {
+      notify('order_shipped');
+    } else if (status === 'delivered') {
+      notify('order_delivered');
+    } else if (restockStatuses.includes(status)) {
+      notify('delivery_failed');
+    }
+
     return NextResponse.json({ success: true, message: 'Sipariş başarıyla güncellendi.', status: updatedFields })
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Update order status error:', err)
     return NextResponse.json({ error: 'Sunucu hatası oluştu.' }, { status: 500 })
   }

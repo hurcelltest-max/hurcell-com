@@ -42,7 +42,12 @@ export async function GET(req: Request) {
       let externalStatus = 'taşıma halinde';
       let payload = { code: 'PENDING', msg: 'Awaiting real DHL API integration' };
 
-      if (process.env.NODE_ENV !== 'production') {
+      const isProduction = process.env.VERCEL_ENV === 'production';
+      const isPreview = process.env.VERCEL_ENV === 'preview';
+      const isLocal = process.env.NODE_ENV === 'development';
+      const allowMockCargo = isLocal || isPreview;
+
+      if (allowMockCargo && !isProduction) {
         const mockResult = await mockFetchCargoStatus(order.tracking_number!);
         externalStatus = mockResult.status;
         payload = mockResult.payload;

@@ -43,9 +43,23 @@ export interface Order {
   id: string;
   user_id: string;
   total_amount: number;
-  status: 'pending' | 'paid' | 'shipped' | 'cancelled';
+  status: 'pending' | 'paid' | 'shipped' | 'cancelled' | string;
   iyzico_token?: string;
   created_at: string;
+
+  // Stock tracking
+  stock_reserved_at?: string | null;
+  stock_released_at?: string | null;
+  stock_release_reason?: string | null;
+
+  // Cargo tracking
+  tracking_number?: string | null;
+  shipment_barcode?: string | null;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
+  cargo_company?: string | null;
+  last_cargo_status_checked_at?: string | null;
+  last_cargo_status_payload?: Record<string, unknown> | null;
 }
 
 export interface OrderItem {

@@ -159,16 +159,24 @@ export default function OrdersClient({ initialOrders }: { initialOrders: any[] }
 
             <div className="w-full md:w-64 flex flex-col justify-start gap-2 border-l pl-0 md:pl-6 pt-4 md:pt-0">
               <label className="text-xs font-semibold text-slate-500 uppercase">Sipariş Durumu</label>
-              <select 
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                value={order.status}
-                disabled={updatingId === order.id}
-                onChange={(e) => handleStatusChange(order.id, e.target.value)}
-              >
-                {statuses.map(s => (
-                  <option key={s} value={s}>{statusLabels[s] || s}</option>
-                ))}
-              </select>
+              
+              {['shipped', 'delivered', 'returned', 'delivery_failed', 'customer_refused', 'not_delivered'].includes(order.shipping_status) ? (
+                <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <p className="font-semibold text-slate-800 mb-1">{statusLabels[order.status] || order.status}</p>
+                  <p className="text-xs">Bu sipariş kargoya verildiği için manuel stok iadesi/durum değişimi yapılamaz. İade veya teslim edilememe durumu kargo firmasından otomatik işlenecektir.</p>
+                </div>
+              ) : (
+                <select 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  value={order.status}
+                  disabled={updatingId === order.id}
+                  onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                >
+                  {statuses.map(s => (
+                    <option key={s} value={s}>{statusLabels[s] || s}</option>
+                  ))}
+                </select>
+              )}
               
               {updatingId === order.id && <span className="text-xs text-blue-500 animate-pulse mt-1">Güncelleniyor...</span>}
             </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { releaseOrderStock } from '@/lib/orders/stock'
 
 export async function POST(req: Request) {
   try {
@@ -33,51 +34,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Sipariş bulunamadı.' }, { status: 404 })
     }
 
+    // 2. Prevent manual cancellation if already shipped
+    if (requiresRestock && ['shipped', 'delivered'].includes(order.shipping_status)) {
+      return NextResponse.json({ error: 'Kargoya verilmiş siparişlerde manuel iade/iptal işlemi yapılamaz.' }, { status: 400 })
+    }
+
     let updatedFields: any = { status, updated_at: new Date().toISOString() }
 
-    // 2. Handle Restock
+    // 3. Handle Restock
     if (requiresRestock) {
       if (!order.stock_reserved_at) {
-        // Stock was never reserved, no need to restock, but we will allow the status change.
         updatedFields.stock_release_reason = status + ' (No prior reservation)'
       } else if (order.stock_released_at) {
-        // Stock already released, don't double restock.
         updatedFields.stock_release_reason = status + ' (Already released)'
       } else {
-        // 3. Needs restock. Fetch items.
-        const { data: items, error: itemsError } = await supabaseAdmin
-          .from('order_items')
-          .select('product_id, quantity')
-          .eq('order_id', order.id)
-        
-        if (itemsError) {
-          console.error('Error fetching order items for restock:', itemsError)
-          return NextResponse.json({ error: 'Stok iadesi için sipariş kalemleri okunamadı.' }, { status: 500 })
+        const releaseResult = await releaseOrderStock(order.id, `admin_${status}`)
+        if (!releaseResult.success) {
+          return NextResponse.json({ error: releaseResult.message }, { status: 500 })
         }
-
-        let restockFailed = false;
-        
-        for (const item of items || []) {
-          if (!item.product_id || item.quantity <= 0) continue;
-          
-          const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('increment_product_stock_safe', {
-            p_product_id: item.product_id,
-            p_qty: item.quantity
-          })
-
-          if (rpcError || !rpcData || !rpcData[0] || !rpcData[0].success) {
-            console.error('Stock restock failed for item:', item.product_id, rpcError || rpcData)
-            restockFailed = true;
-            break;
-          }
-        }
-
-        if (restockFailed) {
-          return NextResponse.json({ error: 'Stok iade işlemi başarısız oldu. Sipariş durumu güncellenmedi.' }, { status: 500 })
-        }
-
-        updatedFields.stock_released_at = new Date().toISOString()
-        updatedFields.stock_release_reason = status
+        // stock_released_at is already updated by releaseOrderStock, 
+        // but we can just leave it to the DB or skip re-updating here.
       }
     }
 

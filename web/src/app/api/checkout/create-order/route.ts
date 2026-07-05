@@ -393,7 +393,7 @@ export async function POST(req: Request) {
         shipping_city: shipping_city || null,
         shipping_district: shipping_district || null,
         shipping_postal_code: shipping_postal_code || null,
-        order_note: order_note || null,
+        // order_note: order_note || null, // Kolon DB'de mevcut değil
         // Stok rezervasyon takip alanı (migration sonrası aktif)
         stock_reserved_at: now,
       })

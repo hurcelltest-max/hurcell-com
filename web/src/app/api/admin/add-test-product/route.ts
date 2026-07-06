@@ -3,38 +3,75 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}))
+    const sku = 'TEST-HURCELL-ORDER-001'
+    const name = 'HurCELL Test Ürünü - Sipariş Denemesi'
+    const category = 'Aksesuar'
+    const price = 100
+    const stock = 10
+    const image_url = '/images/placeholder.svg'
+    const description = 'HurCELL sipariş ve OTP testleri için geçici test ürünü.'
 
-    // idempotent: check by unique name
-    const name = body.name || 'HurCELL Premium Lansman Kılıfı'
-
+    // Check if test product exists by SKU
     const { data: existing } = await supabaseAdmin
       .from('products')
       .select('id')
-      .eq('name', name)
+      .eq('sku', sku)
       .limit(1)
 
     if (existing && existing.length > 0) {
-      return NextResponse.json({ ok: true, message: 'Test product already exists' })
+      // Update existing test product
+      const { error: updateError } = await supabaseAdmin
+        .from('products')
+        .update({
+          name,
+          stock,
+          price,
+          image_url,
+          category,
+          description
+        })
+        .eq('sku', sku)
+
+      if (updateError) {
+        return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        ok: true,
+        created: false,
+        updated: true,
+        product: { id: existing[0].id, name, stock, price }
+      })
     }
 
+    // Insert new test product
     const product: any = {
       name,
-      category: body.category || 'Aksesuarlar',
-      price: body.price || 450,
-      description: body.description || 'Dinamik veri tabanı testi için eklenmiş premium kılıf.',
-      sku: body.sku || 'TEST-HURCELL-0001',
-      image_url: body.image_url || '/images/placeholder.png',
-      created_at: new Date().toISOString(),
+      category,
+      price,
+      stock,
+      description,
+      sku,
+      image_url,
+      created_at: new Date().toISOString()
     }
 
-    const { error } = await supabaseAdmin.from('products').insert(product)
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('products')
+      .insert(product)
+      .select('id')
+      .single()
 
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    if (insertError) {
+      return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, message: 'Test product inserted' })
+    return NextResponse.json({
+      ok: true,
+      created: true,
+      updated: false,
+      product: { id: inserted?.id, name, stock, price }
+    })
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 })
   }

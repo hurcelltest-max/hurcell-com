@@ -95,6 +95,9 @@ function CheckoutContent() {
       if (name === 'city') {
         newData.district = ''
       }
+      if (name === 'phone') {
+        newData.phone = value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 10)
+      }
       return newData
     })
   }
@@ -257,6 +260,18 @@ function CheckoutContent() {
   const shippingFee = productSubtotal <= 999 ? 125 : 0
   const grandTotal = productSubtotal + shippingFee
 
+  const sortedCities = React.useMemo(() => {
+    return [...TURKEY_CITIES].sort((a, b) => {
+      const priority = ['İstanbul', 'Ankara', 'İzmir'];
+      const idxA = priority.indexOf(a.city);
+      const idxB = priority.indexOf(b.city);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.city.localeCompare(b.city, 'tr');
+    });
+  }, []);
+
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       
@@ -313,11 +328,12 @@ function CheckoutContent() {
                     id="phone"
                     name="phone"
                     required
-                    placeholder="05xx xxx xx xx"
+                    placeholder="5321234567"
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="glass rounded-xl text-sm animate-none"
                   />
+                  <p className="text-[10px] text-slate-400 font-light mt-1.5">Başında 0 olmadan 10 haneli telefon numarası girin.</p>
                 </div>
               </div>
 
@@ -361,7 +377,7 @@ function CheckoutContent() {
                     className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
                   >
                     <option value="" disabled>İl seçin</option>
-                    {TURKEY_CITIES.map(c => (
+                    {sortedCities.map(c => (
                       <option key={c.city} value={c.city}>{c.city}</option>
                     ))}
                   </select>

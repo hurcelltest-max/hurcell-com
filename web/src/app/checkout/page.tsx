@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { useCart } from '@/components/cart-provider'
+import { TURKEY_CITIES } from '@/data/turkey'
 
 function CheckoutContent() {
   const searchParams = useSearchParams()
@@ -87,12 +88,15 @@ function CheckoutContent() {
     }
   }, [productId, isFallbackMode, cartItems.length])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value }
+      if (name === 'city') {
+        newData.district = ''
+      }
+      return newData
+    })
   }
 
   const itemsToCheckout = isFallbackMode 
@@ -348,29 +352,36 @@ function CheckoutContent() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label htmlFor="city" className="block text-[11px] font-bold text-slate-555 uppercase tracking-wider mb-1.5 font-mono">İl *</label>
-                  <Input
-                    type="text"
+                  <select
                     id="city"
                     name="city"
                     required
-                    placeholder="İl"
                     value={formData.city}
                     onChange={handleInputChange}
-                    className="glass rounded-xl text-sm animate-none"
-                  />
+                    className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+                  >
+                    <option value="" disabled>İl seçin</option>
+                    {TURKEY_CITIES.map(c => (
+                      <option key={c.city} value={c.city}>{c.city}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label htmlFor="district" className="block text-[11px] font-bold text-slate-555 uppercase tracking-wider mb-1.5 font-mono">İlçe *</label>
-                  <Input
-                    type="text"
+                  <select
                     id="district"
                     name="district"
                     required
-                    placeholder="İlçe"
+                    disabled={!formData.city}
                     value={formData.district}
                     onChange={handleInputChange}
-                    className="glass rounded-xl text-sm animate-none"
-                  />
+                    className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+                  >
+                    <option value="" disabled>İlçe seçin</option>
+                    {formData.city && TURKEY_CITIES.find(c => c.city === formData.city)?.districts.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label htmlFor="postalCode" className="block text-[11px] font-bold text-slate-555 uppercase tracking-wider mb-1.5 font-mono">Posta Kodu (Opsiyonel)</label>

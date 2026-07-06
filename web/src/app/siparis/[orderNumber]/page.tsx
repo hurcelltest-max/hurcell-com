@@ -43,7 +43,6 @@ function OrderTrackingContent() {
   
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [dhlStatus, setDhlStatus] = useState<{ loading: boolean; message: string; payload?: any; ok?: boolean } | null>(null)
   const [orderDetails, setOrderDetails] = useState<{
     order: OrderDetails
     items: OrderItem[]
@@ -192,26 +191,6 @@ function OrderTrackingContent() {
     StatusIcon = RefreshCw
   }
 
-  const handleCreateDhlShipment = async () => {
-    try {
-      setDhlStatus({ loading: true, message: 'DHL kargo akışı başlatılıyor (Dry-Run)...' })
-      const res = await fetch('/api/dhl/create-shipment-flow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id }),
-      })
-      const data = await res.json()
-      
-      if (!res.ok && !data.payloadPreview) {
-        throw new Error(data.error || data.message || 'Bilinmeyen bir hata oluştu.')
-      }
-      
-      setDhlStatus({ loading: false, message: data.message, payload: data.payloadPreview, ok: true })
-    } catch (err: any) {
-      setDhlStatus({ loading: false, message: err.message, ok: false })
-    }
-  }
-
   return (
     <div className="space-y-6">
       {/* Navigation header */}
@@ -326,47 +305,6 @@ function OrderTrackingContent() {
             </span>
           </div>
         )}
-
-        {/* Cancellation and Refund Button */}
-        <div className="pt-4 border-t border-slate-100">
-          <Link
-            href={`/iade-talebi?order=${order.order_number}`}
-            className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-2xl transition-colors flex items-center justify-center gap-2 border border-slate-200 cursor-pointer"
-          >
-            <ShieldAlert size={14} className="text-amber-600" />
-            İade / İptal Talebi Oluştur
-          </Link>
-          <p className="text-[10px] text-slate-450 font-light mt-2.5 text-center leading-relaxed">
-            * 14 gün mesafeli satış mevzuatı kapsamında bu sipariş için iptal, iade veya değişim talebi oluşturabilirsiniz.
-          </p>
-        </div>
-
-        {/* DHL Actions (Yönetici Veya Demo İçin) */}
-        <div className="pt-4 border-t border-slate-100">
-          <h3 className="font-semibold text-slate-850 uppercase tracking-wider text-[10px] text-slate-400 font-mono mb-3">Yönetici İşlemleri</h3>
-          <button
-            onClick={handleCreateDhlShipment}
-            disabled={dhlStatus?.loading}
-            className="w-full py-3.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 border border-blue-200 cursor-pointer disabled:opacity-50"
-          >
-            <Truck size={16} />
-            {dhlStatus?.loading ? 'Oluşturuluyor...' : 'DHL / MNG Barkod Oluştur'}
-          </button>
-          
-          {dhlStatus && !dhlStatus.loading && (
-            <div className={`mt-3 p-4 rounded-xl text-xs ${dhlStatus.ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-              <p className="font-semibold">{dhlStatus.ok ? 'Başarılı' : 'Hata'}</p>
-              <p className="mt-1">{dhlStatus.message}</p>
-              {dhlStatus.payload && (
-                <div className="mt-2 p-2 bg-black/5 rounded text-[10px] font-mono overflow-auto max-h-32">
-                  <pre>{JSON.stringify(dhlStatus.payload, null, 2)}</pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-
       </div>
     </div>
   )

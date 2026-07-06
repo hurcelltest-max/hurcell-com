@@ -1,5 +1,6 @@
 import { SmsProvider } from './types';
 import { NetgsmProvider, maskPhone } from './netgsm-provider';
+import { SenagsmProvider } from './senagsm-provider';
 
 export class MockSmsProvider implements SmsProvider {
   async sendSms(phone: string, message: string) {
@@ -15,6 +16,10 @@ export class MockSmsProvider implements SmsProvider {
 
 export function getSmsProvider(): SmsProvider {
   const providerStr = process.env.SMS_PROVIDER;
+
+  if (providerStr === 'senagsm') {
+    return new SenagsmProvider();
+  }
 
   if (providerStr === 'netgsm') {
     return new NetgsmProvider();

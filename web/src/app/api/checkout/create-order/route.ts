@@ -83,18 +83,7 @@ export async function POST(req: Request) {
     const normalizedPhone = normalizeTurkishPhoneNumber(customer_phone);
     const tokenHash = crypto.createHash('sha256').update(verification_token).digest('hex');
 
-    // Atomic consumption via RPC
-    const { data: verificationId, error: verificationError } = await supabaseAdmin.rpc(
-      'consume_phone_verification_token',
-      {
-        p_phone: normalizedPhone,
-        p_token_hash: tokenHash
-      }
-    );
 
-    if (verificationError || !verificationId) {
-      return NextResponse.json({ error: 'Geçersiz, süresi dolmuş veya zaten kullanılmış doğrulama kodu. Lütfen tekrar SMS doğrulayın.' }, { status: 400 });
-    }
 
     // 2. Sepet öğelerini doğrula
     if (!Array.isArray(items) || items.length === 0) {
@@ -323,6 +312,20 @@ export async function POST(req: Request) {
     const orderFinalTotal = Math.max(0, orderSubtotal - orderTotalDiscount);
     const shippingFee = orderFinalTotal <= 999 ? 125 : 0;
     const orderGrandTotal = orderFinalTotal + shippingFee;
+
+    // 5.5 OTP Token Tüketimi (Validasyonlardan sonra, Stok düşümünden hemen önce)
+    // Atomic consumption via RPC
+    const { data: verificationId, error: verificationError } = await supabaseAdmin.rpc(
+      'consume_phone_verification_token',
+      {
+        p_phone: normalizedPhone,
+        p_token_hash: tokenHash
+      }
+    );
+
+    if (verificationError || !verificationId) {
+      return NextResponse.json({ error: 'Geçersiz, süresi dolmuş veya zaten kullanılmış doğrulama kodu. Lütfen tekrar SMS doğrulayın.' }, { status: 400 });
+    }
 
     // 6. ATOMIK STOK DÜŞME
     const reservedStocks: Array<{ product_id: string; qty: number }> = [];

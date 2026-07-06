@@ -1,5 +1,6 @@
 import { getSmsProvider } from './mock-provider';
 import { normalizeTurkishPhoneNumber } from './phone';
+import { maskPhone } from './netgsm-provider';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 type RecipientType = 'customer' | 'internal';
@@ -127,7 +128,7 @@ export async function sendTransactionalSms(
     } catch (err: unknown) {
       status = 'failed';
       errorMessage = err instanceof Error ? err.message : 'Unknown provider error';
-      console.error(`[SMS SEND ERROR] To: ${phone}, Event: ${event}`, err);
+      console.error(`[SMS SEND ERROR] To: ${maskPhone(phone)}, Event: ${event}`, err);
     }
 
     // 3. Update Log

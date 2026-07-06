@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { generateOtpCode, hashOtpCode } from '@/lib/sms/otp';
 import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
 import { getSmsProvider } from '@/lib/sms/mock-provider';
+import { maskPhone } from '@/lib/sms/netgsm-provider';
 import crypto from 'crypto';
 
 export async function POST(req: Request) {
@@ -64,8 +65,18 @@ export async function POST(req: Request) {
     // 3. Send SMS
     const provider = getSmsProvider();
     const message = `HurCELL Kapida Odeme Dogrulama Kodunuz: ${code}. Bu kod 3 dakika gecerlidir.`;
-    
-    await provider.sendSms(normalizedPhone, message);
+    const smsResult = await provider.sendSms(normalizedPhone, message);
+
+    if (!smsResult.success) {
+      console.error(
+        `[SEND OTP PROVIDER FAILED] To: ${maskPhone(normalizedPhone)} | Error: ${smsResult.error || 'Unknown provider failure'}`
+      );
+
+      return NextResponse.json(
+        { error: 'SMS gönderilemedi. Lütfen biraz sonra tekrar deneyin.' },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({ success: true, message: 'Doğrulama kodu gönderildi.' });
 

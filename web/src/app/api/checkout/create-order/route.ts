@@ -376,7 +376,7 @@ export async function POST(req: Request) {
       .insert({
         customer_name: customer_name.trim(),
         customer_email: customer_email.trim(),
-        customer_phone: customer_phone.trim(),
+        customer_phone: normalizedPhone,
         billing_address: billing_address.trim(),
         shipping_address: shipping_address.trim(),
         subtotal_amount: orderSubtotal,
@@ -445,7 +445,7 @@ export async function POST(req: Request) {
     };
 
     // Customer
-    sendTransactionalSms(order.id, 'order_created', 'customer', customer_phone, smsData)
+    sendTransactionalSms(order.id, 'order_created', 'customer', normalizedPhone, smsData)
       .catch(e => console.error('[SMS ERROR Customer]', e));
 
     // Internal Alerts

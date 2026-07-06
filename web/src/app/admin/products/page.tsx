@@ -30,8 +30,8 @@ export default function ProductsPage() {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Products</h1>
-          <p className="text-muted-foreground">Manage your futuristic inventory.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Ürünler</h1>
+          <p className="text-muted-foreground">Ürün stok ve katalog yönetimi.</p>
         </div>
         <div className="flex gap-4">
           <Input 
@@ -44,31 +44,31 @@ export default function ProductsPage() {
           <Button variant="outline" asChild>
             <label htmlFor="bulk-upload" className="cursor-pointer">
               <Upload className="mr-2 h-4 w-4" /> 
-              {isUploading ? 'Uploading...' : 'Bulk Upload'}
+              {isUploading ? 'Yükleniyor...' : 'Toplu Yükleme'}
             </label>
           </Button>
           <Dialog>
             <DialogTrigger asChild>
               <Button>
-                <Plus className="mr-2 h-4 w-4" /> Add Product
+                <Plus className="mr-2 h-4 w-4" /> Ürün Ekle
               </Button>
             </DialogTrigger>
             <DialogContent className="glass-dark border-white/10 max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Create New Product</DialogTitle>
+                <DialogTitle>Yeni Ürün Ekle</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <Input placeholder="Product Name" className="glass" />
+                <Input placeholder="Ürün Adı" className="glass" />
                 <textarea 
                   className="w-full h-32 glass rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary" 
-                  placeholder="Rich Text Description (WYSIWYG)"
+                  placeholder="Açıklama (Zengin Metin)"
                 />
                 <div className="grid grid-cols-2 gap-4">
-                  <Input placeholder="Price ($)" type="number" className="glass" />
-                  <Input placeholder="Initial Stock" type="number" className="glass" />
+                  <Input placeholder="Fiyat (₺)" type="number" className="glass" />
+                  <Input placeholder="Başlangıç Stoku" type="number" className="glass" />
                 </div>
-                <Input placeholder="Category" className="glass" />
-                <Button className="w-full">Create Product</Button>
+                <Input placeholder="Kategori" className="glass" />
+                <Button className="w-full">Ürün Oluştur</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -85,7 +85,7 @@ export default function ProductsPage() {
               }
             }}
           >
-            <Plus className="mr-2 h-4 w-4" /> Insert Test Product
+            <Plus className="mr-2 h-4 w-4" /> Test Ürünü Ekle
           </Button>
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function ProductsPage() {
           <div className="flex items-center gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search products..." className="pl-10 glass" />
+              <Input placeholder="Ürün ara..." className="pl-10 glass" />
             </div>
           </div>
         </CardHeader>
@@ -104,11 +104,11 @@ export default function ProductsPage() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs uppercase font-mono text-muted-foreground border-b border-white/5">
                 <tr>
-                  <th className="px-6 py-4">Product</th>
-                  <th className="px-6 py-4">Category</th>
-                  <th className="px-6 py-4">Price</th>
-                  <th className="px-6 py-4">Stock</th>
-                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">ÜRÜN</th>
+                  <th className="px-6 py-4">KATEGORİ</th>
+                  <th className="px-6 py-4">FİYAT</th>
+                  <th className="px-6 py-4">STOK</th>
+                  <th className="px-6 py-4">DURUM</th>
                   <th className="px-6 py-4"></th>
                 </tr>
               </thead>
@@ -117,13 +117,13 @@ export default function ProductsPage() {
                   <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                     <td className="px-6 py-4 font-medium flex items-center gap-3">
                       <div className="w-10 h-10 rounded bg-white/5" />
-                      Neural Link v{i}
+                      HurCELL Test Ürünü v{i}
                     </td>
-                    <td className="px-6 py-4">Cybernetics</td>
-                    <td className="px-6 py-4 font-mono">$2,499.00</td>
-                    <td className="px-6 py-4">{10 * i} units</td>
+                    <td className="px-6 py-4">Aksesuar</td>
+                    <td className="px-6 py-4 font-mono">₺2,499.00</td>
+                    <td className="px-6 py-4">{10 * i} adet</td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-500 text-[10px] font-bold">ACTIVE</span>
+                      <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-500 text-[10px] font-bold">AKTİF</span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>

@@ -49,6 +49,18 @@ function CheckoutContent() {
     orderNote: ''
   })
 
+  const sortedCities = React.useMemo(() => {
+    return [...TURKEY_CITIES].sort((a, b) => {
+      const priority = ['İstanbul', 'Ankara', 'İzmir'];
+      const idxA = priority.indexOf(a.city);
+      const idxB = priority.indexOf(b.city);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.city.localeCompare(b.city, 'tr');
+    });
+  }, []);
+
   useEffect(() => {
     if (isFallbackMode) {
       async function fetchProduct() {
@@ -259,18 +271,6 @@ function CheckoutContent() {
   const productSubtotal = itemsToCheckout.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   const shippingFee = productSubtotal <= 999 ? 125 : 0
   const grandTotal = productSubtotal + shippingFee
-
-  const sortedCities = React.useMemo(() => {
-    return [...TURKEY_CITIES].sort((a, b) => {
-      const priority = ['İstanbul', 'Ankara', 'İzmir'];
-      const idxA = priority.indexOf(a.city);
-      const idxB = priority.indexOf(b.city);
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      if (idxA !== -1) return -1;
-      if (idxB !== -1) return 1;
-      return a.city.localeCompare(b.city, 'tr');
-    });
-  }, []);
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">

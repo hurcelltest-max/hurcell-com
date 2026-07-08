@@ -22,6 +22,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Telefon numarası veya doğrulama tokenı eksik.' }, { status: 400 });
     }
 
+    const normalizedPhone = normalizeTurkishPhoneNumber(phone);
+
+    if (!/^5\d{9}$/.test(normalizedPhone)) {
+      return NextResponse.json({ error: 'Telefon numarası 5XXXXXXXXX formatında olmalıdır.' }, { status: 400 });
+    }
+
+    if (!/^[a-f0-9]{64}$/i.test(verificationToken)) {
+      return NextResponse.json({ error: 'Doğrulama tokenı geçersiz formatta.' }, { status: 400 });
+    }
+
     if (!checkbox_terms_accepted || !checkbox_payment_terms_accepted || !checkbox_kvkk_notice_read) {
       return NextResponse.json({ error: 'Zorunlu alanları onaylamanız gerekmektedir.' }, { status: 400 });
     }
@@ -41,7 +51,6 @@ export async function POST(req: Request) {
 
     const agreementBodyHash = crypto.createHash('sha256').update(agreementBodySnapshot).digest('hex');
 
-    const normalizedPhone = normalizeTurkishPhoneNumber(phone);
     const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
     
     // 1. Verify and Consume Token

@@ -47,10 +47,15 @@ export async function POST(req: Request) {
     }
 
     // Increment attempts
-    await supabaseAdmin
+    const { error: attemptError } = await supabaseAdmin
       .from('phone_verifications')
       .update({ attempts: record.attempts + 1 })
       .eq('id', record.id);
+
+    if (attemptError) {
+      console.error('[CARI VERIFY OTP ERROR] Failed to increment attempts:', attemptError);
+      return NextResponse.json({ error: 'Sistem hatası oluştu. Lütfen tekrar deneyin.' }, { status: 500 });
+    }
 
     // 4. Verify Code
     const isValid = verifyOtpCode(normalizedPhone, code, record.otp_hash, 'cari_agreement');
@@ -64,13 +69,18 @@ export async function POST(req: Request) {
     // We hash the token in DB so if DB is leaked, attackers cannot reuse tokens
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-    await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from('phone_verifications')
       .update({
         verified_at: new Date().toISOString(),
         verification_token_hash: tokenHash
       })
       .eq('id', record.id);
+
+    if (updateError) {
+      console.error('[CARI VERIFY OTP ERROR] Failed to update verification token:', updateError);
+      return NextResponse.json({ error: 'Doğrulama kaydedilemedi. Lütfen tekrar deneyin.' }, { status: 500 });
+    }
 
     return NextResponse.json({ 
       success: true, 

@@ -26,10 +26,14 @@ export default async function LimitliAlisverisSozlesmesiPage() {
   const renderMarkdown = (text: string) => {
     return text.split('\n').map((line, idx) => {
       if (line.startsWith('# ')) {
-        return <h1 key={idx} className="text-2xl font-bold text-gray-900 mb-6">{line.replace('# ', '')}</h1>
+        return <h1 key={idx} id="sozlesme-metni" className="text-2xl font-bold text-gray-900 mb-6 scroll-mt-24">{line.replace('# ', '')}</h1>
       }
       if (line.startsWith('## ')) {
-        return <h2 key={idx} className="text-xl font-semibold text-gray-800 mt-8 mb-4">{line.replace('## ', '')}</h2>
+        let anchorId = undefined;
+        if (line.includes('Hesap Kesim ve Ödeme Şartları')) anchorId = 'hesap-kesim-ve-odeme-sartlari';
+        else if (line.includes('İletişim, Bilgilendirme ve Kişisel Veriler')) anchorId = 'kvkk';
+
+        return <h2 key={idx} id={anchorId} className="text-xl font-semibold text-gray-800 mt-8 mb-4 scroll-mt-24">{line.replace('## ', '')}</h2>
       }
       if (line.startsWith('**')) {
         const strongText = line.replaceAll('**', '')

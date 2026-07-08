@@ -296,7 +296,7 @@ export default function AgreementOtpForm() {
               </div>
               <div className="ml-3 text-sm">
                 <label htmlFor="terms" className="font-medium text-gray-700">
-                  Sözleşme şartlarını okudum ve kabul ediyorum. <span className="text-red-500">*</span>
+                  <a href="/limitli-alisveris-sozlesmesi#sozlesme-metni" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Sözleşme şartlarını</a> okudum ve kabul ediyorum. <span className="text-red-500">*</span>
                 </label>
               </div>
             </div>
@@ -314,7 +314,7 @@ export default function AgreementOtpForm() {
               </div>
               <div className="ml-3 text-sm">
                 <label htmlFor="paymentTerms" className="font-medium text-gray-700">
-                  Cari/limitli alışveriş ödeme şartlarını kabul ediyorum. <span className="text-red-500">*</span>
+                  <a href="/limitli-alisveris-sozlesmesi#hesap-kesim-ve-odeme-sartlari" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Cari/limitli alışveriş ödeme şartlarını</a> kabul ediyorum. <span className="text-red-500">*</span>
                 </label>
               </div>
             </div>
@@ -332,7 +332,7 @@ export default function AgreementOtpForm() {
               </div>
               <div className="ml-3 text-sm">
                 <label htmlFor="kvkk" className="font-medium text-gray-700">
-                  KVKK bilgilendirmesini okudum ve anladım. <span className="text-red-500">*</span>
+                  <a href="/gizlilik-politikasi" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">KVKK bilgilendirmesini</a> okudum ve anladım. <span className="text-red-500">*</span>
                 </label>
               </div>
             </div>

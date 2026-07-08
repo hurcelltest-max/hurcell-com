@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, QrCode, AlertCircle } from 'lucide-react';
+import { ChevronLeft, QrCode, AlertCircle, Camera } from 'lucide-react';
 import Link from 'next/link';
 
 // Dynamically import html5-qrcode so it doesn't run on the server
 // and doesn't bloat the main bundle.
 let Html5QrcodeScanner: any;
+let Html5QrcodeScanType: any;
 
 export default function QrScannerPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function QrScannerPage() {
     // Dynamic import of the library
     import('html5-qrcode').then((module) => {
       Html5QrcodeScanner = module.Html5QrcodeScanner;
+      Html5QrcodeScanType = module.Html5QrcodeScanType;
       setScannerReady(true);
     }).catch(err => {
       console.error("Failed to load html5-qrcode", err);
@@ -74,7 +76,12 @@ export default function QrScannerPage() {
 
     const scanner = new Html5QrcodeScanner(
       "reader",
-      { fps: 10, qrbox: { width: 250, height: 250 } },
+      { 
+        fps: 10, 
+        qrbox: { width: 250, height: 250 },
+        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+        rememberLastUsedCamera: true
+      },
       /* verbose= */ false
     );
     scanner.render(onScanSuccess, (error: any) => {
@@ -114,12 +121,28 @@ export default function QrScannerPage() {
             </div>
           )}
 
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100 flex items-start gap-3 text-blue-800">
+            <Camera className="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600" />
+            <div className="text-sm">
+              <p className="font-medium mb-1">Kamera İzni Gerekli</p>
+              <p className="text-blue-700/80">
+                Kamerayı kullanmak için tarayıcıdan izin verin. İzin penceresi çıkmazsa adres çubuğundaki kilit simgesinden kamera iznini açın.
+              </p>
+            </div>
+          </div>
+
           <div className="relative">
             {!scannerReady && !error && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-50 rounded-xl z-10">
                 <p className="text-gray-500">Kamera yükleniyor...</p>
               </div>
             )}
+            
+            {/* Custom CSS overrides to tweak UI slightly */}
+            <style dangerouslySetInnerHTML={{__html: `
+              #reader { border: none !important; }
+            `}} />
+            
             <div id="reader" className="w-full bg-gray-50 rounded-xl overflow-hidden border border-gray-200"></div>
           </div>
         </div>

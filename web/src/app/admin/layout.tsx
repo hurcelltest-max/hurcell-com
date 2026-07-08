@@ -24,6 +24,9 @@ export default function AdminLayout({
           <Link href="/admin/orders" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
             <ShoppingBag size={20} /> Siparişler
           </Link>
+          <Link href="/admin/cari" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors text-blue-400">
+            <Users size={20} /> Cari / Veresiye
+          </Link>
           <Link href="/admin/users" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
             <Users size={20} /> Kullanıcılar
           </Link>

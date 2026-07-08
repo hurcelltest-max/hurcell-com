@@ -25,8 +25,8 @@ export default function AgreementOtpForm() {
     
     // Basic validation
     const cleanPhone = phone.replace(/\D/g, '')
-    if (cleanPhone.length !== 10) {
-      setError('Lütfen telefon numaranızı başında 0 olmadan 10 haneli olarak giriniz.')
+    if (!/^5\d{9}$/.test(cleanPhone)) {
+      setError('Lütfen telefon numaranızı başında 0 olmadan 5XXXXXXXXX formatında giriniz.')
       return
     }
 
@@ -140,7 +140,7 @@ export default function AgreementOtpForm() {
                 type="text"
                 required
                 value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 maxLength={10}
                 className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-12 sm:text-sm border-gray-300 rounded-md py-3 border px-4 outline-none transition-colors"
                 placeholder="5XXXXXXXXX"
@@ -153,7 +153,7 @@ export default function AgreementOtpForm() {
 
           <button
             type="submit"
-            disabled={loading || phone.length !== 10}
+            disabled={loading || !/^5\d{9}$/.test(phone)}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SMS Kodu Gönder'}

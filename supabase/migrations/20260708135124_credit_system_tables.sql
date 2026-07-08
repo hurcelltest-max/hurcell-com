@@ -4,7 +4,7 @@
 -- 1. Credit Customers Table
 CREATE TABLE IF NOT EXISTS public.credit_customers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL, -- Optional link to online customer
+    customer_id UUID, -- Optional future link to online customer table; no FK because public.customers does not exist in production yet
     full_name TEXT NOT NULL,
     phone TEXT UNIQUE NOT NULL,
     phone_normalized TEXT UNIQUE NOT NULL,

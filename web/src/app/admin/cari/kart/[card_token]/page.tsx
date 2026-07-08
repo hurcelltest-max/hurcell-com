@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import Barcode from 'react-barcode';
 import { Phone, MapPin, AlertCircle, FileText, Calendar, CreditCard, ChevronLeft, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -160,12 +161,27 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
             <h2 className="text-3xl font-extrabold text-blue-600 mb-1 tracking-tight mt-2">HurCELL</h2>
             <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-8 font-semibold">Dijital Müşteri Kartı</p>
             
-            <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 inline-block mb-6 shadow-sm">
+            <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 inline-block mb-4 shadow-sm">
               <QRCodeSVG value={qrUrl} size={160} level="M" />
             </div>
             
-            <h3 className="text-xl font-bold text-gray-900 mb-1 leading-tight">{customer.full_name}</h3>
-            <p className="font-mono text-sm text-gray-500 mb-6 bg-gray-50 py-1 px-3 rounded inline-block">{customer.customer_card_code}</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-3 leading-tight">{customer.full_name}</h3>
+            <div className="flex justify-center mb-6">
+              {customer.customer_card_code && (
+                <div className="flex flex-col items-center">
+                  <Barcode 
+                    value={customer.customer_card_code} 
+                    format="CODE128" 
+                    width={1.5} 
+                    height={40} 
+                    displayValue={true} 
+                    fontSize={14}
+                    margin={0}
+                  />
+                  <p className="text-[10px] text-gray-400 mt-2">Barkod: Mağaza içi hızlı arama için kart kodu</p>
+                </div>
+              )}
+            </div>
             
             <div className="text-xs text-gray-600 space-y-3 px-2 border-t border-gray-100 pt-6">
               <p className="font-medium">Mağaza içi işlemlerde bu QR kodu okutunuz.</p>

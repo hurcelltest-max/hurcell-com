@@ -115,9 +115,18 @@ export default function AdminCariPage() {
             <div>
               <input 
                 type="text" 
-                placeholder="Telefon No veya Kart Kodu"
+                placeholder="Telefon No veya Kart Kodu (Barkod okutun)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (searchQuery.trim()) {
+                      handleSearch(e as any);
+                    }
+                  }
+                }}
+                autoFocus
                 className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 px-4 py-2"
               />
             </div>

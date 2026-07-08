@@ -114,7 +114,8 @@ export async function POST(req: Request) {
         .insert({
           phone: normalizedPhone,
           phone_normalized: normalizedPhone,
-          full_name: fullName
+          full_name: fullName,
+          status: 'pending_review'
         })
         .select('id')
         .single();
@@ -148,7 +149,8 @@ export async function POST(req: Request) {
         .insert({
           credit_customer_id: creditCustomerId,
           statement_day: statementDay,
-          credit_limit: 0 // Default 0 until admin approves
+          credit_limit: 0,
+          status: 'pending_review'
         })
         .select('id')
         .single();

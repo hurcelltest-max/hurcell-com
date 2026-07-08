@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Phone, MapPin, AlertCircle, FileText, Calendar, CreditCard, ChevronLeft } from 'lucide-react';
+import { Phone, MapPin, AlertCircle, FileText, Calendar, CreditCard, ChevronLeft, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -15,6 +15,14 @@ export default function CariKartPage({ params }: { params: { card_token: string 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [noteLoading, setNoteLoading] = useState(false);
+  
+  // Review Form State
+  const [decision, setDecision] = useState<'approve'|'reject'|'suspend'>('approve');
+  const [limit, setLimit] = useState<string>('0');
+  const [statementDay, setStatementDay] = useState<number>(10);
+  const [reason, setReason] = useState<string>('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   useEffect(() => {
     fetchCustomer();
@@ -27,6 +35,12 @@ export default function CariKartPage({ params }: { params: { card_token: string 
       if (!res.ok) throw new Error(data.error);
       setCustomer(data.customer);
       fetchNotes(data.customer.id);
+      
+      const account = data.customer.credit_accounts?.[0];
+      if (account) {
+        setLimit(account.credit_limit.toString());
+        setStatementDay(account.statement_day || 10);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -65,11 +79,67 @@ export default function CariKartPage({ params }: { params: { card_token: string 
     }
   };
 
+  const handleReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reason.trim()) {
+      setReviewError('Sebep girmek zorunludur.');
+      return;
+    }
+    
+    // Warning for approve with 0 limit
+    if (decision === 'approve' && parseFloat(limit) === 0) {
+      if (!window.confirm("Dikkat! Müşteriyi 0 limitle onaylıyorsunuz. Emin misiniz?")) {
+        return;
+      }
+    }
+
+    setReviewLoading(true);
+    setReviewError('');
+    try {
+      const payloadLimit = decision === 'reject' ? '0' : limit;
+      
+      const res = await fetch('/api/admin/cari/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: customer.id,
+          decision,
+          limit: payloadLimit,
+          statementDay,
+          reason
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      // Refresh customer data
+      alert('İnceleme başarıyla kaydedildi.');
+      fetchCustomer();
+      setReason(''); // Reset reason
+    } catch (err: any) {
+      setReviewError(err.message);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Yükleniyor...</div>;
   if (error || !customer) return <div className="p-8 text-center text-red-500">{error || 'Bulunamadı'}</div>;
 
   const account = customer.credit_accounts?.[0];
+  const auditLogs = customer.credit_audit_logs || [];
   const qrUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/cari/kart/${token}`;
+
+  const StatusBadge = ({ status }: { status: string }) => {
+    switch (status) {
+      case 'pending_review': return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">İnceleme Bekliyor</span>;
+      case 'active': return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">Aktif</span>;
+      case 'rejected': return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">Reddedildi</span>;
+      case 'suspended': return <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">Askıya Alındı</span>;
+      case 'closed': return <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">Kapalı</span>;
+      default: return <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">{status}</span>;
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -90,6 +160,10 @@ export default function CariKartPage({ params }: { params: { card_token: string 
               </div>
               <h1 className="text-xl font-bold text-white mb-1">{customer.full_name}</h1>
               <p className="text-blue-100 font-mono tracking-wider">{customer.customer_card_code}</p>
+              
+              <div className="mt-3 flex justify-center gap-2">
+                <StatusBadge status={customer.status} />
+              </div>
             </div>
             <div className="p-6">
               <div className="space-y-4">
@@ -124,13 +198,16 @@ export default function CariKartPage({ params }: { params: { card_token: string 
           </div>
         </div>
 
-        {/* Sağ Kolon: Finans & Geçmiş */}
+        {/* Sağ Kolon: Finans & İnceleme Formu & Geçmiş */}
         <div className="lg:col-span-2 space-y-6">
           {/* Finansal Özet */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-6">
               <CreditCard className="w-5 h-5 text-blue-500" />
               Finansal Özet
+              <div className="ml-auto">
+                {account && <StatusBadge status={account.status} />}
+              </div>
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
@@ -154,7 +231,110 @@ export default function CariKartPage({ params }: { params: { card_token: string 
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* İnceleme ve Onay Formu */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <ShieldCheck className="w-5 h-5 text-purple-500" />
+              Başvuru / Statü İnceleme
+            </h2>
+            
+            <form onSubmit={handleReview} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Karar</label>
+                  <select 
+                    value={decision}
+                    onChange={(e: any) => setDecision(e.target.value)}
+                    className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="approve">Onayla (Active)</option>
+                    <option value="suspend">Askıya Al (Suspend)</option>
+                    <option value="reject">Reddet (Reject)</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Yeni Limit (TL)</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={decision === 'reject' ? '0' : limit}
+                    onChange={(e) => setLimit(e.target.value)}
+                    disabled={decision === 'reject'}
+                    className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hesap Kesim Günü</label>
+                  <select 
+                    value={statementDay}
+                    onChange={(e) => setStatementDay(Number(e.target.value))}
+                    className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value={10}>Her ayın 10'u</option>
+                    <option value={15}>Her ayın 15'i</option>
+                    <option value={20}>Her ayın 20'si</option>
+                    <option value={25}>Her ayın 25'i</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sebep (Zorunlu)</label>
+                <textarea 
+                  required
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Mernis onayı yapıldı, limit atandı vs."
+                  className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 h-20 resize-none"
+                />
+              </div>
+
+              {reviewError && <p className="text-red-600 text-sm">{reviewError}</p>}
+
+              <button 
+                type="submit"
+                disabled={reviewLoading}
+                className="w-full bg-purple-600 text-white font-medium py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+              >
+                {reviewLoading ? 'İşleniyor...' : 'Kararı Kaydet'}
+              </button>
+            </form>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Audit Log Geçmişi */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-[400px] flex flex-col">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-gray-500" />
+                İşlem Tarihçesi
+              </h2>
+              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                {auditLogs.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">Henüz işlem yapılmamış.</p>
+                ) : (
+                  auditLogs.map((log: any) => (
+                    <div key={log.id} className="text-sm border-l-2 border-gray-200 pl-4 py-1">
+                      <p className="font-medium text-gray-900">
+                        {log.action_type === 'application_review' 
+                          ? (log.new_value?.decision === 'approve' ? 'Onaylandı' : log.new_value?.decision === 'reject' ? 'Reddedildi' : 'Askıya Alındı')
+                          : log.action_type}
+                      </p>
+                      <p className="text-gray-600 mt-1">{log.reason}</p>
+                      {log.new_value?.limit !== undefined && (
+                        <p className="text-xs text-gray-500 mt-1">Limit: {log.new_value.limit} TL</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-2">
+                        {new Date(log.created_at).toLocaleString('tr-TR')} • İşlem: {log.admin_username}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             {/* Admin Notları */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-[400px]">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
@@ -192,18 +372,6 @@ export default function CariKartPage({ params }: { params: { card_token: string 
                     </div>
                   ))
                 )}
-              </div>
-            </div>
-
-            {/* Geçmiş İşlemler */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-[400px] flex flex-col">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">İşlem Geçmişi</h2>
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                <FileText className="w-8 h-8 text-gray-400 mb-3" />
-                <h3 className="text-sm font-medium text-gray-900 mb-1">Henüz kayıt yok</h3>
-                <p className="text-xs text-gray-500 max-w-[200px] leading-relaxed">
-                  Alışveriş ve ödeme geçmişi Phase 2 ile birlikte aktif edilecektir.
-                </p>
               </div>
             </div>
           </div>

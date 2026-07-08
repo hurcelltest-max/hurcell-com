@@ -14,7 +14,8 @@ export async function GET(req: Request, { params }: { params: { cardToken: strin
       .select(`
         id, customer_card_code, card_token, full_name, phone, address, city, district, status,
         credit_accounts ( id, credit_limit, current_balance, statement_day, status ),
-        credit_agreement_acceptances ( id, accepted_at )
+        credit_agreement_acceptances ( id, accepted_at ),
+        credit_audit_logs ( id, admin_username, action_type, old_value, new_value, reason, created_at )
       `)
       .eq('card_token', token)
       .maybeSingle();

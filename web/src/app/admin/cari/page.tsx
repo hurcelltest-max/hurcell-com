@@ -19,7 +19,7 @@ export default function AdminCariPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/cari/arama', {
+      const res = await fetch('/api/admin/cari/arama', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: searchQuery })

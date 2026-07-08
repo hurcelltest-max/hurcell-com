@@ -22,7 +22,7 @@ export default function CariKartPage({ params }: { params: { card_token: string 
 
   const fetchCustomer = async () => {
     try {
-      const res = await fetch(`/api/cari/musteri/${token}`);
+      const res = await fetch(`/api/admin/cari/musteri/${token}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setCustomer(data.customer);
@@ -36,7 +36,7 @@ export default function CariKartPage({ params }: { params: { card_token: string 
 
   const fetchNotes = async (customerId: string) => {
     try {
-      const res = await fetch(`/api/cari/notlar?customerId=${customerId}`);
+      const res = await fetch(`/api/admin/cari/notlar?customerId=${customerId}`);
       const data = await res.json();
       if (res.ok) setNotes(data.notes);
     } catch (err) {
@@ -49,7 +49,7 @@ export default function CariKartPage({ params }: { params: { card_token: string 
     if (!newNote.trim()) return;
     setNoteLoading(true);
     try {
-      const res = await fetch('/api/cari/notlar', {
+      const res = await fetch('/api/admin/cari/notlar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customerId: customer.id, note: newNote })

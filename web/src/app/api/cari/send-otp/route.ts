@@ -13,7 +13,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Telefon numarası eksik.' }, { status: 400 });
     }
 
-    const normalizedPhone = normalizeTurkishPhoneNumber(phone);
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('90') && cleanPhone.length === 12) {
+      cleanPhone = cleanPhone.slice(2);
+    } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+      cleanPhone = cleanPhone.slice(1);
+    }
+
+    if (!/^5\d{9}$/.test(cleanPhone)) {
+      return NextResponse.json({ error: 'Telefon numarası 5XXXXXXXXX formatında olmalıdır.' }, { status: 400 });
+    }
+
+    const normalizedPhone = normalizeTurkishPhoneNumber(cleanPhone);
     const ip = req.headers.get('x-forwarded-for') || 'unknown';
 
     // Rate Limit (IP)

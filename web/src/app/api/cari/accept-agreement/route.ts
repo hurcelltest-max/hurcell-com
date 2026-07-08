@@ -24,13 +24,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Telefon numarası veya doğrulama tokenı eksik.' }, { status: 400 });
     }
 
-    if (!firstName || !lastName || firstName.trim().length < 2 || lastName.trim().length < 2) {
+    if (!firstName || !lastName) {
       return NextResponse.json({ error: 'Geçerli bir ad ve soyad girmelisiniz.' }, { status: 400 });
     }
-    if (firstName.length > 50 || lastName.length > 50) {
+
+    const cleanFirstName = firstName.trim();
+    const cleanLastName = lastName.trim();
+
+    if (cleanFirstName.length < 2 || cleanLastName.length < 2) {
+      return NextResponse.json({ error: 'Geçerli bir ad ve soyad girmelisiniz.' }, { status: 400 });
+    }
+    if (cleanFirstName.length > 50 || cleanLastName.length > 50) {
       return NextResponse.json({ error: 'Ad veya soyad çok uzun.' }, { status: 400 });
     }
-    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+    const fullName = `${cleanFirstName} ${cleanLastName}`;
 
     let cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.startsWith('90') && cleanPhone.length === 12) {
@@ -91,10 +98,15 @@ export async function POST(req: Request) {
     if (existingCustomer) {
       creditCustomerId = existingCustomer.id;
       if (existingCustomer.full_name === 'Yeni Cari Müşteri' || !existingCustomer.full_name) {
-        await supabaseAdmin
+        const { error: updateNameError } = await supabaseAdmin
           .from('credit_customers')
           .update({ full_name: fullName })
           .eq('id', existingCustomer.id);
+
+        if (updateNameError) {
+          console.error('[CARI ACCEPTANCE DB ERROR] Failed to update full_name:', updateNameError);
+          return NextResponse.json({ error: 'Sistem hatası oluştu. Lütfen tekrar deneyin.' }, { status: 500 });
+        }
       }
     } else {
       const { data: newCustomer, error: createCustError } = await supabaseAdmin

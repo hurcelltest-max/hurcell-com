@@ -139,7 +139,7 @@ export default function AgreementOtpForm() {
       }
 
       setStep(1) // Hide form
-      setSuccess('Sözleşme onayınız başarıyla kaydedildi. Artık alışverişinize devam edebilirsiniz.')
+      setSuccess('Sözleşme onayınız ve limitli alışveriş başvurunuz başarıyla alınmıştır. Başvurunuz HurCELL tarafından incelendikten sonra uygun görülürse limit tanımlanacaktır.')
       
       // Reset form
       setPhone('')

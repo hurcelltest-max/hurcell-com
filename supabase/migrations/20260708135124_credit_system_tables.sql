@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS public.credit_agreement_acceptances (
     agreement_version TEXT NOT NULL,
     agreement_title TEXT NOT NULL,
     agreement_body_hash TEXT NOT NULL,
-    agreement_body_snapshot TEXT,
+    agreement_body_snapshot TEXT NOT NULL,
     accepted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     accepted_phone TEXT NOT NULL,
     otp_verification_id UUID REFERENCES public.phone_verifications(id) ON DELETE SET NULL,

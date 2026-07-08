@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, use } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Phone, MapPin, AlertCircle, FileText, Calendar, CreditCard, ChevronLeft, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-export default function CariKartPage({ params }: { params: { card_token: string } }) {
+export default function CariKartPage(props: { params: Promise<{ card_token: string }> }) {
+  const params = use(props.params);
   const router = useRouter();
   const token = params.card_token;
   const [customer, setCustomer] = useState<any>(null);

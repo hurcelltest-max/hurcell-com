@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
-export async function GET(req: Request, { params }: { params: { cardToken: string } }) {
+export async function GET(req: Request, context: { params: Promise<{ cardToken: string }> }) {
   try {
-    const token = params.cardToken;
+    const { cardToken: token } = await context.params;
 
     if (!token) {
       return NextResponse.json({ error: 'Token eksik' }, { status: 400 });

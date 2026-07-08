@@ -13,6 +13,14 @@ export async function POST(req: Request) {
 
     const normalizedPhone = normalizeTurkishPhoneNumber(phone);
 
+    if (!/^5\d{9}$/.test(normalizedPhone)) {
+      return NextResponse.json({ error: 'Telefon numarası 5XXXXXXXXX formatında olmalıdır.' }, { status: 400 });
+    }
+
+    if (!/^\d{6}$/.test(code)) {
+      return NextResponse.json({ error: 'Doğrulama kodu 6 haneli olmalıdır.' }, { status: 400 });
+    }
+
     // 1. Get the latest unverified OTP for this phone
     const { data: record, error: fetchError } = await supabaseAdmin
       .from('phone_verifications')

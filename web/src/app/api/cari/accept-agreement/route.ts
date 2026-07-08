@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { hashOtpCode } from '@/lib/sms/otp';
 import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 export async function POST(req: Request) {
   try {
@@ -9,9 +12,6 @@ export async function POST(req: Request) {
     const { 
       phone, 
       code, 
-      agreement_version, 
-      agreement_title, 
-      agreement_body_hash, 
       checkbox_terms_accepted, 
       checkbox_payment_terms_accepted, 
       checkbox_kvkk_notice_read,
@@ -26,6 +26,21 @@ export async function POST(req: Request) {
     if (!checkbox_terms_accepted || !checkbox_payment_terms_accepted || !checkbox_kvkk_notice_read) {
       return NextResponse.json({ error: 'Zorunlu alanları onaylamanız gerekmektedir.' }, { status: 400 });
     }
+
+    // Server-side agreement read
+    const agreementVersion = '2026-07-v1';
+    const agreementTitle = 'HurCELL Limitli Alışveriş / Cari Hesap Sözleşmesi';
+    const filePath = path.join(process.cwd(), 'src', 'content', 'agreements', `limitli-alisveris-${agreementVersion}.md`);
+    let agreementBodySnapshot = '';
+    
+    try {
+      agreementBodySnapshot = fs.readFileSync(filePath, 'utf8');
+    } catch (err) {
+      console.error('[CARI ACCEPTANCE] Error reading agreement file:', err);
+      return NextResponse.json({ error: 'Sözleşme dosyası okunamadı.' }, { status: 500 });
+    }
+
+    const agreementBodyHash = crypto.createHash('sha256').update(agreementBodySnapshot).digest('hex');
 
     const normalizedPhone = normalizeTurkishPhoneNumber(phone);
     const otpHash = hashOtpCode(normalizedPhone, code, 'cari_agreement');
@@ -108,9 +123,10 @@ export async function POST(req: Request) {
       .insert({
         credit_customer_id: creditCustomerId,
         credit_account_id: creditAccountId,
-        agreement_version,
-        agreement_title,
-        agreement_body_hash,
+        agreement_version: agreementVersion,
+        agreement_title: agreementTitle,
+        agreement_body_hash: agreementBodyHash,
+        agreement_body_snapshot: agreementBodySnapshot,
         accepted_phone: normalizedPhone,
         otp_verification_id: verificationId,
         ip_address: ip,

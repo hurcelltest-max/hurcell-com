@@ -96,21 +96,23 @@ CREATE POLICY "ServiceRole insert to credit_agreement_acceptances" ON public.cre
 CREATE POLICY "ServiceRole select to credit_agreement_acceptances" ON public.credit_agreement_acceptances FOR SELECT TO service_role USING (true);
 
 -- Trigger to prevent update/delete on append-only tables
-CREATE OR REPLACE FUNCTION public.prevent_update_delete()
+CREATE OR REPLACE FUNCTION public.prevent_credit_append_only_update_delete()
 RETURNS TRIGGER AS $$
 BEGIN
-    RAISE EXCEPTION 'Updates and Deletes are strictly forbidden on this table.';
+    RAISE EXCEPTION 'Updates and Deletes are strictly forbidden on table: %', TG_TABLE_NAME;
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS prevent_credit_agreement_modifications ON public.credit_agreement_acceptances;
 CREATE TRIGGER prevent_credit_agreement_modifications
 BEFORE UPDATE OR DELETE ON public.credit_agreement_acceptances
-FOR EACH ROW EXECUTE FUNCTION public.prevent_update_delete();
+FOR EACH ROW EXECUTE FUNCTION public.prevent_credit_append_only_update_delete();
 
 -- 4. credit_audit_logs (Append-Only)
 CREATE POLICY "ServiceRole insert to credit_audit_logs" ON public.credit_audit_logs FOR INSERT TO service_role WITH CHECK (true);
 CREATE POLICY "ServiceRole select to credit_audit_logs" ON public.credit_audit_logs FOR SELECT TO service_role USING (true);
 
+DROP TRIGGER IF EXISTS prevent_credit_audit_logs_modifications ON public.credit_audit_logs;
 CREATE TRIGGER prevent_credit_audit_logs_modifications
 BEFORE UPDATE OR DELETE ON public.credit_audit_logs
-FOR EACH ROW EXECUTE FUNCTION public.prevent_update_delete();
+FOR EACH ROW EXECUTE FUNCTION public.prevent_credit_append_only_update_delete();

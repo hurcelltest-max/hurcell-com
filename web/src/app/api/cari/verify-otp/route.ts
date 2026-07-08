@@ -11,15 +11,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Telefon numarası veya kod eksik.' }, { status: 400 });
     }
 
-    const normalizedPhone = normalizeTurkishPhoneNumber(phone);
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('90') && cleanPhone.length === 12) {
+      cleanPhone = cleanPhone.slice(2);
+    } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+      cleanPhone = cleanPhone.slice(1);
+    }
 
-    if (!/^5\d{9}$/.test(normalizedPhone)) {
+    if (!/^5\d{9}$/.test(cleanPhone)) {
       return NextResponse.json({ error: 'Telefon numarası 5XXXXXXXXX formatında olmalıdır.' }, { status: 400 });
     }
 
     if (!/^\d{6}$/.test(code)) {
       return NextResponse.json({ error: 'Doğrulama kodu 6 haneli olmalıdır.' }, { status: 400 });
     }
+
+    const normalizedPhone = normalizeTurkishPhoneNumber(cleanPhone);
 
     // 1. Get the latest unverified OTP for this phone
     const { data: record, error: fetchError } = await supabaseAdmin

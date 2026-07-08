@@ -12,6 +12,9 @@ export default function AgreementOtpForm() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+
   // Checkboxes
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [paymentTermsAccepted, setPaymentTermsAccepted] = useState(false)
@@ -101,6 +104,11 @@ export default function AgreementOtpForm() {
       return
     }
 
+    if (!firstName || !lastName || firstName.trim().length < 2 || lastName.trim().length < 2) {
+      setError('Lütfen adınızı ve soyadınızı tam giriniz.')
+      return
+    }
+
     if (!termsAccepted || !paymentTermsAccepted || !kvkkAccepted) {
       setError('Lütfen zorunlu tüm şartları onaylayınız.')
       return
@@ -114,6 +122,8 @@ export default function AgreementOtpForm() {
         body: JSON.stringify({
           phone: phone.replace(/\D/g, ''),
           verificationToken,
+          firstName,
+          lastName,
           checkbox_terms_accepted: termsAccepted,
           checkbox_payment_terms_accepted: paymentTermsAccepted,
           checkbox_kvkk_notice_read: kvkkAccepted,
@@ -135,6 +145,8 @@ export default function AgreementOtpForm() {
       setPhone('')
       setCode('')
       setVerificationToken('')
+      setFirstName('')
+      setLastName('')
       setTermsAccepted(false)
       setPaymentTermsAccepted(false)
       setKvkkAccepted(false)
@@ -256,6 +268,21 @@ export default function AgreementOtpForm() {
           )}
           
           <div className="space-y-3">
+            <div className="p-4 bg-blue-50 text-blue-800 text-sm rounded-lg mb-4">
+              Ad soyad bilgisi başvuru beyanıdır. Limit tanımı HurCELL incelemesi ve onayı sonrası yapılır.
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Adınız <span className="text-red-500">*</span></label>
+                <input type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)} className="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 px-3 border outline-none" placeholder="Örn: Ali" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Soyadınız <span className="text-red-500">*</span></label>
+                <input type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)} className="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 px-3 border outline-none" placeholder="Örn: Yılmaz" />
+              </div>
+            </div>
+
             <div className="flex items-start">
               <div className="flex items-center h-5">
                 <input
@@ -347,7 +374,7 @@ export default function AgreementOtpForm() {
 
           <button
             type="submit"
-            disabled={loading || !termsAccepted || !paymentTermsAccepted || !kvkkAccepted}
+            disabled={loading || !termsAccepted || !paymentTermsAccepted || !kvkkAccepted || !firstName.trim() || !lastName.trim()}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Sözleşmeyi Onaylıyorum'}

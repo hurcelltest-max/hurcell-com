@@ -11,6 +11,8 @@ export async function POST(req: Request) {
     const { 
       phone, 
       verificationToken, 
+      firstName,
+      lastName,
       checkbox_terms_accepted, 
       checkbox_payment_terms_accepted, 
       checkbox_kvkk_notice_read,
@@ -22,11 +24,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Telefon numarası veya doğrulama tokenı eksik.' }, { status: 400 });
     }
 
-    const normalizedPhone = normalizeTurkishPhoneNumber(phone);
+    if (!firstName || !lastName || firstName.trim().length < 2 || lastName.trim().length < 2) {
+      return NextResponse.json({ error: 'Geçerli bir ad ve soyad girmelisiniz.' }, { status: 400 });
+    }
+    if (firstName.length > 50 || lastName.length > 50) {
+      return NextResponse.json({ error: 'Ad veya soyad çok uzun.' }, { status: 400 });
+    }
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
-    if (!/^5\d{9}$/.test(normalizedPhone)) {
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('90') && cleanPhone.length === 12) {
+      cleanPhone = cleanPhone.slice(2);
+    } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+      cleanPhone = cleanPhone.slice(1);
+    }
+
+    if (!/^5\d{9}$/.test(cleanPhone)) {
       return NextResponse.json({ error: 'Telefon numarası 5XXXXXXXXX formatında olmalıdır.' }, { status: 400 });
     }
+
+    const normalizedPhone = normalizeTurkishPhoneNumber(cleanPhone);
 
     if (!/^[a-f0-9]{64}$/i.test(verificationToken)) {
       return NextResponse.json({ error: 'Doğrulama tokenı geçersiz formatta.' }, { status: 400 });
@@ -67,19 +84,25 @@ export async function POST(req: Request) {
     let creditCustomerId: string;
     const { data: existingCustomer } = await supabaseAdmin
       .from('credit_customers')
-      .select('id')
+      .select('id, full_name')
       .eq('phone_normalized', normalizedPhone)
       .maybeSingle();
 
     if (existingCustomer) {
       creditCustomerId = existingCustomer.id;
+      if (existingCustomer.full_name === 'Yeni Cari Müşteri' || !existingCustomer.full_name) {
+        await supabaseAdmin
+          .from('credit_customers')
+          .update({ full_name: fullName })
+          .eq('id', existingCustomer.id);
+      }
     } else {
       const { data: newCustomer, error: createCustError } = await supabaseAdmin
         .from('credit_customers')
         .insert({
           phone: normalizedPhone,
           phone_normalized: normalizedPhone,
-          full_name: 'Yeni Cari Müşteri' // Admin can update later
+          full_name: fullName
         })
         .select('id')
         .single();

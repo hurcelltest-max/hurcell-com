@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { hashOtpCode } from '@/lib/sms/otp';
 import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
 import fs from 'fs';
 import path from 'path';
@@ -11,7 +10,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { 
       phone, 
-      code, 
+      verificationToken, 
       checkbox_terms_accepted, 
       checkbox_payment_terms_accepted, 
       checkbox_kvkk_notice_read,
@@ -19,8 +18,8 @@ export async function POST(req: Request) {
       marketing_whatsapp_consent
     } = body;
 
-    if (!phone || !code) {
-      return NextResponse.json({ error: 'Telefon numarası veya kod eksik.' }, { status: 400 });
+    if (!phone || !verificationToken) {
+      return NextResponse.json({ error: 'Telefon numarası veya doğrulama tokenı eksik.' }, { status: 400 });
     }
 
     if (!checkbox_terms_accepted || !checkbox_payment_terms_accepted || !checkbox_kvkk_notice_read) {
@@ -43,16 +42,16 @@ export async function POST(req: Request) {
     const agreementBodyHash = crypto.createHash('sha256').update(agreementBodySnapshot).digest('hex');
 
     const normalizedPhone = normalizeTurkishPhoneNumber(phone);
-    const otpHash = hashOtpCode(normalizedPhone, code, 'cari_agreement');
+    const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
     
     // 1. Verify and Consume Token
     const { data: verificationId, error: verifyError } = await supabaseAdmin.rpc('consume_phone_verification_token', {
       p_phone: normalizedPhone,
-      p_token_hash: otpHash
+      p_token_hash: tokenHash
     });
 
     if (verifyError || !verificationId) {
-      return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş kod.' }, { status: 400 });
+      return NextResponse.json({ error: 'Geçersiz veya süresi dolmuş doğrulama isteği.' }, { status: 400 });
     }
 
     // 2. Ensure Credit Customer Exists

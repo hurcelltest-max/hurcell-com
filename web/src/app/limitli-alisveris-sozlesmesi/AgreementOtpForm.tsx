@@ -6,7 +6,8 @@ import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 export default function AgreementOtpForm() {
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
-  const [step, setStep] = useState<1 | 2>(1)
+  const [verificationToken, setVerificationToken] = useState('')
+  const [step, setStep] = useState<1 | 2 | 3>(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -53,13 +54,50 @@ export default function AgreementOtpForm() {
     }
   }
 
-  const handleAcceptAgreement = async (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setSuccess('')
 
     if (!code || code.length !== 6) {
       setError('Lütfen 6 haneli doğrulama kodunu giriniz.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/cari/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone.replace(/\D/g, ''),
+          code
+        })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Doğrulama başarısız.')
+      }
+
+      setVerificationToken(data.verificationToken)
+      setSuccess('Telefon numaranız doğrulandı. Lütfen sözleşmeyi onaylayınız.')
+      setStep(3)
+    } catch (err: any) {
+      setError(err.message || 'Beklenmeyen bir hata oluştu.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAcceptAgreement = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+
+    if (!verificationToken) {
+      setError('Doğrulama eksik. Lütfen sayfayı yenileyip tekrar deneyin.')
       return
     }
 
@@ -75,7 +113,7 @@ export default function AgreementOtpForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: phone.replace(/\D/g, ''),
-          code,
+          verificationToken,
           checkbox_terms_accepted: termsAccepted,
           checkbox_payment_terms_accepted: paymentTermsAccepted,
           checkbox_kvkk_notice_read: kvkkAccepted,
@@ -96,6 +134,7 @@ export default function AgreementOtpForm() {
       // Reset form
       setPhone('')
       setCode('')
+      setVerificationToken('')
       setTermsAccepted(false)
       setPaymentTermsAccepted(false)
       setKvkkAccepted(false)
@@ -162,7 +201,7 @@ export default function AgreementOtpForm() {
       )}
 
       {step === 2 && (
-        <form onSubmit={handleAcceptAgreement} className="space-y-6">
+        <form onSubmit={handleVerifyOtp} className="space-y-6">
           {success && (
             <div className="p-3 bg-green-50 text-green-700 text-sm rounded-md font-medium">
               {success}
@@ -184,6 +223,38 @@ export default function AgreementOtpForm() {
             />
           </div>
 
+          <button
+            type="submit"
+            disabled={loading || code.length !== 6}
+            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Doğrula'}
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => {
+              setStep(1);
+              setCode('');
+              setError('');
+              setSuccess('');
+            }}
+            disabled={loading}
+            className="w-full mt-2 text-sm text-gray-500 hover:text-gray-700"
+          >
+            Telefon numarasını değiştir
+          </button>
+        </form>
+      )}
+
+      {step === 3 && (
+        <form onSubmit={handleAcceptAgreement} className="space-y-6">
+          {success && (
+            <div className="p-3 bg-green-50 text-green-700 text-sm rounded-md font-medium">
+              {success}
+            </div>
+          )}
+          
           <div className="space-y-3">
             <div className="flex items-start">
               <div className="flex items-center h-5">
@@ -276,19 +347,10 @@ export default function AgreementOtpForm() {
 
           <button
             type="submit"
-            disabled={loading || code.length !== 6 || !termsAccepted || !paymentTermsAccepted || !kvkkAccepted}
+            disabled={loading || !termsAccepted || !paymentTermsAccepted || !kvkkAccepted}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Sözleşmeyi Onaylıyorum'}
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => setStep(1)}
-            disabled={loading}
-            className="w-full mt-2 text-sm text-gray-500 hover:text-gray-700"
-          >
-            Telefon numarasını değiştir
           </button>
         </form>
       )}

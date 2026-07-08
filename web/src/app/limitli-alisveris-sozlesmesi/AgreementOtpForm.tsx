@@ -139,7 +139,12 @@ export default function AgreementOtpForm() {
       }
 
       setStep(1) // Hide form
-      setSuccess('Sözleşme onayınız ve limitli alışveriş başvurunuz başarıyla alınmıştır. Başvurunuz HurCELL tarafından incelendikten sonra uygun görülürse limit tanımlanacaktır.')
+      
+      if (data.existingCustomer) {
+        setSuccess('Bu telefon numarasıyla daha önce bir cari / limitli alışveriş kaydı oluşturulmuş. Yeni başvuru açılmadı. Limit veya cari işlem talepleriniz için HurCELL ile iletişime geçebilirsiniz.')
+      } else {
+        setSuccess('Sözleşme onayınız ve limitli alışveriş başvurunuz başarıyla alınmıştır. Başvurunuz HurCELL tarafından incelendikten sonra uygun görülürse limit tanımlanacaktır.')
+      }
       
       // Reset form
       setPhone('')

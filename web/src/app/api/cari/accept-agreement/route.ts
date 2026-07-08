@@ -89,6 +89,8 @@ export async function POST(req: Request) {
 
     // 2. Ensure Credit Customer Exists
     let creditCustomerId: string;
+    let isExistingCustomer = false;
+    
     const { data: existingCustomer } = await supabaseAdmin
       .from('credit_customers')
       .select('id, full_name')
@@ -96,18 +98,8 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (existingCustomer) {
+      isExistingCustomer = true;
       creditCustomerId = existingCustomer.id;
-      if (existingCustomer.full_name === 'Yeni Cari Müşteri' || !existingCustomer.full_name) {
-        const { error: updateNameError } = await supabaseAdmin
-          .from('credit_customers')
-          .update({ full_name: fullName })
-          .eq('id', existingCustomer.id);
-
-        if (updateNameError) {
-          console.error('[CARI ACCEPTANCE DB ERROR] Failed to update full_name:', updateNameError);
-          return NextResponse.json({ error: 'Sistem hatası oluştu. Lütfen tekrar deneyin.' }, { status: 500 });
-        }
-      }
     } else {
       const { data: newCustomer, error: createCustError } = await supabaseAdmin
         .from('credit_customers')
@@ -135,6 +127,11 @@ export async function POST(req: Request) {
     if (existingAccount) {
       creditAccountId = existingAccount.id;
     } else {
+      if (isExistingCustomer) {
+        // Müşteri var ama hesap yoksa güvenlik gereği yeni açmıyoruz
+        return NextResponse.json({ error: 'Cari hesap kaydı bulunamadı. Lütfen HurCELL ile iletişime geçin.' }, { status: 400 });
+      }
+
       // statement_day determination: 
       // 1-9 -> 10, 10-14 -> 15, 15-19 -> 20, 20-24 -> 25, 25+ -> 10
       const currentDay = new Date().getDate();
@@ -190,6 +187,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ 
       success: true, 
+      existingCustomer: isExistingCustomer,
       message: 'Sözleşme başarıyla onaylandı.'
     });
 

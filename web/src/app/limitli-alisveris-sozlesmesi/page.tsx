@@ -1,7 +1,8 @@
 import React from 'react'
 import fs from 'fs'
 import path from 'path'
-import { CheckCircle, ShieldAlert } from 'lucide-react'
+import { ShieldAlert } from 'lucide-react'
+import AgreementOtpForm from './AgreementOtpForm'
 
 export const metadata = {
   title: 'Limitli Alışveriş ve Cari Hesap Sözleşmesi | HurCELL',
@@ -67,12 +68,9 @@ export default async function LimitliAlisverisSozlesmesiPage() {
             )}
           </div>
 
-          {/* Footer Action */}
-          <div className="bg-gray-50 border-t border-gray-100 p-6 sm:px-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-start gap-3 text-sm text-gray-500">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <p>Bu sözleşme mağazalarımızda tarafınıza gönderilecek SMS doğrulama kodu (OTP) ile dijital ortamda onaylanacaktır.</p>
-            </div>
+          {/* Footer Action / Form */}
+          <div className="p-6 sm:p-10 pt-0">
+            <AgreementOtpForm />
           </div>
         </div>
       </div>

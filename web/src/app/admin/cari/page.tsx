@@ -83,13 +83,22 @@ export default function AdminCariPage() {
           <h1 className="text-2xl font-bold text-gray-900">Cari & Veresiye Sistemi</h1>
           <p className="text-gray-500 mt-1">Limitli alışveriş müşterilerini ve hesaplarını yönetin.</p>
         </div>
-        <Link 
-          href="/admin/cari/yeni-musteri" 
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-        >
-          <UserPlus className="w-5 h-5" />
-          <span>Yeni Müşteri Oluştur</span>
-        </Link>
+        <div className="flex gap-3">
+          <Link 
+            href="/admin/cari/qr-okut" 
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            <Search className="w-5 h-5" />
+            <span>QR Okut</span>
+          </Link>
+          <Link 
+            href="/admin/cari/yeni-musteri" 
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            <UserPlus className="w-5 h-5" />
+            <span>Yeni Müşteri Oluştur</span>
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

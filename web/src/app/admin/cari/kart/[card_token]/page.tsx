@@ -16,6 +16,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [noteLoading, setNoteLoading] = useState(false);
+  const [showCard, setShowCard] = useState(false);
   
   // Review Form State
   const [decision, setDecision] = useState<'approve'|'reject'|'suspend'>('approve');
@@ -142,8 +143,81 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
     }
   };
 
+  const DigitalCardModal = () => {
+    if (!showCard) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden relative">
+          <button 
+            onClick={() => setShowCard(false)} 
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 z-10"
+          >
+            ✕
+          </button>
+          
+          <div id="printable-card" className="bg-white p-8 text-center relative">
+            <div className="absolute top-0 left-0 w-full h-2 bg-blue-600"></div>
+            <h2 className="text-3xl font-extrabold text-blue-600 mb-1 tracking-tight mt-2">HurCELL</h2>
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-8 font-semibold">Dijital Müşteri Kartı</p>
+            
+            <div className="bg-white border-2 border-gray-100 rounded-2xl p-4 inline-block mb-6 shadow-sm">
+              <QRCodeSVG value={qrUrl} size={160} level="M" />
+            </div>
+            
+            <h3 className="text-xl font-bold text-gray-900 mb-1 leading-tight">{customer.full_name}</h3>
+            <p className="font-mono text-sm text-gray-500 mb-6 bg-gray-50 py-1 px-3 rounded inline-block">{customer.customer_card_code}</p>
+            
+            <div className="text-xs text-gray-600 space-y-3 px-2 border-t border-gray-100 pt-6">
+              <p className="font-medium">Mağaza içi işlemlerde bu QR kodu okutunuz.</p>
+              <p className="text-[10px] text-gray-400 leading-relaxed">
+                Bu kart ödeme aracı değildir. Limit ve kullanım hakkı HurCELL onayına tabidir.
+              </p>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center gap-3">
+            <button 
+              onClick={() => setShowCard(false)} 
+              className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-200 transition-colors"
+            >
+              Kapat
+            </button>
+            <button 
+              onClick={() => {
+                const printContent = document.getElementById('printable-card');
+                const windowPrint = window.open('', '', 'width=600,height=800');
+                windowPrint?.document.write(`
+                  <html><head><title>HurCELL Dijital Kart - ${customer.full_name}</title>
+                  <script src="https://cdn.tailwindcss.com"></script>
+                  <style>
+                    body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f9fafb; font-family: ui-sans-serif, system-ui, sans-serif; }
+                    @media print {
+                      body { background: white; }
+                      .print-wrapper { box-shadow: none !important; border: 2px solid #e5e7eb; }
+                    }
+                  </style>
+                  </head><body>
+                  <div class="print-wrapper bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-lg relative overflow-hidden">
+                    ${printContent?.innerHTML}
+                  </div>
+                  <script>setTimeout(() => { window.print(); window.close(); }, 800);</script>
+                  </body></html>
+                `);
+                windowPrint?.document.close();
+              }} 
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <FileText className="w-4 h-4" /> Kartı Yazdır
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+      <DigitalCardModal />
       <Link href="/admin/cari" className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 mb-6 transition-colors">
         <ChevronLeft className="w-4 h-4 mr-1" />
         Aramaya Dön
@@ -191,6 +265,13 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
                 <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">
                   <QRCodeSVG value={qrUrl} size={150} level="M" />
                 </div>
+                <button 
+                  onClick={() => setShowCard(true)}
+                  className="mt-4 flex items-center justify-center gap-2 w-full py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg font-medium transition-colors"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  Kartı Yazdır / Dijital Kart
+                </button>
                 <p className="text-xs text-center text-gray-500 mt-4 leading-relaxed max-w-[200px]">
                   Mağaza içi işlemlerde bu QR kodu okutarak hızlı erişim sağlayabilirsiniz.
                 </p>

@@ -6,12 +6,15 @@ import Barcode from 'react-barcode';
 import { Phone, MapPin, AlertCircle, FileText, Calendar, CreditCard, ChevronLeft, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import TransactionList from '@/components/admin/cari/TransactionList';
+import TransactionForm from '@/components/admin/cari/TransactionForm';
 
 export default function CariKartPage(props: { params: Promise<{ card_token: string }> }) {
   const params = use(props.params);
   const router = useRouter();
   const token = params.card_token;
   const [customer, setCustomer] = useState<any>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(true);
@@ -37,6 +40,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setCustomer(data.customer);
+      setTransactions(data.transactions || []);
       fetchNotes(data.customer.id);
       
       const account = data.customer.credit_accounts?.[0];
@@ -318,7 +322,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
               </div>
               <div className="p-4 bg-green-50 rounded-xl border border-green-100">
                 <p className="text-sm text-green-600 mb-1">Kalan Limit</p>
-                <p className="text-xl font-bold text-green-700">₺{(account?.credit_limit || 0) - (account?.current_balance || 0)}</p>
+                <p className="text-xl font-bold text-green-700">₺{account?.available_limit ?? ((account?.credit_limit || 0) - (account?.current_balance || 0))}</p>
               </div>
               <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                 <p className="text-sm text-amber-600 mb-1">Hesap Kesim</p>
@@ -327,6 +331,20 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Cari Hareketler */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-6">
+              <FileText className="w-5 h-5 text-blue-500" />
+              Cari Hareketler
+            </h2>
+            
+            <div className="mb-8">
+              <TransactionForm cardToken={token} onSuccess={fetchCustomer} />
+            </div>
+            
+            <TransactionList transactions={transactions} />
           </div>
 
           {/* İnceleme ve Onay Formu */}

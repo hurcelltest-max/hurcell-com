@@ -25,7 +25,16 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
   // Review Form State
   const [decision, setDecision] = useState<'approve'|'reject'|'suspend'>('approve');
   const [limit, setLimit] = useState<string>('0');
-  const [statementDay, setStatementDay] = useState<number>(10);
+  const getInitialStatementDay = () => {
+    const day = new Date().getDate();
+    if (day <= 10) return 10;
+    if (day <= 15) return 15;
+    if (day <= 20) return 20;
+    if (day <= 25) return 25;
+    return 10;
+  };
+
+  const [statementDay, setStatementDay] = useState<number>(getInitialStatementDay());
   const [reason, setReason] = useState<string>('');
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState('');
@@ -46,7 +55,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
       const account = data.customer.credit_accounts?.[0];
       if (account) {
         setLimit(account.credit_limit.toString());
-        setStatementDay(account.statement_day || 10);
+        setStatementDay(account.statement_day || getInitialStatementDay());
       }
     } catch (err: any) {
       setError(err.message);

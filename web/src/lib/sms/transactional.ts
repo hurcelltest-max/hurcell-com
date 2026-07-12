@@ -119,16 +119,22 @@ export async function sendTransactionalSms(
     // 2. Send SMS
     const provider = getSmsProvider();
     let status = 'sent';
-    let errorMessage = null;
-    let providerMessageId = null;
+    let errorMessage: string | null = null;
+    let providerMessageId: string | null = null;
 
     try {
       const result = await provider.sendSms(phone, message);
-      providerMessageId = result.messageId;
+
+      if (!result.success) {
+        status = 'failed';
+        errorMessage = result.error || 'SMS provider returned success=false';
+      } else {
+        providerMessageId = result.messageId || null;
+      }
     } catch (err: unknown) {
       status = 'failed';
       errorMessage = err instanceof Error ? err.message : 'Unknown provider error';
-      console.error(`[SMS SEND ERROR] To: ${maskPhone(phone)}, Event: ${event}`, err);
+      console.error(`[SMS SEND ERROR] Event: ${event}, To: ${maskPhone(phone)}`);
     }
 
     // 3. Update Log
@@ -145,10 +151,15 @@ export async function sendTransactionalSms(
       updatePayload.next_retry_at = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // Retry after 5 mins
     }
 
-    await supabaseAdmin
+    const { error: statusUpdateError } = await supabaseAdmin
       .from('sms_notifications')
       .update(updatePayload)
       .eq('id', logEntryId);
+
+    if (statusUpdateError) {
+      console.error(`[SMS DB UPDATE ERROR] Event: ${event}, DB Error:`, statusUpdateError);
+      return { success: false };
+    }
 
     return { success: status === 'sent' };
   } catch (err) {

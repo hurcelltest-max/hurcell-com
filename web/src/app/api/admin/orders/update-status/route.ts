@@ -81,20 +81,30 @@ export async function POST(req: Request) {
 
     const internalPhones = (process.env.SMS_INTERNAL_ALERT_PHONES || '').split(',').map(p => p.trim()).filter(Boolean);
     const notify = async (eventType: any) => {
-      sendTransactionalSms(order.id, eventType, 'customer', order.customer_phone, smsData)
-        .catch(e => console.error('[SMS ERROR Customer]', e));
-      for (const phone of internalPhones) {
-        sendTransactionalSms(order.id, eventType, 'internal', phone, smsData)
-          .catch(e => console.error('[SMS ERROR Internal]', e));
+      const notificationJobs = [
+        sendTransactionalSms(order.id, eventType, 'customer', order.customer_phone, smsData),
+        ...internalPhones.map(phone => 
+          sendTransactionalSms(order.id, eventType, 'internal', phone, smsData)
+        )
+      ];
+
+      try {
+        const notificationResults = await Promise.all(notificationJobs);
+        const failedCount = notificationResults.filter(r => !r.success && !r.skipped).length;
+        if (failedCount > 0) {
+          console.error(`[Admin Update Warning] ${failedCount} SMS notification(s) failed for order ${order.order_number}`);
+        }
+      } catch (e) {
+        console.error('[SMS FATAL ERROR during admin update]', e);
       }
     };
 
     if (status === 'shipped') {
-      notify('order_shipped');
+      await notify('order_shipped');
     } else if (status === 'delivered') {
-      notify('order_delivered');
+      await notify('order_delivered');
     } else if (restockStatuses.includes(status)) {
-      notify('delivery_failed');
+      await notify('delivery_failed');
     }
 
     return NextResponse.json({ success: true, message: 'Sipariş başarıyla güncellendi.', status: updatedFields })

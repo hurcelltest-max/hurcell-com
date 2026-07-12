@@ -447,15 +447,24 @@ export async function POST(req: Request) {
       district: shipping_district || ''
     };
 
-    // Customer
-    sendTransactionalSms(order.id, 'order_created', 'customer', normalizedPhone, smsData)
-      .catch(e => console.error('[SMS ERROR Customer]', e));
-
-    // Internal Alerts
+    // Customer and Internal Alerts
     const internalPhones = (process.env.SMS_INTERNAL_ALERT_PHONES || '').split(',').map(p => p.trim()).filter(Boolean);
-    for (const phone of internalPhones) {
-      sendTransactionalSms(order.id, 'order_created', 'internal', phone, smsData)
-        .catch(e => console.error('[SMS ERROR Internal]', e));
+
+    const notificationJobs = [
+      sendTransactionalSms(order.id, 'order_created', 'customer', normalizedPhone, smsData),
+      ...internalPhones.map(phone => 
+        sendTransactionalSms(order.id, 'order_created', 'internal', phone, smsData)
+      )
+    ];
+
+    try {
+      const notificationResults = await Promise.all(notificationJobs);
+      const failedCount = notificationResults.filter(r => !r.success && !r.skipped).length;
+      if (failedCount > 0) {
+        console.error(`[Checkout Warning] ${failedCount} SMS notification(s) failed for order ${order.order_number}`);
+      }
+    } catch (e) {
+      console.error('[SMS FATAL ERROR during checkout]', e);
     }
 
     return NextResponse.json({

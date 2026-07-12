@@ -83,7 +83,7 @@ export async function POST(req: Request) {
     const notify = async (eventType: any) => {
       const notificationJobs = [
         sendTransactionalSms(order.id, eventType, 'customer', order.customer_phone, smsData),
-        ...internalPhones.map(phone => 
+        ...internalPhones.map(phone =>
           sendTransactionalSms(order.id, eventType, 'internal', phone, smsData)
         )
       ];

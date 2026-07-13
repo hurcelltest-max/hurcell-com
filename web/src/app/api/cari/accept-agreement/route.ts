@@ -4,6 +4,7 @@ import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { getAttributionSessionId, logFunnelEvent, buildEventKey } from '@/lib/attribution/server';
 
 export async function POST(req: Request) {
   try {
@@ -160,7 +161,7 @@ export async function POST(req: Request) {
     const ip = req.headers.get('x-forwarded-for') || 'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
-    const { error: insertError } = await supabaseAdmin
+    const { data: newAcceptance, error: insertError } = await supabaseAdmin
       .from('credit_agreement_acceptances')
       .insert({
         credit_customer_id: creditCustomerId,
@@ -178,11 +179,35 @@ export async function POST(req: Request) {
         checkbox_kvkk_notice_read,
         marketing_sms_consent: marketing_sms_consent ?? false,
         marketing_whatsapp_consent: marketing_whatsapp_consent ?? false
-      });
+      })
+      .select('id')
+      .returns<{ id: string }[]>()
+      .single();
 
     if (insertError) {
       console.error('[CARI ACCEPTANCE DB ERROR]', insertError);
       return NextResponse.json({ error: 'Sözleşme onayı kaydedilemedi.' }, { status: 500 });
+    }
+
+    const acceptanceId = newAcceptance?.id;
+    if (!acceptanceId) {
+      console.error('[CARI ACCEPTANCE DB ERROR] No ID returned');
+      return NextResponse.json({ error: 'Sözleşme onayı kaydedilemedi.' }, { status: 500 });
+    }
+
+    // Log attribution
+    try {
+      const sessionId = await getAttributionSessionId();
+      if (sessionId) {
+        await logFunnelEvent(sessionId, 'application_submitted', buildEventKey(`app_submitted_${acceptanceId}`), {
+          phone_verification_id: verificationId,
+          credit_customer_id: creditCustomerId,
+          credit_account_id: creditAccountId,
+          agreement_acceptance_id: acceptanceId
+        });
+      }
+    } catch (err) {
+      console.error('[ATTRIBUTION] application_submitted tracking error', err instanceof Error ? err.message : 'unknown');
     }
 
     return NextResponse.json({ 

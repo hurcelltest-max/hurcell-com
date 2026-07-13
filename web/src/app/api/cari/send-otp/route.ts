@@ -5,6 +5,7 @@ import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
 import { getSmsProvider } from '@/lib/sms/mock-provider';
 import { maskPhone } from '@/lib/sms/netgsm-provider';
 import crypto from 'crypto';
+import { getAttributionSessionId, logFunnelEvent, buildEventKey } from '@/lib/attribution/server';
 
 export async function POST(req: Request) {
   try {
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
     const userAgent = req.headers.get('user-agent') || '';
     const userAgentHash = crypto.createHash('sha256').update(userAgent).digest('hex');
 
-    const { error: insertError } = await supabaseAdmin
+    const { data: newVerification, error: insertError } = await supabaseAdmin
       .from('phone_verifications')
       .insert({
         phone: normalizedPhone,
@@ -67,10 +68,19 @@ export async function POST(req: Request) {
         expires_at: expiresAt,
         ip_address: ip,
         user_agent_hash: userAgentHash
-      });
+      })
+      .select('id')
+      .returns<{ id: string }[]>()
+      .single();
 
     if (insertError) {
       console.error('[CARI OTP DB ERROR]', insertError);
+      return NextResponse.json({ error: 'Sistem hatası oluştu.' }, { status: 500 });
+    }
+
+    const verificationId = newVerification?.id;
+    if (!verificationId) {
+      console.error('[CARI OTP DB ERROR] No ID returned');
       return NextResponse.json({ error: 'Sistem hatası oluştu.' }, { status: 500 });
     }
 
@@ -82,6 +92,18 @@ export async function POST(req: Request) {
     if (!smsResult.success) {
       console.error('[CARI OTP SMS ERROR]', smsResult.error);
       return NextResponse.json({ error: 'SMS gönderilemedi.' }, { status: 500 });
+    }
+
+    // Log attribution
+    try {
+      const sessionId = await getAttributionSessionId();
+      if (sessionId) {
+        await logFunnelEvent(sessionId, 'otp_requested', buildEventKey(`otp_requested_${verificationId}`), {
+          phone_verification_id: verificationId
+        });
+      }
+    } catch (err) {
+      console.error('[ATTRIBUTION] otp_requested tracking error', err instanceof Error ? err.message : 'unknown');
     }
 
     return NextResponse.json({ 

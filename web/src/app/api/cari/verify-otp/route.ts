@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifyOtpCode } from '@/lib/sms/otp';
 import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
 import crypto from 'crypto';
+import { getAttributionSessionId, logFunnelEvent, buildEventKey } from '@/lib/attribution/server';
 
 export async function POST(req: Request) {
   try {
@@ -87,6 +88,18 @@ export async function POST(req: Request) {
     if (updateError) {
       console.error('[CARI VERIFY OTP ERROR] Failed to update verification token:', updateError);
       return NextResponse.json({ error: 'Doğrulama kaydedilemedi. Lütfen tekrar deneyin.' }, { status: 500 });
+    }
+
+    // Log attribution
+    try {
+      const sessionId = await getAttributionSessionId();
+      if (sessionId) {
+        await logFunnelEvent(sessionId, 'otp_verified', buildEventKey(`otp_verified_${record.id}`), {
+          phone_verification_id: record.id
+        });
+      }
+    } catch (err) {
+      console.error('[ATTRIBUTION] otp_verified tracking error', err instanceof Error ? err.message : 'unknown');
     }
 
     return NextResponse.json({ 

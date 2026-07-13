@@ -22,6 +22,53 @@ export default function AgreementOtpForm() {
   const [marketingSms, setMarketingSms] = useState(false)
   const [marketingWhatsapp, setMarketingWhatsapp] = useState(false)
 
+  const attributionPromiseRef = React.useRef<Promise<void> | null>(null)
+
+  const ensureAttribution = () => {
+    if (attributionPromiseRef.current) return attributionPromiseRef.current;
+
+    const promise = new Promise<void>((resolve) => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const payload = {
+          utm_source: params.get('utm_source'),
+          utm_medium: params.get('utm_medium'),
+          utm_campaign: params.get('utm_campaign'),
+          utm_content: params.get('utm_content'),
+          campaign_code: params.get('campaign_code'),
+          referrer: document.referrer,
+          landing_path: window.location.pathname
+        };
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+        fetch('/api/attribution/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          credentials: 'same-origin',
+          signal: controller.signal
+        }).then(() => {
+          clearTimeout(timeoutId);
+          resolve();
+        }).catch(() => {
+          clearTimeout(timeoutId);
+          resolve();
+        });
+      } catch {
+        resolve();
+      }
+    });
+
+    attributionPromiseRef.current = promise;
+    return promise;
+  };
+
+  React.useEffect(() => {
+    ensureAttribution();
+  }, [])
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -35,6 +82,7 @@ export default function AgreementOtpForm() {
     }
 
     setLoading(true)
+    await ensureAttribution()
     try {
       const res = await fetch('/api/cari/send-otp', {
         method: 'POST',

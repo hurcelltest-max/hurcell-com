@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { requireAdminApi } from '@/lib/admin/require-admin-api';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { loadOrder } from '@/lib/dhl/load-order';
+import { buildRecipientPreview } from '@/lib/dhl/build-recipient-preview';
 
 export async function POST(req: Request) {
   try {
@@ -20,39 +18,16 @@ export async function POST(req: Request) {
       return response;
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const { data: order, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .single();
+    const order = await loadOrder(orderId);
 
-    if (error || !order) {
-      console.error('[DHL RECIPIENT DB ERROR]', error);
+    if (!order) {
+      console.error('[DHL RECIPIENT DB ERROR] Order not found:', orderId);
       const response = NextResponse.json({ error: 'Sipariş bilgisi alınamadı.' }, { status: 404 });
       response.headers.set('Cache-Control', 'no-store');
       return response;
     }
 
-    // Payload hazırlığı
-    const payloadPreview = {
-      recipient: {
-        customerId: '',
-        refCustomerId: '',
-        cityName: order.shipping_city || 'İSTANBUL',
-        districtName: order.shipping_district || 'BAHÇELİEVLER',
-        cityCode: 0,
-        districtCode: 0,
-        address: order.shipping_address || 'Adres detayları eksik',
-        bussinessPhoneNumber: '',
-        email: order.customer_email || '',
-        taxOffice: '',
-        taxNumber: '',
-        fullName: order.customer_name || 'Alıcı Adı',
-        homePhoneNumber: '',
-        mobilePhoneNumber: order.customer_phone || ''
-      }
-    };
+    const payloadPreview = buildRecipientPreview(order);
 
     const response = NextResponse.json({
       ok: false,
@@ -64,7 +39,7 @@ export async function POST(req: Request) {
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'unknown';
-    console.error('[DHL RECIPIENT EXCEPTION]', message);
+    console.error('[DHL RECIPIENT EXCEPTION] code: RECIPIENT_ERR_500', message);
     const response = NextResponse.json({ error: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 });
     response.headers.set('Cache-Control', 'no-store');
     return response;

@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin/require-admin-api';
+import { loadOrder } from '@/lib/dhl/load-order';
+import { buildRecipientPreview } from '@/lib/dhl/build-recipient-preview';
+import { buildOrderPreview } from '@/lib/dhl/build-order-preview';
+import { buildBarcodePreview } from '@/lib/dhl/build-barcode-preview';
 
 export async function POST(req: Request) {
   try {
@@ -16,72 +20,39 @@ export async function POST(req: Request) {
       return response;
     }
 
-    const host = req.headers.get('host');
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    const baseUrl = `${protocol}://${host}`;
+    const order = await loadOrder(orderId);
 
-    // Forward Basic Auth Header
-    const authHeader = req.headers.get('authorization');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authHeader) {
-      headers['Authorization'] = authHeader;
-    }
-
-    // 1. Create Recipient Preview
-    const recipientRes = await fetch(`${baseUrl}/api/dhl/create-recipient`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ orderId }),
-    });
-
-    if (!recipientRes.ok) {
-      console.error('[DHL FLOW] create-recipient status:', recipientRes.status);
-      const response = NextResponse.json({ error: 'Kargo önizlemesi oluşturulamadı.' }, { status: recipientRes.status });
+    if (!order) {
+      console.error('[DHL FLOW DB ERROR] Order not found:', orderId);
+      const response = NextResponse.json({ error: 'Sipariş bilgisi alınamadı.' }, { status: 404 });
       response.headers.set('Cache-Control', 'no-store');
       return response;
     }
 
-    const recipientData = await recipientRes.json();
-
-    // 2. Create Order Preview
-    const orderRes = await fetch(`${baseUrl}/api/dhl/create-order`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ orderId }),
-    });
-
-    if (!orderRes.ok) {
-      console.error('[DHL FLOW] create-order status:', orderRes.status);
-      const response = NextResponse.json({ error: 'Kargo önizlemesi oluşturulamadı.' }, { status: orderRes.status });
+    // Business check for barcode creation
+    if (
+      !order.customer_name ||
+      !order.customer_phone ||
+      !order.shipping_city ||
+      !order.shipping_district ||
+      !order.shipping_address
+    ) {
+      const response = NextResponse.json({ error: 'Kargo önizlemesi oluşturulamadı.' }, { status: 400 });
       response.headers.set('Cache-Control', 'no-store');
       return response;
     }
 
-    const orderData = await orderRes.json();
-
-    // 3. Create Barcode Preview
-    const barcodeRes = await fetch(`${baseUrl}/api/dhl/create-barcode`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ orderId }),
-    });
-
-    if (!barcodeRes.ok) {
-      console.error('[DHL FLOW] create-barcode status:', barcodeRes.status);
-      const response = NextResponse.json({ error: 'Kargo önizlemesi oluşturulamadı.' }, { status: barcodeRes.status });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
-    }
-
-    const barcodeData = await barcodeRes.json();
+    const recipientPreview = buildRecipientPreview(order);
+    const orderPreview = buildOrderPreview(order);
+    const barcodePreview = buildBarcodePreview(order);
 
     const response = NextResponse.json({
       ok: false,
       message: 'DHL/MNG entegrasyonu dry-run modunda. Gerçek gönderi oluşturulmadı.',
       payloadPreview: {
-        step1_createRecipient: recipientData.payloadPreview,
-        step2_createOrder: orderData.payloadPreview,
-        step3_createBarcode: barcodeData.payloadPreview
+        step1_createRecipient: recipientPreview.recipient,
+        step2_createOrder: orderPreview,
+        step3_createBarcode: barcodePreview
       }
     });
     response.headers.set('Cache-Control', 'no-store');
@@ -89,7 +60,7 @@ export async function POST(req: Request) {
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'unknown';
-    console.error('[DHL FLOW EXCEPTION]', message);
+    console.error('[DHL FLOW EXCEPTION] code: FLOW_ERR_500', message);
     const response = NextResponse.json({ error: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 });
     response.headers.set('Cache-Control', 'no-store');
     return response;

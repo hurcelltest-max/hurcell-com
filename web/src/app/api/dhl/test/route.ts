@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
+import { requireAdminApi } from '@/lib/admin/require-admin-api';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = requireAdminApi(req);
+  if (!auth.ok) {
+    return auth.response;
+  }
+
   const envStatus = {
     DHL_MNG_TEST_MODE: process.env.DHL_MNG_TEST_MODE ? 'configured' : 'missing',
     DHL_MNG_ENABLE_REAL_API: process.env.DHL_MNG_ENABLE_REAL_API === 'true',
@@ -23,8 +29,12 @@ export async function GET() {
   );
 
   if (allConfigured) {
-    return NextResponse.json({ ok: true, message: 'DHL/MNG API yapılandırması tam.', envStatus });
+    const response = NextResponse.json({ ok: true, message: 'DHL/MNG API yapılandırması tam.', envStatus });
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   }
 
-  return NextResponse.json({ ok: false, message: 'DHL/MNG API eksik yapılandırma.', envStatus }, { status: 400 });
+  const response = NextResponse.json({ ok: false, message: 'DHL/MNG API eksik yapılandırma.', envStatus }, { status: 400 });
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 }

@@ -1,23 +1,49 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdminApi } from '@/lib/admin/require-admin-api';
+
+interface Order {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  shipping_city: string;
+  shipping_district: string;
+  shipping_address_line: string;
+  payment_method: string;
+  total_amount: number;
+}
 
 export async function POST(req: Request) {
   try {
+    const auth = requireAdminApi(req);
+    if (!auth.ok) {
+      return auth.response;
+    }
+
     const { orderId } = await req.json();
 
     if (!orderId) {
-      return NextResponse.json({ error: 'Sipariş ID gerekli.' }, { status: 400 });
+      const response = NextResponse.json({ error: 'Sipariş bilgisi alınamadı.' }, { status: 400 });
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
     }
 
     // Siparişi veritabanından oku
-    const { data: order, error } = await supabaseAdmin
+    const { data: orderData, error } = await supabaseAdmin
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .single();
 
+    const order = orderData as unknown as Order;
+
     if (error || !order) {
-      return NextResponse.json({ error: 'Sipariş bulunamadı.' }, { status: 404 });
+      console.error('[DHL BARCODE DB ERROR]', error);
+      const response = NextResponse.json({ error: 'Sipariş bilgisi alınamadı.' }, { status: 404 });
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
     }
 
     // Eksik zorunlu alan kontrolü
@@ -28,15 +54,14 @@ export async function POST(req: Request) {
       !order.shipping_district ||
       !order.shipping_address_line
     ) {
-      return NextResponse.json({ error: 'Siparişin müşteri adres veya iletişim bilgileri eksik.' }, { status: 400 });
+      const response = NextResponse.json({ error: 'Siparişin müşteri adres veya iletişim bilgileri eksik.' }, { status: 400 });
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
     }
 
     // Kapıda ödeme mantığı
     const isCOD = order.payment_method === 'cash_on_delivery' ? 1 : 0;
     const codAmount = isCOD === 1 ? order.total_amount : 0;
-
-    // Telefon normalize (sadece rakam, basit kural)
-    const normalizedPhone = order.customer_phone.replace(/[^0-9]/g, '');
 
     // Payload hazırlığı
     const payloadPreview = {
@@ -62,27 +87,31 @@ export async function POST(req: Request) {
     };
 
     // Token ve Auth kontrolü (Mock/Dry-run)
-    // ASSUMED TOKEN ENDPOINT: MNG Barcode Command ZIP dosyasında auth/login endpoint'i açıkça belirtilmediğinden
-    // token'ın 'https://testapi.mngkargo.com.tr/mngapi/api/token' adresinden alınacağı varsayılmıştır.
-    // DHL_MNG_TOKEN_URL ortam değişkeninden gelmesi beklenmektedir.
-    // Gerçek API çağrısı, token endpoint'i kesinleşmeden aktif edilmemiştir.
     const tokenUrl = process.env.DHL_MNG_TOKEN_URL || process.env.DHL_MNG_TOKEN_TEST_URL;
     if (!tokenUrl) {
-      return NextResponse.json({
+      const response = NextResponse.json({
         ok: false,
         message: 'Token URL eksik. Sistem dry-run / payload preview modunda çalışıyor.',
         payloadPreview
       });
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
     }
 
     // Gerçek API çağrısı ileride buraya gelecek. Şimdilik başarılı dry-run.
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: false,
       message: 'Dry-run modunda çalışıyor. DHL/MNG tarafında gerçek CreateBarcode kaydı oluşturulmadı.',
       payloadPreview
     });
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
 
-  } catch (err: any) {
-    return NextResponse.json({ error: 'Sunucu hatası: ' + err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'unknown';
+    console.error('[DHL BARCODE EXCEPTION]', message);
+    const response = NextResponse.json({ error: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 });
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   }
 }

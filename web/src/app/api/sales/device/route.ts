@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { deviceSaleSchema } from '@/lib/sales/schema'
 import { buildDeviceSaleContractText } from '@/lib/sales/contract-template'
 import { createSupabaseAdminClient } from '@/lib/supabase/server'
+import { requireAdminApi } from '@/lib/admin/require-admin-api'
 
 function createSaleCode() {
   const now = new Date()
@@ -12,14 +13,21 @@ function createSaleCode() {
 
 export async function POST(request: Request) {
   try {
+    const auth = requireAdminApi(request)
+    if (!auth.ok) {
+      return auth.response
+    }
+
     const payload = await request.json()
     const parsed = deviceSaleSchema.safeParse(payload)
 
     if (!parsed.success) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { ok: false, message: 'Satış formunda eksik veya hatalı alanlar var.', errors: parsed.error.flatten() },
         { status: 400 }
       )
+      response.headers.set('Cache-Control', 'no-store')
+      return response
     }
 
     const input = parsed.data
@@ -45,15 +53,23 @@ export async function POST(request: Request) {
     })
 
     if (error) {
-      return NextResponse.json(
-        { ok: false, message: error.message || 'Satış kaydı oluşturulamadı.' },
+      console.error('[DEVICE SALE RPC ERROR]', error)
+      const response = NextResponse.json(
+        { ok: false, message: 'Satış kaydı oluşturulamadı.' },
         { status: 409 }
       )
+      response.headers.set('Cache-Control', 'no-store')
+      return response
     }
 
-    return NextResponse.json({ ok: true, saleCode, sale: data, contractText })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Bilinmeyen hata oluştu.'
-    return NextResponse.json({ ok: false, message }, { status: 500 })
+    const response = NextResponse.json({ ok: true, saleCode, sale: data, contractText })
+    response.headers.set('Cache-Control', 'no-store')
+    return response
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'unknown'
+    console.error('[DEVICE SALE EXCEPTION] code: DEV_SALE_ERR_500', message)
+    const response = NextResponse.json({ ok: false, message: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 })
+    response.headers.set('Cache-Control', 'no-store')
+    return response
   }
 }

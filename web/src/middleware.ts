@@ -4,7 +4,13 @@ import type { NextRequest } from 'next/server'
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
 
-  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/api/sales') ||
+    pathname.startsWith('/api/dhl') ||
+    pathname.startsWith('/cihaz-kabul-protokolu')
+  ) {
     const authHeader = req.headers.get('authorization')
     const username = process.env.ADMIN_USERNAME
     const password = process.env.ADMIN_PASSWORD
@@ -39,5 +45,12 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
+  matcher: [
+    '/admin/:path*',
+    '/api/admin/:path*',
+    '/api/sales/:path*',
+    '/api/dhl/:path*',
+    '/cihaz-kabul-protokolu/:path*',
+    '/cihaz-kabul-protokolu'
+  ],
 }

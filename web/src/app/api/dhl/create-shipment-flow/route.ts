@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     const order = await loadOrder(orderId);
 
     if (!order) {
-      console.error('[DHL FLOW DB ERROR] Order not found:', orderId);
+      console.error('[DHL_FLOW_ORDER_NOT_FOUND]');
       const response = NextResponse.json({ error: 'Sipariş bilgisi alınamadı.' }, { status: 404 });
       response.headers.set('Cache-Control', 'no-store');
       return response;
@@ -58,9 +58,8 @@ export async function POST(req: Request) {
     response.headers.set('Cache-Control', 'no-store');
     return response;
 
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'unknown';
-    console.error('[DHL FLOW EXCEPTION] code: FLOW_ERR_500', message);
+  } catch {
+    console.error('[DHL_FLOW_EXCEPTION]');
     const response = NextResponse.json({ error: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 });
     response.headers.set('Cache-Control', 'no-store');
     return response;

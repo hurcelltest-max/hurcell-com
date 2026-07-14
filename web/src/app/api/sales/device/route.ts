@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     })
 
     if (error) {
-      console.error('[DEVICE SALE RPC ERROR]', error)
+      console.error('[DEVICE_SALE_RPC_FAILED]')
       const response = NextResponse.json(
         { ok: false, message: 'Satış kaydı oluşturulamadı.' },
         { status: 409 }
@@ -65,11 +65,10 @@ export async function POST(request: Request) {
     const response = NextResponse.json({ ok: true, saleCode, sale: data, contractText })
     response.headers.set('Cache-Control', 'no-store')
     return response
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'unknown'
-    console.error('[DEVICE SALE EXCEPTION] code: DEV_SALE_ERR_500', message)
+  } catch {
+    console.error('[DEVICE_SALE_EXCEPTION]')
     const response = NextResponse.json({ ok: false, message: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 })
     response.headers.set('Cache-Control', 'no-store')
-    return response
+    return response;
   }
 }

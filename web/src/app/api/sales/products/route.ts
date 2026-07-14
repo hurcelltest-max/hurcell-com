@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     const { data, error } = await query.limit(20)
 
     if (error) {
-      console.error('[PRODUCTS LOOKUP ERROR]', error)
+      console.error('[PRODUCTS_LOOKUP_FAILED]')
       const response = NextResponse.json({ ok: false, message: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 })
       response.headers.set('Cache-Control', 'no-store')
       return response
@@ -34,12 +34,11 @@ export async function GET(request: Request) {
     const mappedData = (data || []).map(p => ({ ...p, sell_price: p.price, barcode: p.sku }))
     const response = NextResponse.json({ ok: true, products: mappedData })
     response.headers.set('Cache-Control', 'no-store')
-    return response
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'unknown'
-    console.error('[PRODUCTS LOOKUP EXCEPTION]', message)
+    return response;
+  } catch {
+    console.error('[PRODUCTS_LOOKUP_EXCEPTION]')
     const response = NextResponse.json({ ok: false, message: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 })
     response.headers.set('Cache-Control', 'no-store')
-    return response
+    return response;
   }
 }

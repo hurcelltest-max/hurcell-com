@@ -1,12 +1,23 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-export const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!, // Keep this safe!
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
+let clientInstance: SupabaseClient | null = null
+
+export const supabaseAdmin = new Proxy({} as SupabaseClient, {
+  get(target, prop) {
+    if (!clientInstance) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (!supabaseUrl || !serviceRoleKey) {
+        throw new Error('Supabase admin configuration is missing.')
+      }
+      clientInstance = createClient(supabaseUrl, serviceRoleKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      })
     }
+    return Reflect.get(clientInstance, prop)
   }
-)
+})
+

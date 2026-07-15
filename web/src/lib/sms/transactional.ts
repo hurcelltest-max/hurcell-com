@@ -1,7 +1,7 @@
 import { getSmsProvider } from './mock-provider';
 import { normalizeTurkishPhoneNumber } from './phone';
 import { maskPhone } from './netgsm-provider';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 type RecipientType = 'customer' | 'internal';
 type EventType = 'order_created' | 'order_shipped' | 'order_delivered' | 'delivery_failed' | 'return_requested';
@@ -37,8 +37,7 @@ export async function sendTransactionalSms(
 
     let logEntryId: string;
     
-    const { data: existing } = await supabaseAdmin
-      .from('sms_notifications')
+    const { data: existing } = await getSupabaseAdmin().from('sms_notifications')
       .select('*')
       .eq('dedupe_key', dedupeKey)
       .maybeSingle();
@@ -70,8 +69,7 @@ export async function sendTransactionalSms(
       }
       
       // Safe to retry (stale pending or valid failed)
-      const { data: updated, error: updateErr } = await supabaseAdmin
-        .from('sms_notifications')
+      const { data: updated, error: updateErr } = await getSupabaseAdmin().from('sms_notifications')
         .update({
           status: 'pending',
           attempt_count: existing.attempt_count + 1,
@@ -89,8 +87,7 @@ export async function sendTransactionalSms(
       }
       logEntryId = updated.id;
     } else {
-      const { data: logEntry, error: insertError } = await supabaseAdmin
-        .from('sms_notifications')
+      const { data: logEntry, error: insertError } = await getSupabaseAdmin().from('sms_notifications')
         .insert({
           order_id: orderId,
           recipient_type: recipientType,
@@ -151,8 +148,7 @@ export async function sendTransactionalSms(
       updatePayload.next_retry_at = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // Retry after 5 mins
     }
 
-    const { error: statusUpdateError } = await supabaseAdmin
-      .from('sms_notifications')
+    const { error: statusUpdateError } = await getSupabaseAdmin().from('sms_notifications')
       .update(updatePayload)
       .eq('id', logEntryId);
 
@@ -231,8 +227,7 @@ export async function sendFinanceSms(
 
     console.log(`[FINANCE SMS] Event: ${event} | To: ${masked} | Message: ${message}`);
 
-    // Insert into sms_notifications database table
-    const { error: insertError } = await (supabaseAdmin as any)
+    const { error: insertError } = await getSupabaseAdmin()
       .from('sms_notifications')
       .insert({
         recipient_type: 'customer',

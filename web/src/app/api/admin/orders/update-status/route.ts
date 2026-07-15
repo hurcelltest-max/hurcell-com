@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { releaseOrderStock } from '@/lib/orders/stock'
 import { sendTransactionalSms } from '@/lib/sms/transactional'
 
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Kargoya verilmiş siparişlerde manuel iade/iptal işlemi yapılamaz.' }, { status: 400 })
     }
 
-    const updatedFields: any = { status, updated_at: new Date().toISOString() }
+    const updatedFields: Record<string, unknown> = { status, updated_at: new Date().toISOString() }
 
     // 3. Handle Restock
     if (requiresRestock) {
@@ -59,8 +59,7 @@ export async function POST(req: Request) {
     }
 
     // 4. Update Order
-    const { error: updateError } = await supabaseAdmin
-      .from('orders')
+    const { error: updateError } = await getSupabaseAdmin().from('orders')
       .update(updatedFields)
       .eq('id', order.id)
 
@@ -80,7 +79,7 @@ export async function POST(req: Request) {
     }
 
     const internalPhones = (process.env.SMS_INTERNAL_ALERT_PHONES || '').split(',').map(p => p.trim()).filter(Boolean);
-    const notify = async (eventType: any) => {
+    const notify = async (eventType: Parameters<typeof sendTransactionalSms>[1]) => {
       const notificationJobs = [
         sendTransactionalSms(order.id, eventType, 'customer', order.customer_phone, smsData),
         ...internalPhones.map(phone =>

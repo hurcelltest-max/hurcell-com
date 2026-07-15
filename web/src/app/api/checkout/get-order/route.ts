@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(req: Request) {
   try {
@@ -16,8 +16,7 @@ export async function GET(req: Request) {
     }
 
     // 1. Fetch order details from database using service role
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from('orders')
+    const { data: order, error: orderError } = await getSupabaseAdmin().from('orders')
       .select('id, order_number, lookup_token, customer_name, customer_email, customer_phone, billing_address, shipping_address, total_amount, currency, status, payment_provider, payment_method, payment_status, shipping_provider, shipping_status, shipping_fee, created_at')
       .eq('order_number', orderNumber)
       .single();
@@ -55,8 +54,7 @@ export async function GET(req: Request) {
     }
 
     // 3. Fetch order items snapshot
-    const { data: items, error: itemsError } = await supabaseAdmin
-      .from('order_items')
+    const { data: items, error: itemsError } = await getSupabaseAdmin().from('order_items')
       .select('id, product_id, product_title_snapshot, barcode_snapshot, unit_price_snapshot, quantity, line_total')
       .eq('order_id', order.id);
 

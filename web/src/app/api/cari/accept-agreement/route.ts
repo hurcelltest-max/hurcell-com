@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
 import fs from 'fs';
 import path from 'path';
@@ -92,8 +92,7 @@ export async function POST(req: Request) {
     let creditCustomerId: string;
     let isExistingCustomer = false;
     
-    const { data: existingCustomer } = await supabaseAdmin
-      .from('credit_customers')
+    const { data: existingCustomer } = await getSupabaseAdmin().from('credit_customers')
       .select('id, full_name')
       .eq('phone_normalized', normalizedPhone)
       .maybeSingle();
@@ -102,8 +101,7 @@ export async function POST(req: Request) {
       isExistingCustomer = true;
       creditCustomerId = existingCustomer.id;
     } else {
-      const { data: newCustomer, error: createCustError } = await supabaseAdmin
-        .from('credit_customers')
+      const { data: newCustomer, error: createCustError } = await getSupabaseAdmin().from('credit_customers')
         .insert({
           phone: normalizedPhone,
           phone_normalized: normalizedPhone,
@@ -119,8 +117,7 @@ export async function POST(req: Request) {
 
     // 3. Ensure Credit Account Exists
     let creditAccountId: string;
-    const { data: existingAccount } = await supabaseAdmin
-      .from('credit_accounts')
+    const { data: existingAccount } = await getSupabaseAdmin().from('credit_accounts')
       .select('id')
       .eq('credit_customer_id', creditCustomerId)
       .maybeSingle();
@@ -142,8 +139,7 @@ export async function POST(req: Request) {
       else if (currentDay >= 20 && currentDay <= 24) statementDay = 25;
       else statementDay = 10;
 
-      const { data: newAccount, error: createAccError } = await supabaseAdmin
-        .from('credit_accounts')
+      const { data: newAccount, error: createAccError } = await getSupabaseAdmin().from('credit_accounts')
         .insert({
           credit_customer_id: creditCustomerId,
           statement_day: statementDay,
@@ -161,8 +157,7 @@ export async function POST(req: Request) {
     const ip = req.headers.get('x-forwarded-for') || 'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
-    const { data: newAcceptance, error: insertError } = await supabaseAdmin
-      .from('credit_agreement_acceptances')
+    const { data: newAcceptance, error: insertError } = await getSupabaseAdmin().from('credit_agreement_acceptances')
       .insert({
         credit_customer_id: creditCustomerId,
         credit_account_id: creditAccountId,

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(req: Request) {
   try {
@@ -10,8 +10,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Müşteri ID eksik.' }, { status: 400 });
     }
 
-    const { data: notes, error } = await supabaseAdmin
-      .from('credit_customer_notes')
+    const { data: notes, error } = await getSupabaseAdmin().from('credit_customer_notes')
       .select('*')
       .eq('credit_customer_id', customerId)
       .order('created_at', { ascending: false });
@@ -34,8 +33,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Eksik veri.' }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
-      .from('credit_customer_notes')
+    const { error } = await getSupabaseAdmin().from('credit_customer_notes')
       .insert({
         credit_customer_id: customerId,
         note

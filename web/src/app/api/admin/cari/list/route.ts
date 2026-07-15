@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(req: Request) {
   try {
@@ -22,8 +22,7 @@ export async function GET(req: Request) {
     // Calculate offset
     const offset = (page - 1) * limit;
 
-    let query = supabaseAdmin
-      .from('credit_customers')
+    let query = getSupabaseAdmin().from('credit_customers')
       .select(`
         id, 
         phone, 

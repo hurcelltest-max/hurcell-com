@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { mockFetchCargoStatus, cargoStatusMapper } from '@/lib/cargo/mapper';
 import { releaseOrderStock } from '@/lib/orders/stock';
 
@@ -23,8 +23,7 @@ export async function GET(req: Request) {
     }
 
     // 1. Fetch shipped orders that haven't been delivered or failed yet
-    const { data: orders, error } = await supabaseAdmin
-      .from('orders')
+    const { data: orders, error } = await getSupabaseAdmin().from('orders')
       .select('id, tracking_number, shipping_status, stock_released_at')
       .eq('shipping_status', 'shipped')
       .not('tracking_number', 'is', null);
@@ -91,8 +90,7 @@ export async function GET(req: Request) {
       }
 
       // 5. Update Order
-      const { error: updateError } = await supabaseAdmin
-        .from('orders')
+      const { error: updateError } = await getSupabaseAdmin().from('orders')
         .update(updatePayload)
         .eq('id', order.id);
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { generateOtpCode, hashOtpCode } from '@/lib/sms/otp';
 import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
 import { getSmsProvider } from '@/lib/sms/mock-provider';
@@ -48,8 +48,7 @@ export async function POST(req: Request) {
     const userAgent = req.headers.get('user-agent') || '';
     const userAgentHash = crypto.createHash('sha256').update(userAgent).digest('hex');
 
-    const { error: insertError } = await supabaseAdmin
-      .from('phone_verifications')
+    const { error: insertError } = await getSupabaseAdmin().from('phone_verifications')
       .insert({
         phone: normalizedPhone,
         otp_hash: otpHash,

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import nodemailer from 'nodemailer';
 
 export const runtime = "nodejs";
@@ -55,8 +55,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Fetch order to verify details
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from('orders')
+    const { data: order, error: orderError } = await getSupabaseAdmin().from('orders')
       .select('id, customer_name, customer_email, customer_phone')
       .eq('order_number', order_number)
       .single();
@@ -78,8 +77,7 @@ export async function POST(req: Request) {
 
     // Check campaign warnings
     let hasCampaignBenefitWarning = false;
-    const { data: items } = await supabaseAdmin
-      .from('order_items')
+    const { data: items } = await getSupabaseAdmin().from('order_items')
       .select('product_id')
       .eq('order_id', order.id);
 
@@ -95,8 +93,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Create request record using service role
-    const { data: requestRecord, error: insertError } = await supabaseAdmin
-      .from('return_requests')
+    const { data: requestRecord, error: insertError } = await getSupabaseAdmin().from('return_requests')
       .insert({
         order_id: order.id,
         order_number_snapshot: order_number,
@@ -163,8 +160,7 @@ export async function POST(req: Request) {
         });
 
         // Mark as email notified
-        await supabaseAdmin
-          .from('return_requests')
+        await getSupabaseAdmin().from('return_requests')
           .update({ email_notified_at: new Date().toISOString() })
           .eq('id', requestRecord.id);
       }

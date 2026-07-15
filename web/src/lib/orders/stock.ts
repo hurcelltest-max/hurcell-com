@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export const releaseOrderStock = async (orderId: string, reason: string): Promise<{ success: boolean; message: string }> => {
   try {

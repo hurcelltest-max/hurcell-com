@@ -1,12 +1,11 @@
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import OrdersClient from './orders-client'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function AdminOrdersPage() {
-  const { data: orders, error } = await supabaseAdmin
-    .from('orders')
+  const { data: orders, error } = await getSupabaseAdmin().from('orders')
     .select(`
       *,
       order_items (*)

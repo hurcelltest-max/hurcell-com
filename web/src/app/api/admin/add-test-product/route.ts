@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
-export async function POST(request: Request) {
+export async function POST(_request: Request) {
   try {
     const sku = 'TEST-HURCELL-ORDER-001'
     const name = 'HurCELL Test Ürünü - Sipariş Denemesi'
@@ -12,16 +12,14 @@ export async function POST(request: Request) {
     const description = 'HurCELL sipariş ve OTP testleri için geçici test ürünü.'
 
     // Check if test product exists by SKU
-    const { data: existing } = await supabaseAdmin
-      .from('products')
+    const { data: existing } = await getSupabaseAdmin().from('products')
       .select('id')
       .eq('sku', sku)
       .limit(1)
 
     if (existing && existing.length > 0) {
       // Update existing test product
-      const { error: updateError } = await supabaseAdmin
-        .from('products')
+      const { error: updateError } = await getSupabaseAdmin().from('products')
         .update({
           name,
           stock,
@@ -45,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     // Insert new test product
-    const product: any = {
+    const product: Record<string, unknown> = {
       name,
       category,
       price,
@@ -56,8 +54,7 @@ export async function POST(request: Request) {
       created_at: new Date().toISOString()
     }
 
-    const { data: inserted, error: insertError } = await supabaseAdmin
-      .from('products')
+    const { data: inserted, error: insertError } = await getSupabaseAdmin().from('products')
       .insert(product)
       .select('id')
       .single()
@@ -72,7 +69,7 @@ export async function POST(request: Request) {
       updated: false,
       product: { id: inserted?.id, name, stock, price }
     })
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || String(err) }, { status: 500 })
+  } catch (err: unknown) {
+    return NextResponse.json({ ok: false, error: (err as Error)?.message || String(err) }, { status: 500 })
   }
 }

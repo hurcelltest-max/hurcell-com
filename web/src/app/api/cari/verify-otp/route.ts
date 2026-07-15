@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { verifyOtpCode } from '@/lib/sms/otp';
 import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
 import crypto from 'crypto';
@@ -30,8 +30,7 @@ export async function POST(req: Request) {
     const normalizedPhone = normalizeTurkishPhoneNumber(cleanPhone);
 
     // 1. Get the latest unverified OTP for this phone
-    const { data: record, error: fetchError } = await supabaseAdmin
-      .from('phone_verifications')
+    const { data: record, error: fetchError } = await getSupabaseAdmin().from('phone_verifications')
       .select('*')
       .eq('phone', normalizedPhone)
       .is('verified_at', null)
@@ -55,8 +54,7 @@ export async function POST(req: Request) {
     }
 
     // Increment attempts
-    const { error: attemptError } = await supabaseAdmin
-      .from('phone_verifications')
+    const { error: attemptError } = await getSupabaseAdmin().from('phone_verifications')
       .update({ attempts: record.attempts + 1 })
       .eq('id', record.id);
 
@@ -77,8 +75,7 @@ export async function POST(req: Request) {
     // We hash the token in DB so if DB is leaked, attackers cannot reuse tokens
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-    const { error: updateError } = await supabaseAdmin
-      .from('phone_verifications')
+    const { error: updateError } = await getSupabaseAdmin().from('phone_verifications')
       .update({
         verified_at: new Date().toISOString(),
         verification_token_hash: tokenHash

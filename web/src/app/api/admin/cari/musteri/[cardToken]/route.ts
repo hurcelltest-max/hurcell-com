@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(req: Request, context: { params: Promise<{ cardToken: string }> }) {
   try {
@@ -9,8 +9,7 @@ export async function GET(req: Request, context: { params: Promise<{ cardToken: 
       return NextResponse.json({ error: 'Token eksik' }, { status: 400 });
     }
 
-    const { data: customer, error: custError } = await supabaseAdmin
-      .from('credit_customers')
+    const { data: customer, error: custError } = await getSupabaseAdmin().from('credit_customers')
       .select(`
         id, customer_card_code, card_token, full_name, phone, address, city, district, status,
         credit_accounts ( id, credit_limit, current_balance, statement_day, status ),
@@ -30,8 +29,7 @@ export async function GET(req: Request, context: { params: Promise<{ cardToken: 
     if (account) {
       account.available_limit = Math.max(0, Number(account.credit_limit) - Number(account.current_balance));
       
-      const { data: txs, error: txsError } = await supabaseAdmin
-        .from('credit_transactions')
+      const { data: txs, error: txsError } = await getSupabaseAdmin().from('credit_transactions')
         .select('*')
         .eq('credit_account_id', account.id)
         .order('ledger_no', { ascending: false })

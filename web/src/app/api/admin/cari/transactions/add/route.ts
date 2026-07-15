@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getVerifiedAdminUsername } from '@/lib/admin/auth';
 import { addTransactionSchema } from '@/lib/validations/transaction';
 
@@ -16,15 +16,14 @@ export async function POST(req: Request) {
     const parseResult = addTransactionSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json({ 
-        error: parseResult.error.errors[0]?.message || 'Geçersiz veri'
+        error: parseResult.error.issues[0]?.message || 'Geçersiz veri'
       }, { status: 400 });
     }
 
     const data = parseResult.data;
 
     // Resolve customer & account from cardToken
-    const { data: customerData, error: custError } = await supabaseAdmin
-      .from('credit_customers')
+    const { data: customerData, error: custError } = await getSupabaseAdmin().from('credit_customers')
       .select('id, credit_accounts(id)')
       .eq('card_token', data.cardToken)
       .maybeSingle();
@@ -40,7 +39,7 @@ export async function POST(req: Request) {
     let direction: string;
     let source_type: string;
     let amount = data.amount;
-    let reversed_transaction_id = data.reversed_transaction_id;
+    const reversed_transaction_id = data.reversed_transaction_id;
 
     switch (data.category) {
       case 'store_sale':
@@ -80,8 +79,7 @@ export async function POST(req: Request) {
         break;
       case 'reversal':
         // Fetch original transaction
-        const { data: origTx, error: origErr } = await supabaseAdmin
-          .from('credit_transactions')
+        const { data: origTx, error: origErr } = await getSupabaseAdmin().from('credit_transactions')
           .select('amount, direction, credit_customer_id, credit_account_id, transaction_type')
           .eq('id', reversed_transaction_id)
           .single();

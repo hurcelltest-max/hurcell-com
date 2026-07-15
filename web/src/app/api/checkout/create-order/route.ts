@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import crypto from 'crypto';
 import { normalizeTurkishPhoneNumber } from '@/lib/sms/phone';
 import { sendTransactionalSms } from '@/lib/sms/transactional';
@@ -56,7 +56,6 @@ export async function POST(req: Request) {
       shipping_city,
       shipping_district,
       shipping_postal_code,
-      order_note,
       items,
       verification_token // OTP verification token
     } = body;
@@ -85,6 +84,11 @@ export async function POST(req: Request) {
 
 
 
+    interface CheckoutCartItem {
+      product_id: string;
+      quantity: number | string;
+    }
+
     // 2. Sepet öğelerini doğrula
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -93,8 +97,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const productIds = items.map((i: any) => i.product_id).filter(Boolean);
-    if (productIds.length !== items.length) {
+    const typedItems = items as CheckoutCartItem[];
+    const productIds = typedItems.map((i) => i.product_id).filter(Boolean);
+    if (productIds.length !== typedItems.length) {
       return NextResponse.json(
         { error: 'Geçersiz ürün referansı tespit edildi.' },
         { status: 400 }
@@ -102,8 +107,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Ürünleri DB'den oku — fiyat/stok server-side doğrulanır
-    const { data: dbProducts, error: dbError } = await supabaseAdmin
-      .from('products')
+    const { data: dbProducts, error: dbError } = await getSupabaseAdmin().from('products')
       .select('id, name, price, stock, sku, category')
       .in('id', productIds);
 
@@ -116,8 +120,7 @@ export async function POST(req: Request) {
     }
 
     // 4. Kampanyaları oku (non-blocking)
-    const { data: dbCampaignProducts, error: campaignError } = await supabaseAdmin
-      .from('campaign_products')
+    const { data: dbCampaignProducts, error: campaignError } = await getSupabaseAdmin().from('campaign_products')
       .select(`
         product_id,
         product_role,
@@ -144,15 +147,34 @@ export async function POST(req: Request) {
       });
     }
 
+    interface Campaign {
+      id: string;
+      is_active: boolean;
+      starts_at: string;
+      ends_at: string | null;
+      campaign_type: 'same_product_quantity_discount' | 'cross_product_discount' | string;
+      buy_quantity?: number | null;
+      discounted_quantity?: number | null;
+      discount_type: 'percent' | 'fixed_amount' | string;
+      discount_value: number;
+    }
+
+    interface CampaignProductRow {
+      product_id: string;
+      product_role: string;
+      campaigns: Campaign | null;
+    }
+
     const activeCampaigns = new Map<string, {
-      campaign: any;
+      campaign: Campaign;
       triggers: Set<string>;
       eligibles: Set<string>;
     }>();
 
     if (dbCampaignProducts) {
-      dbCampaignProducts.forEach((row: any) => {
-        const camp: any /* eslint-disable-line */ = row.campaigns;
+      const typedDbCampaigns = dbCampaignProducts as unknown as CampaignProductRow[];
+      typedDbCampaigns.forEach((row) => {
+        const camp = row.campaigns;
         if (camp && camp.is_active) {
           const startsAt = new Date(camp.starts_at);
           const endsAt = camp.ends_at ? new Date(camp.ends_at) : null;
@@ -180,19 +202,33 @@ export async function POST(req: Request) {
     dbProducts.forEach((p) => productsMap.set(p.id, p));
 
     const cartQuantities = new Map<string, number>();
-    items.forEach((item: any) => {
-      const reqQty = parseInt(item.quantity, 10);
+    typedItems.forEach((item) => {
+      const reqQty = typeof item.quantity === 'string' ? parseInt(item.quantity, 10) : item.quantity;
       if (!isNaN(reqQty) && reqQty > 0) {
         cartQuantities.set(item.product_id, reqQty);
       }
     });
 
+    interface ValidatedItem {
+      product_id: string;
+      product_title_snapshot: string;
+      barcode_snapshot: string | null;
+      unit_price_snapshot: number;
+      original_unit_price_snapshot: number;
+      discount_amount_snapshot: number;
+      final_unit_price_snapshot: number;
+      applied_campaign_id: string | null;
+      applied_campaign_name_snapshot: string | null;
+      quantity: number;
+      line_total: number;
+    }
+
     let orderSubtotal = 0;
     let orderTotalDiscount = 0;
-    const validatedItems: any[] = [];
-    const appliedCampaignsSummary: any[] = [];
+    const validatedItems: ValidatedItem[] = [];
+    const appliedCampaignsSummary: Record<string, unknown>[] = [];
 
-    for (const item of items) {
+    for (const item of typedItems) {
       const dbProduct = productsMap.get(item.product_id);
 
       if (!dbProduct) {
@@ -202,7 +238,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const reqQuantity = parseInt(item.quantity, 10);
+      const reqQuantity = typeof item.quantity === 'string' ? parseInt(item.quantity, 10) : item.quantity;
       if (isNaN(reqQuantity) || reqQuantity <= 0) {
         return NextResponse.json(
           { error: 'Geçersiz sipariş adedi.' },
@@ -374,8 +410,7 @@ export async function POST(req: Request) {
     // 7. Sipariş oluştur (stok düşmeler başarılıysa)
     const now = new Date().toISOString();
 
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from('orders')
+    const { data: order, error: orderError } = await getSupabaseAdmin().from('orders')
       .insert({
         customer_name: customer_name.trim(),
         customer_email: customer_email.trim(),
@@ -422,8 +457,7 @@ export async function POST(req: Request) {
       ...item,
     }));
 
-    const { error: itemsError } = await supabaseAdmin
-      .from('order_items')
+    const { error: itemsError } = await getSupabaseAdmin().from('order_items')
       .insert(orderItemsPayload);
 
     if (itemsError) {
@@ -477,8 +511,8 @@ export async function POST(req: Request) {
 
   } catch (err: unknown) {
     console.error('[Checkout Error] Stage: unexpected catch.', err ? {
-      message: err.message,
-      name: err.name,
+      message: (err as Error).message,
+      name: (err as Error).name,
     } : 'Unknown error');
     return NextResponse.json(
       { error: 'Sipariş işleme hatası oluştu.' },

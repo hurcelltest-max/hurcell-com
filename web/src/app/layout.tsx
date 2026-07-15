@@ -22,7 +22,9 @@ export const metadata: Metadata = {
   description: "İzmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gönderi, Western Union ve baskı hizmetleri sunan HurCELL'in online mağazası.",
   keywords: "telefon, tablet, bilgisayar, aksesuar, teknik servis, İzmir, DHL, Western Union",
   metadataBase: new URL("https://www.hurcell.com"),
-  canonical: "https://www.hurcell.com",
+  alternates: {
+    canonical: "https://www.hurcell.com",
+  },
   openGraph: {
     title: "HurCELL | Telefon, Aksesuar, Teknik Servis ve Kargo Hizmetleri",
     description: "İzmir'de telefon, tablet, bilgisayar, aksesuar, teknik servis, DHL gönderi, Western Union ve baskı hizmetleri sunan HurCELL'in online mağazası.",

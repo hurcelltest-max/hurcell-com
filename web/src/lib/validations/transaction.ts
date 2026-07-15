@@ -65,7 +65,7 @@ export const addTransactionSchema = z.object({
   description: z.string().trim().min(1, 'Açıklama zorunludur'),
   payment_method: emptyToUndefined.pipe(
     z.enum(['cash', 'card', 'bank_transfer', 'other'], {
-      errorMap: () => ({ message: 'Lütfen geçerli bir tahsilat yöntemi seçiniz.' })
+      message: 'Lütfen geçerli bir tahsilat yöntemi seçiniz.'
     }).optional()
   ),
   source_reference: emptyToUndefined,

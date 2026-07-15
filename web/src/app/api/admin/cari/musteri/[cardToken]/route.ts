@@ -23,7 +23,15 @@ export async function GET(req: Request, context: { params: Promise<{ cardToken: 
       return NextResponse.json({ error: 'Müşteri bulunamadı.' }, { status: 404 });
     }
 
-    const account = customer.credit_accounts?.[0];
+    interface CreditAccountWithLimit {
+      id: string;
+      credit_limit: number;
+      current_balance: number;
+      statement_day: number;
+      status: string;
+      available_limit?: number;
+    }
+    const account = customer.credit_accounts?.[0] as unknown as CreditAccountWithLimit;
     let transactions: any[] = [];
     
     if (account) {

@@ -252,6 +252,7 @@ function DeviceSaleContractForm() {
     
     // Automatically map category
     const cat = prod.category?.toLowerCase() || ''
+    const isAcc = cat.includes('aksesuar') || cat.includes('şarj') || cat.includes('kablo')
     if (cat.includes('telefon') || cat.includes('cep')) {
       setDeviceCategory('phone')
     } else if (cat.includes('tablet')) {

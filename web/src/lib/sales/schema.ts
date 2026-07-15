@@ -54,7 +54,7 @@ export const deviceSaleSchema = z.object({
   includedItems: z.array(z.string()).default([]),
   customerDeclaration: z.string().min(10, 'Müşteri beyanı eksik.'),
   acceptedLegalNotice: z.literal(true, {
-    errorMap: () => ({ message: 'Protokol şartlarının kabul edilmesi zorunludur.' }),
+    message: 'Protokol şartlarının kabul edilmesi zorunludur.',
   }),
   signatureDataUrl: z.string().optional().default(''),
 })

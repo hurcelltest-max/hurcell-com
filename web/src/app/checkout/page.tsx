@@ -68,7 +68,7 @@ function CheckoutContent() {
           setLoading(true)
           const { data, error } = await supabase
             .from('products')
-            .select('id, name, brand, price, sku, image_url, stock, category, description')
+            .select('id, name, brand, price, sku, image_url, stock, category, description, created_at')
             .eq('id', productId)
             .single()
 

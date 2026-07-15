@@ -1,5 +1,4 @@
--- Migration: 20260715090000_finance_installments_mvp.sql
--- Description: Finance MVP tables and RPC functions for installment management
+BEGIN;
 
 -- Create Sequences
 CREATE SEQUENCE IF NOT EXISTS public.finance_receipt_seq START 1;
@@ -16,10 +15,10 @@ CREATE TABLE IF NOT EXISTS public.finance_plans (
     source_reference TEXT NOT NULL,
     principal_amount NUMERIC(12,2) NOT NULL CHECK (principal_amount >= 750),
     down_payment_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (down_payment_amount >= 0),
-    financed_principal NUMERIC(12,2) NOT NULL CHECK (financed_principal >= 0),
+    financed_principal NUMERIC(12,2) NOT NULL CHECK (financed_principal > 0),
     term_rate_percent NUMERIC(7,4) NOT NULL DEFAULT 0 CHECK (term_rate_percent >= 0),
     finance_charge_amount NUMERIC(12,2) NOT NULL CHECK (finance_charge_amount >= 0),
-    total_due_amount NUMERIC(12,2) NOT NULL CHECK (total_due_amount >= 0),
+    total_due_amount NUMERIC(12,2) NOT NULL CHECK (total_due_amount > 0),
     amount_paid NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (amount_paid >= 0),
     remaining_amount NUMERIC(12,2) NOT NULL CHECK (remaining_amount >= 0),
     installment_count SMALLINT NOT NULL CHECK (installment_count BETWEEN 1 AND 3),
@@ -27,10 +26,12 @@ CREATE TABLE IF NOT EXISTS public.finance_plans (
     first_due_date DATE NOT NULL,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paid', 'overdue', 'cancelled')),
     created_by TEXT NOT NULL,
+    principal_transaction_id UUID REFERENCES public.credit_transactions(id) ON DELETE RESTRICT,
+    finance_charge_transaction_id UUID REFERENCES public.credit_transactions(id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT chk_financed_principal_calc CHECK (financed_principal = principal_amount - down_payment_amount),
-    CONSTRAINT chk_down_payment_le_principal CHECK (down_payment_amount <= principal_amount),
+    CONSTRAINT chk_down_payment_lt_principal CHECK (down_payment_amount < principal_amount),
     CONSTRAINT chk_total_due_calc CHECK (total_due_amount = financed_principal + finance_charge_amount),
     CONSTRAINT chk_remaining_calc CHECK (remaining_amount = total_due_amount - amount_paid)
 );
@@ -73,10 +74,17 @@ CREATE TABLE IF NOT EXISTS public.finance_collections (
     collected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by TEXT NOT NULL,
     note TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    ledger_transaction_id UUID REFERENCES public.credit_transactions(id) ON DELETE RESTRICT,
+    direction TEXT NOT NULL DEFAULT 'in' CHECK (direction IN ('in', 'out')),
+    reverses_collection_id UUID REFERENCES public.finance_collections(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_ledger_transaction_id_required CHECK (
+        (collection_kind = 'down_payment') OR (ledger_transaction_id IS NOT NULL)
+    )
 );
 
 CREATE INDEX IF NOT EXISTS idx_finance_collections_plan ON public.finance_collections(finance_plan_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_finance_collections_unique_reversal ON public.finance_collections(reverses_collection_id) WHERE reverses_collection_id IS NOT NULL;
 
 -- 4. Create finance_audit_logs Table (Append-Only)
 CREATE TABLE IF NOT EXISTS public.finance_audit_logs (
@@ -108,24 +116,34 @@ GRANT ALL ON TABLE public.finance_installments TO service_role;
 GRANT ALL ON TABLE public.finance_collections TO service_role;
 GRANT ALL ON TABLE public.finance_audit_logs TO service_role;
 
--- Policies
+-- Policies (Ensure idempotency/cleanup of policies)
+DROP POLICY IF EXISTS service_role_all ON public.finance_plans;
 CREATE POLICY service_role_all ON public.finance_plans FOR ALL TO service_role USING (true);
+
+DROP POLICY IF EXISTS service_role_all ON public.finance_installments;
 CREATE POLICY service_role_all ON public.finance_installments FOR ALL TO service_role USING (true);
+
+DROP POLICY IF EXISTS service_role_all ON public.finance_collections;
 CREATE POLICY service_role_all ON public.finance_collections FOR ALL TO service_role USING (true);
+
+DROP POLICY IF EXISTS service_role_all ON public.finance_audit_logs;
 CREATE POLICY service_role_all ON public.finance_audit_logs FOR ALL TO service_role USING (true);
 
 -- Triggers to prevent updates/deletes on append-only tables
 CREATE OR REPLACE FUNCTION public.prevent_finance_append_only_update_delete()
 RETURNS TRIGGER AS $$
 BEGIN
+    SET search_path = public, pg_temp;
     RAISE EXCEPTION 'Updates and Deletes are strictly forbidden on table: %', TG_TABLE_NAME;
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS prevent_collections_modifications ON public.finance_collections;
 CREATE TRIGGER prevent_collections_modifications
 BEFORE UPDATE OR DELETE ON public.finance_collections
 FOR EACH ROW EXECUTE FUNCTION public.prevent_finance_append_only_update_delete();
 
+DROP TRIGGER IF EXISTS prevent_audit_logs_modifications ON public.finance_audit_logs;
 CREATE TRIGGER prevent_audit_logs_modifications
 BEFORE UPDATE OR DELETE ON public.finance_audit_logs
 FOR EACH ROW EXECUTE FUNCTION public.prevent_finance_append_only_update_delete();
@@ -144,7 +162,8 @@ CREATE OR REPLACE FUNCTION public.create_finance_plan(
     p_installment_count SMALLINT,
     p_statement_day SMALLINT,
     p_first_due_date DATE,
-    p_created_by TEXT
+    p_created_by TEXT,
+    p_down_payment_method TEXT DEFAULT 'cash'
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -163,16 +182,16 @@ DECLARE
     v_new_balance NUMERIC;
     v_plan_id UUID;
     
-    v_total_cents INT;
-    v_base_cents INT;
-    v_last_cents INT;
-    v_base_principal_cents INT;
-    v_last_principal_cents INT;
-    v_base_charge_cents INT;
-    v_last_charge_cents INT;
+    v_total_cents BIGINT;
+    v_base_cents BIGINT;
+    v_last_cents BIGINT;
+    v_base_principal_cents BIGINT;
+    v_last_principal_cents BIGINT;
+    v_base_charge_cents BIGINT;
+    v_last_charge_cents BIGINT;
     
-    v_financed_principal_cents INT;
-    v_finance_charge_cents INT;
+    v_financed_principal_cents BIGINT;
+    v_finance_charge_cents BIGINT;
     
     v_inst_due_date DATE;
     v_ledger_res JSONB;
@@ -181,10 +200,25 @@ DECLARE
     v_existing_plan RECORD;
     v_existing_inst JSONB;
     v_existing_balance NUMERIC;
+
+    v_principal_trx_id UUID;
+    v_charge_trx_id UUID;
 BEGIN
     -- Idempotency Check
     SELECT * INTO v_existing_plan FROM public.finance_plans WHERE idempotency_key = p_idempotency_key;
     IF FOUND THEN
+        IF v_existing_plan.credit_customer_id != p_customer_id OR
+           v_existing_plan.source_type != p_source_type OR
+           v_existing_plan.source_reference != p_source_reference OR
+           v_existing_plan.principal_amount != p_principal_amount OR
+           v_existing_plan.down_payment_amount != p_down_payment_amount OR
+           v_existing_plan.term_rate_percent != p_term_rate_percent OR
+           v_existing_plan.installment_count != p_installment_count OR
+           v_existing_plan.statement_day != p_statement_day OR
+           v_existing_plan.first_due_date != p_first_due_date THEN
+            RAISE EXCEPTION 'Idempotency key payload mismatch';
+        END IF;
+
         SELECT json_agg(i) INTO v_existing_inst FROM public.finance_installments i WHERE finance_plan_id = v_existing_plan.id;
         SELECT current_balance INTO v_existing_balance FROM public.credit_accounts WHERE id = v_existing_plan.credit_account_id;
         RETURN jsonb_build_object(
@@ -195,20 +229,35 @@ BEGIN
     END IF;
 
     -- Validations
+    IF p_principal_amount IS NULL THEN
+        RAISE EXCEPTION 'Principal amount is required';
+    END IF;
     IF p_principal_amount < 750 THEN
         RAISE EXCEPTION 'Principal amount must be at least 750';
+    END IF;
+    IF p_down_payment_amount IS NULL THEN
+        RAISE EXCEPTION 'Down payment amount is required';
     END IF;
     IF p_down_payment_amount < 0 THEN
         RAISE EXCEPTION 'Down payment cannot be negative';
     END IF;
-    IF p_down_payment_amount > p_principal_amount THEN
-        RAISE EXCEPTION 'Down payment cannot exceed principal amount';
+    IF p_down_payment_amount >= p_principal_amount THEN
+        RAISE EXCEPTION 'Down payment must be less than principal amount (full down payment does not allow installment plans)';
+    END IF;
+    IF p_term_rate_percent < 0 THEN
+        RAISE EXCEPTION 'Term rate percent cannot be negative';
+    END IF;
+    IF p_term_rate_percent > 100 THEN
+        RAISE EXCEPTION 'Term rate percent exceeds maximum allowed limit';
     END IF;
     IF p_installment_count NOT BETWEEN 1 AND 3 THEN
         RAISE EXCEPTION 'Installment count must be between 1 and 3';
     END IF;
     IF p_statement_day NOT IN (10, 15, 20, 25) THEN
         RAISE EXCEPTION 'Statement day must be 10, 15, 20, or 25';
+    END IF;
+    IF p_principal_amount != round(p_principal_amount, 2) OR p_down_payment_amount != round(p_down_payment_amount, 2) THEN
+        RAISE EXCEPTION 'Amounts can have at most 2 decimal places';
     END IF;
 
     -- Row Lock Customer & Account
@@ -234,52 +283,60 @@ BEGIN
     v_finance_charge := round((v_financed_principal * p_term_rate_percent / 100.0), 2);
     v_total_due := v_financed_principal + v_finance_charge;
 
-    -- Limit Check
+    IF v_total_due <= 0 THEN
+        RAISE EXCEPTION 'Total due amount must be greater than zero';
+    END IF;
+
+    -- Limit Check (Preflight)
     IF v_current_balance + v_total_due > v_credit_limit THEN
         RAISE EXCEPTION 'Kullanılabilir limit yetersiz. Mevcut Bakiye: %, Limit: %, Talep: %', v_current_balance, v_credit_limit, v_total_due;
     END IF;
 
-    -- Update Balance
-    UPDATE public.credit_accounts SET current_balance = current_balance + v_total_due, updated_at = now() WHERE id = v_account_id RETURNING current_balance INTO v_new_balance;
+    -- Insert Ledger Transactions (This updates current_balance inside public.add_credit_transaction)
+    v_ledger_res := public.add_credit_transaction(
+        p_customer_id, v_account_id, 'purchase', 'debit', v_financed_principal,
+        'Taksitli Satış Borcu - Ref: ' || p_source_reference,
+        CASE WHEN p_source_type IN ('store_sale', 'web_order') THEN p_source_type ELSE 'store_sale' END,
+        p_source_reference, NULL, NULL, p_created_by, NULL, NULL
+    );
+    v_principal_trx_id := (v_ledger_res->>'transaction_id')::UUID;
+
+    IF v_finance_charge > 0 THEN
+        v_ledger_res := public.add_credit_transaction(
+            p_customer_id, v_account_id, 'fee', 'debit', v_finance_charge,
+            'Taksit Vade Farkı Bedeli - Ref: ' || p_source_reference,
+            'service_fee', p_source_reference, NULL, NULL, p_created_by, NULL, NULL
+        );
+        v_charge_trx_id := (v_ledger_res->>'transaction_id')::UUID;
+    END IF;
+
+    -- Fetch the new updated balance from credit_accounts
+    SELECT current_balance INTO v_new_balance FROM public.credit_accounts WHERE id = v_account_id;
 
     -- Insert Plan
     INSERT INTO public.finance_plans (
         idempotency_key, credit_customer_id, credit_account_id, source_type, source_reference,
         principal_amount, down_payment_amount, financed_principal, term_rate_percent,
         finance_charge_amount, total_due_amount, amount_paid, remaining_amount,
-        installment_count, statement_day, first_due_date, status, created_by
+        installment_count, statement_day, first_due_date, status, created_by,
+        principal_transaction_id, finance_charge_transaction_id
     ) VALUES (
         p_idempotency_key, p_customer_id, v_account_id, p_source_type, p_source_reference,
         p_principal_amount, p_down_payment_amount, v_financed_principal, p_term_rate_percent,
         v_finance_charge, v_total_due, 0, v_total_due,
-        p_installment_count, p_statement_day, p_first_due_date, 'active', p_created_by
+        p_installment_count, p_statement_day, p_first_due_date, 'active', p_created_by,
+        v_principal_trx_id, v_charge_trx_id
     ) RETURNING id INTO v_plan_id;
-
-    -- Insert Ledger Transactions (Using the existing credit ledger)
-    PERFORM public.add_credit_transaction(
-        p_customer_id, v_account_id, 'purchase', 'debit', v_financed_principal,
-        'Taksitli Satış Borcu - Ref: ' || p_source_reference,
-        CASE WHEN p_source_type IN ('store_sale', 'web_order') THEN p_source_type ELSE 'store_sale' END,
-        p_source_reference, NULL, NULL, p_created_by, NULL, NULL
-    );
-
-    IF v_finance_charge > 0 THEN
-        PERFORM public.add_credit_transaction(
-            p_customer_id, v_account_id, 'fee', 'debit', v_finance_charge,
-            'Taksit Vade Farkı Bedeli - Ref: ' || p_source_reference,
-            'service_fee', p_source_reference, NULL, NULL, p_created_by, NULL, NULL
-        );
-    END IF;
 
     -- Insert Down Payment if exists
     IF p_down_payment_amount > 0 THEN
         v_dp_receipt := 'RCP-DP-' || LPAD(nextval('public.finance_receipt_seq')::text, 6, '0');
         INSERT INTO public.finance_collections (
             idempotency_key, finance_plan_id, credit_account_id, amount,
-            collection_kind, payment_method, receipt_number, created_by, note
+            collection_kind, payment_method, receipt_number, created_by, note, direction
         ) VALUES (
             p_idempotency_key || '_down_payment', v_plan_id, v_account_id, p_down_payment_amount,
-            'down_payment', 'cash', v_dp_receipt, p_created_by, 'Peşinat tahsilatı'
+            'down_payment', p_down_payment_method, v_dp_receipt, p_created_by, 'Peşinat tahsilatı', 'in'
         );
     END IF;
 
@@ -315,7 +372,7 @@ BEGIN
 
     -- Audit Log
     INSERT INTO public.finance_audit_logs (finance_plan_id, action, actor, old_data, new_data)
-    VALUES (v_plan_id, 'create_plan', p_created_by, NULL, jsonb_build_object('principal', p_principal_amount, 'total_due', v_total_due));
+    VALUES (v_plan_id, 'create_plan', p_created_by, NULL, jsonb_build_object('principal', p_principal_amount, 'total_due', v_total_due, 'down_payment_method', p_down_payment_method));
 
     -- Return JSONB
     RETURN jsonb_build_object(
@@ -326,10 +383,10 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT) FROM anon;
-REVOKE ALL ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT) TO service_role;
+REVOKE ALL ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT, TEXT) FROM anon;
+REVOKE ALL ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT, TEXT) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT, TEXT) TO service_role;
 
 -- B. Record Finance Collection RPC
 CREATE OR REPLACE FUNCTION public.record_finance_collection(
@@ -365,10 +422,21 @@ DECLARE
     v_existing_plan RECORD;
     v_existing_inst JSONB;
     v_existing_balance NUMERIC;
+
+    v_ledger_res JSONB;
+    v_ledger_trx_id UUID;
 BEGIN
     -- Idempotency Check
     SELECT * INTO v_existing_col FROM public.finance_collections WHERE idempotency_key = p_idempotency_key;
     IF FOUND THEN
+        IF v_existing_col.finance_plan_id != p_plan_id OR
+           v_existing_col.amount != p_amount OR
+           v_existing_col.payment_method != p_payment_method OR
+           v_existing_col.collection_kind != p_collection_kind OR
+           v_existing_col.collected_at != p_collected_at THEN
+            RAISE EXCEPTION 'Idempotency key payload mismatch for collection';
+        END IF;
+
         SELECT * INTO v_existing_plan FROM public.finance_plans WHERE id = p_plan_id;
         SELECT json_agg(i) INTO v_existing_inst FROM public.finance_installments i WHERE finance_plan_id = p_plan_id;
         SELECT current_balance INTO v_existing_balance FROM public.credit_accounts WHERE id = v_existing_plan.credit_account_id;
@@ -381,8 +449,14 @@ BEGIN
     END IF;
 
     -- Validations
+    IF p_amount IS NULL THEN
+        RAISE EXCEPTION 'Payment amount is required';
+    END IF;
     IF p_amount <= 0 THEN
         RAISE EXCEPTION 'Payment amount must be greater than zero';
+    END IF;
+    IF p_amount != round(p_amount, 2) THEN
+        RAISE EXCEPTION 'Payment amount can have at most 2 decimal places';
     END IF;
 
     -- Lock Plan & Account
@@ -401,6 +475,18 @@ BEGIN
 
     SELECT current_balance, credit_customer_id INTO v_current_balance, v_customer_id
     FROM public.credit_accounts WHERE id = v_account_id FOR UPDATE;
+
+    -- Insert Ledger Transaction (This updates current_balance inside public.add_credit_transaction)
+    v_receipt_number := 'RCP-COL-' || LPAD(nextval('public.finance_receipt_seq')::text, 6, '0');
+    v_ledger_res := public.add_credit_transaction(
+        v_customer_id, v_account_id, 'payment', 'credit', p_amount,
+        'Taksit Tahsilatı - Makbuz No: ' || v_receipt_number,
+        'payment', v_receipt_number, NULL, p_payment_method, p_created_by, NULL, NULL
+    );
+    v_ledger_trx_id := (v_ledger_res->>'transaction_id')::UUID;
+
+    -- Fetch the new updated balance from credit_accounts
+    SELECT current_balance INTO v_new_balance FROM public.credit_accounts WHERE id = v_account_id;
 
     -- Distribute Payment sequentially (FIFO) to installments
     FOR v_inst IN 
@@ -441,26 +527,16 @@ BEGIN
         updated_at = now()
     WHERE id = p_plan_id;
 
-    -- Deduct Account Balance
-    UPDATE public.credit_accounts SET current_balance = current_balance - p_amount, updated_at = now()
-    WHERE id = v_account_id RETURNING current_balance INTO v_new_balance;
-
     -- Insert Receipt
-    v_receipt_number := 'RCP-COL-' || LPAD(nextval('public.finance_receipt_seq')::text, 6, '0');
     INSERT INTO public.finance_collections (
         idempotency_key, finance_plan_id, credit_account_id, amount,
-        collection_kind, payment_method, receipt_number, collected_at, created_by, note
+        collection_kind, payment_method, receipt_number, collected_at, created_by, note,
+        ledger_transaction_id, direction
     ) VALUES (
         p_idempotency_key, p_plan_id, v_account_id, p_amount,
-        p_collection_kind, p_payment_method, v_receipt_number, p_collected_at, p_created_by, p_note
+        p_collection_kind, p_payment_method, v_receipt_number, p_collected_at, p_created_by, p_note,
+        v_ledger_trx_id, 'in'
     ) RETURNING id INTO v_collection_id;
-
-    -- Insert Ledger Transaction
-    PERFORM public.add_credit_transaction(
-        v_customer_id, v_account_id, 'payment', 'credit', p_amount,
-        'Taksit Tahsilatı - Makbuz No: ' || v_receipt_number,
-        'payment', v_receipt_number, NULL, p_payment_method, p_created_by, NULL, NULL
-    );
 
     -- Audit Log
     INSERT INTO public.finance_audit_logs (finance_plan_id, action, actor, old_data, new_data)
@@ -503,58 +579,113 @@ DECLARE
     v_source_reference TEXT;
     v_new_balance NUMERIC;
     v_status TEXT;
+    v_current_balance NUMERIC;
+
+    v_col RECORD;
+    v_already_refunded BOOLEAN;
+    v_rev_col_trx_id UUID;
+    v_ledger_res JSONB;
+    v_receipt_number TEXT;
+    v_plan_principal_trx UUID;
+    v_plan_charge_trx UUID;
 BEGIN
     p_reason := trim(p_reason);
     IF p_reason IS NULL OR p_reason = '' THEN
         RAISE EXCEPTION 'Reason is required for cancelling finance plans';
     END IF;
 
-    -- Lock Plan & Account
-    SELECT credit_account_id, amount_paid, total_due_amount, financed_principal, finance_charge_amount, source_reference, status
-    INTO v_account_id, v_amount_paid, v_total_due, v_financed_principal, v_finance_charge, v_source_reference, v_status
+    -- Lock Plan
+    SELECT credit_account_id, amount_paid, total_due_amount, financed_principal, finance_charge_amount, source_reference, status,
+           principal_transaction_id, finance_charge_transaction_id
+    INTO v_account_id, v_amount_paid, v_total_due, v_financed_principal, v_finance_charge, v_source_reference, v_status,
+         v_plan_principal_trx, v_plan_charge_trx
     FROM public.finance_plans WHERE id = p_plan_id FOR UPDATE;
     
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Finance plan not found';
     END IF;
+    
+    -- Idempotency Check: if already cancelled, just return status silently
     IF v_status = 'cancelled' THEN
-        RAISE EXCEPTION 'Finance plan is already cancelled';
-    END IF;
-    IF v_amount_paid > 0 THEN
-        RAISE EXCEPTION 'Ödemesi başlamış taksit planları iptal edilemez. Lütfen manuel finans incelemesine yönlendirin.';
+        SELECT current_balance INTO v_new_balance FROM public.credit_accounts WHERE id = v_account_id;
+        RETURN jsonb_build_object(
+            'plan', (SELECT to_jsonb(p) FROM public.finance_plans p WHERE id = p_plan_id),
+            'current_balance', v_new_balance
+        );
     END IF;
 
+    -- Lock Account and Customer
     SELECT current_balance, credit_customer_id INTO v_current_balance, v_customer_id
     FROM public.credit_accounts WHERE id = v_account_id FOR UPDATE;
 
-    -- Update statuses
+    -- 1. Reverse Principal Purchase
+    IF v_plan_principal_trx IS NOT NULL THEN
+        v_ledger_res := public.add_credit_transaction(
+            v_customer_id, v_account_id, 'reversal', 'credit', v_financed_principal,
+            'Taksitli Plan İptali (Borç İadesi) - Ref: ' || v_source_reference,
+            'reversal', v_source_reference, NULL, NULL, p_admin_username, v_plan_principal_trx, NULL
+        );
+    END IF;
+
+    -- 2. Reverse Finance Charge (Fee)
+    IF v_plan_charge_trx IS NOT NULL AND v_finance_charge > 0 THEN
+        v_ledger_res := public.add_credit_transaction(
+            v_customer_id, v_account_id, 'reversal', 'credit', v_finance_charge,
+            'Taksitli Plan İptali (Vade Farkı İadesi) - Ref: ' || v_source_reference,
+            'reversal', v_source_reference, NULL, NULL, p_admin_username, v_plan_charge_trx, NULL
+        );
+    END IF;
+
+    -- 3. Reverse each Collection (FIFO / Locked list)
+    FOR v_col IN 
+        SELECT id, amount, receipt_number, collection_kind, payment_method, ledger_transaction_id, note, idempotency_key
+        FROM public.finance_collections
+        WHERE finance_plan_id = p_plan_id AND direction = 'in' FOR UPDATE
+    LOOP
+        -- Check if already refunded
+        SELECT EXISTS (
+            SELECT 1 FROM public.finance_collections WHERE reverses_collection_id = v_col.id
+        ) INTO v_already_refunded;
+        
+        IF NOT v_already_refunded THEN
+            v_rev_col_trx_id := NULL;
+            
+            -- If it's a ledger-tracked payment, reverse the ledger entry
+            IF v_col.ledger_transaction_id IS NOT NULL AND v_col.collection_kind IN ('installment_payment', 'early_closure', 'adjustment') THEN
+                v_ledger_res := public.add_credit_transaction(
+                    v_customer_id, v_account_id, 'reversal', 'debit', v_col.amount,
+                    'Taksit Ödeme İptali (Tahsilat İadesi) - Makbuz Ref: ' || v_col.receipt_number,
+                    'reversal', v_col.receipt_number, NULL, NULL, p_admin_username, v_col.ledger_transaction_id, NULL
+                );
+                v_rev_col_trx_id := (v_ledger_res->>'transaction_id')::UUID;
+            END IF;
+
+            -- Create append-only refund collection record
+            v_receipt_number := 'RCP-RFD-' || LPAD(nextval('public.finance_receipt_seq')::text, 6, '0');
+            INSERT INTO public.finance_collections (
+                idempotency_key, finance_plan_id, credit_account_id, amount,
+                collection_kind, payment_method, receipt_number, collected_at, created_by, note,
+                direction, reverses_collection_id, ledger_transaction_id
+            ) VALUES (
+                v_col.idempotency_key || '_refund', p_plan_id, v_account_id, v_col.amount,
+                v_col.collection_kind, v_col.payment_method, v_receipt_number, now(), p_admin_username, 'İade: ' || coalesce(v_col.note, ''),
+                'out', v_col.id, v_rev_col_trx_id
+            );
+        END IF;
+    END LOOP;
+
+    -- Update plan and installment statuses
     UPDATE public.finance_plans SET status = 'cancelled', remaining_amount = 0, updated_at = now() WHERE id = p_plan_id;
     UPDATE public.finance_installments SET status = 'cancelled', remaining_amount = 0, updated_at = now() WHERE finance_plan_id = p_plan_id;
 
-    -- Deduct Balance
-    UPDATE public.credit_accounts SET current_balance = current_balance - v_total_due, updated_at = now()
-    WHERE id = v_account_id RETURNING current_balance INTO v_new_balance;
-
-    -- Insert Reversal Transactions
-    PERFORM public.add_credit_transaction(
-        v_customer_id, v_account_id, 'reversal', 'credit', v_financed_principal,
-        'Taksitli Plan İptali (Borç İadesi) - Ref: ' || v_source_reference,
-        'reversal', v_source_reference, NULL, NULL, p_admin_username, NULL, NULL
-    );
-
-    IF v_finance_charge > 0 THEN
-        PERFORM public.add_credit_transaction(
-            v_customer_id, v_account_id, 'reversal', 'credit', v_finance_charge,
-            'Taksitli Plan İptali (Vade Farkı İadesi) - Ref: ' || v_source_reference,
-            'reversal', v_source_reference, NULL, NULL, p_admin_username, NULL, NULL
-        );
-    END IF;
+    -- Fetch the final updated balance from credit_accounts
+    SELECT current_balance INTO v_new_balance FROM public.credit_accounts WHERE id = v_account_id;
 
     -- Audit Log
     INSERT INTO public.finance_audit_logs (finance_plan_id, action, actor, old_data, new_data, reason)
     VALUES (p_plan_id, 'cancel_plan', p_admin_username, 
-            jsonb_build_object('status', v_status, 'total_due', v_total_due), 
-            jsonb_build_object('status', 'cancelled', 'total_due', 0), p_reason);
+            jsonb_build_object('status', v_status, 'total_due', v_total_due, 'amount_paid', v_amount_paid), 
+            jsonb_build_object('status', 'cancelled', 'total_due', v_total_due, 'amount_paid', v_amount_paid), p_reason);
 
     RETURN jsonb_build_object(
         'plan', (SELECT to_jsonb(p) FROM public.finance_plans p WHERE id = p_plan_id),
@@ -567,3 +698,5 @@ REVOKE ALL ON FUNCTION public.cancel_finance_plan(UUID, TEXT, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.cancel_finance_plan(UUID, TEXT, TEXT) FROM anon;
 REVOKE ALL ON FUNCTION public.cancel_finance_plan(UUID, TEXT, TEXT) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.cancel_finance_plan(UUID, TEXT, TEXT) TO service_role;
+
+COMMIT;

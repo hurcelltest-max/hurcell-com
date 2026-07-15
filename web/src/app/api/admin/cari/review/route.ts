@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Hesap kesim günü 10, 15, 20 veya 25 olmalıdır.' }, { status: 400 });
     }
 
-    const { error: rpcError } = await supabaseAdmin.rpc('review_credit_application', {
+    const { error: rpcError } = await getSupabaseAdmin().rpc('review_credit_application', {
       p_customer_id: customerId,
       p_decision: cleanDecision,
       p_credit_limit: numLimit,

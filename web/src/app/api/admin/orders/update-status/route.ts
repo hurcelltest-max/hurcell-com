@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const requiresRestock = restockStatuses.includes(status)
 
     // 1. Fetch order
-    let query = supabaseAdmin.from('orders').select('*')
+    let query = getSupabaseAdmin().from('orders').select('*')
     if (order_id) query = query.eq('id', order_id)
     else query = query.eq('order_number', order_number)
 

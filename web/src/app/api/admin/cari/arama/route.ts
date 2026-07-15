@@ -10,7 +10,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Arama terimi eksik.' }, { status: 400 });
     }
 
-    let customerQuery = supabaseAdmin.from('credit_customers').select('card_token').limit(1);
+    let customerQuery = getSupabaseAdmin().from('credit_customers').select('card_token').limit(1);
 
     if (query.toUpperCase().startsWith('HRC')) {
       customerQuery = customerQuery.eq('customer_card_code', query.toUpperCase());

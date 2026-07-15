@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
     
     // 1. Verify and Consume Token
-    const { data: verificationId, error: verifyError } = await supabaseAdmin.rpc('consume_phone_verification_token', {
+    const { data: verificationId, error: verifyError } = await getSupabaseAdmin().rpc('consume_phone_verification_token', {
       p_phone: normalizedPhone,
       p_token_hash: tokenHash
     });

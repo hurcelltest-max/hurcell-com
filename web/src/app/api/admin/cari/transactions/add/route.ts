@@ -106,7 +106,7 @@ export async function POST(req: Request) {
     }
 
     // Call RPC
-    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('add_credit_transaction', {
+    const { data: rpcData, error: rpcError } = await getSupabaseAdmin().rpc('add_credit_transaction', {
       p_customer_id: customer_id,
       p_account_id: account_id,
       p_transaction_type: transaction_type,

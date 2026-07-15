@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 export const releaseOrderStock = async (orderId: string, reason: string): Promise<{ success: boolean; message: string }> => {
   try {
     // Calling the atomic PostgreSQL RPC function
-    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('release_order_stock', {
+    const { data: rpcData, error: rpcError } = await getSupabaseAdmin().rpc('release_order_stock', {
       p_order_id: orderId,
       p_reason: reason
     });

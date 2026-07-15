@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const ip = req.headers.get('x-forwarded-for') || 'unknown';
 
     // Rate Limit (IP)
-    const { data: ipLimitValid, error: ipError } = await supabaseAdmin.rpc('check_rate_limit_atomic', {
+    const { data: ipLimitValid, error: ipError } = await getSupabaseAdmin().rpc('check_rate_limit_atomic', {
       p_identifier: ip,
       p_action: 'send_otp_cari',
       p_max_requests: 5,
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     }
 
     // Rate Limit (Phone)
-    const { data: phoneLimitValid, error: phoneError } = await supabaseAdmin.rpc('check_rate_limit_atomic', {
+    const { data: phoneLimitValid, error: phoneError } = await getSupabaseAdmin().rpc('check_rate_limit_atomic', {
       p_identifier: normalizedPhone,
       p_action: 'send_otp_cari',
       p_max_requests: 3,

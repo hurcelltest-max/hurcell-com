@@ -28,7 +28,7 @@ async function releaseStocks(
   reservedStocks: Array<{ product_id: string; qty: number }>
 ): Promise<void> {
   for (const { product_id, qty } of reservedStocks) {
-    const { error } = await supabaseAdmin.rpc('increment_product_stock_safe', {
+    const { error } = await getSupabaseAdmin().rpc('increment_product_stock_safe', {
       p_product_id: product_id,
       p_qty: qty,
     });
@@ -315,7 +315,7 @@ export async function POST(req: Request) {
 
     // 5.5 OTP Token Tüketimi (Validasyonlardan sonra, Stok düşümünden hemen önce)
     // Atomic consumption via RPC
-    const { data: verificationId, error: verificationError } = await supabaseAdmin.rpc(
+    const { data: verificationId, error: verificationError } = await getSupabaseAdmin().rpc(
       'consume_phone_verification_token',
       {
         p_phone: normalizedPhone,
@@ -331,7 +331,7 @@ export async function POST(req: Request) {
     const reservedStocks: Array<{ product_id: string; qty: number }> = [];
 
     for (const item of validatedItems) {
-      const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+      const { data: rpcResult, error: rpcError } = await getSupabaseAdmin().rpc(
         'decrement_product_stock_safe',
         {
           p_product_id: item.product_id,
@@ -431,7 +431,7 @@ export async function POST(req: Request) {
         message: itemsError.message,
         code: itemsError.code,
       });
-      await supabaseAdmin.from('orders').delete().eq('id', order.id);
+      await getSupabaseAdmin().from('orders').delete().eq('id', order.id);
       await releaseStocks(reservedStocks);
       return NextResponse.json(
         { error: 'Sipariş detayları kaydedilemedi.' },

@@ -1,6 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
-import { ShieldCheck, HelpCircle, ArrowRight, DollarSign, Calendar, Landmark, Info } from 'lucide-react'
+import { ShieldCheck, HelpCircle, ArrowRight, Calendar, Landmark, Info } from 'lucide-react'
 
 export const metadata = {
   title: 'Limitli Alışveriş (Veresiye) Sistemi | HurCELL',
@@ -47,7 +47,7 @@ export default function LimitliAlisverisLandingPage() {
           </h1>
 
           <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8 leading-relaxed">
-            HurCELL'in yenilikçi Cari Hesap sistemiyle tanışın. Alışveriş limitinizi hemen öğrenin, ödemelerinizi bütçenize göre taksitlendirin.
+            HurCELL&apos;in yenilikçi Cari Hesap sistemiyle tanışın. Alışveriş limitinizi hemen öğrenin, ödemelerinizi bütçenize göre taksitlendirin.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
@@ -75,7 +75,7 @@ export default function LimitliAlisverisLandingPage() {
               </div>
               <h3 className="text-xl font-semibold text-white mb-3">1. Limit Başvurusu</h3>
               <p className="text-slate-400 leading-relaxed text-sm">
-                Limitli Alışveriş ve Cari Hesap Sözleşmesi'ni okuyup telefon numaranızla doğrulayarak ön başvurunuzu gerçekleştirin.
+                Limitli Alışveriş ve Cari Hesap Sözleşmesi&apos;ni okup telefon numaranızla doğrulayarak ön başvurunuzu gerçekleştirin.
               </p>
             </div>
 

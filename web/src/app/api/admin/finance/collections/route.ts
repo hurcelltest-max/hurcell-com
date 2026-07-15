@@ -3,6 +3,7 @@ import { requireAdminApi } from '@/lib/admin/require-admin-api';
 import { financeAdminClient } from '@/lib/finance/server-client';
 import { z } from 'zod';
 import { sendFinanceSms } from '@/lib/sms/transactional';
+import { handleFinanceApiError } from '@/lib/finance/error-handler';
 
 const recordCollectionSchema = z.object({
   planId: z.string().uuid(),
@@ -45,9 +46,7 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error('[FINANCE COLLECTION CREATE RPC ERROR]', error);
-      const response = NextResponse.json({ error: error.message || 'Tahsilat kaydı oluşturulamadı.' }, { status: 400 });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
+      return handleFinanceApiError(error, 'Tahsilat kaydı oluşturulamadı.');
     }
 
     const resultData = data as {

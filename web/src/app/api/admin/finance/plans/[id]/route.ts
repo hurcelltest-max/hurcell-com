@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin/require-admin-api';
 import { financeAdminClient } from '@/lib/finance/server-client';
+import { handleFinanceApiError } from '@/lib/finance/error-handler';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -24,6 +25,9 @@ export async function GET(req: Request, context: RouteContext) {
 
     if (planError || !plan) {
       console.error('[FINANCE PLAN DETAIL ERROR]', planError);
+      if (planError && planError.code !== 'PGRST116') {
+        return handleFinanceApiError(planError, 'Plan detayları alınamadı.');
+      }
       const response = NextResponse.json({ error: 'Plan bulunamadı.' }, { status: 404 });
       response.headers.set('Cache-Control', 'no-store');
       return response;

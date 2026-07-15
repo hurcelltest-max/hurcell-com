@@ -3,6 +3,7 @@ import { requireAdminApi } from '@/lib/admin/require-admin-api';
 import { financeAdminClient } from '@/lib/finance/server-client';
 import { z } from 'zod';
 import { sendFinanceSms } from '@/lib/sms/transactional';
+import { handleFinanceApiError } from '@/lib/finance/error-handler';
 
 const createPlanSchema = z.object({
   customerId: z.string().uuid(),
@@ -17,6 +18,7 @@ const createPlanSchema = z.object({
   }),
   firstDueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   idempotencyKey: z.string().min(1),
+  downPaymentMethod: z.enum(['cash', 'card', 'bank_transfer', 'other']).optional().default('cash'),
 });
 
 // 1. GET: List Plans
@@ -46,9 +48,7 @@ export async function GET(req: Request) {
 
     if (error) {
       console.error('[FINANCE PLAN LIST ERROR]', error);
-      const response = NextResponse.json({ error: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
+      return handleFinanceApiError(error, 'Plan listesi getirilemedi.');
     }
 
     const response = NextResponse.json({ success: true, plans: data });
@@ -99,14 +99,13 @@ export async function POST(req: Request) {
       p_statement_day: val.statementDay,
       p_first_due_date: val.firstDueDate,
       p_created_by: auth.username,
+      p_down_payment_method: val.downPaymentMethod,
     };
     const { data, error } = await financeAdminClient.rpc('create_finance_plan', rpcArgs);
 
     if (error) {
       console.error('[FINANCE PLAN CREATE RPC ERROR]', error);
-      const response = NextResponse.json({ error: error.message || 'Plan oluşturulamadı.' }, { status: 400 });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
+      return handleFinanceApiError(error, 'Plan oluşturulamadı.');
     }
 
     const resultData = data as {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin/require-admin-api';
 import { financeAdminClient } from '@/lib/finance/server-client';
+import { handleFinanceApiError } from '@/lib/finance/error-handler';
 
 export async function GET(req: Request) {
   try {
@@ -33,9 +34,7 @@ export async function GET(req: Request) {
 
     if (plansError) {
       console.error('[FINANCE REPORTS PLANS ERROR]', plansError);
-      const response = NextResponse.json({ error: 'Planlar yüklenemedi.' }, { status: 500 });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
+      return handleFinanceApiError(plansError, 'Planlar yüklenemedi.');
     }
 
     // Aggregations

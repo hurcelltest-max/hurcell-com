@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin/require-admin-api';
 import { financeAdminClient } from '@/lib/finance/server-client';
 import { z } from 'zod';
+import { handleFinanceApiError } from '@/lib/finance/error-handler';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -40,9 +41,7 @@ export async function POST(req: Request, context: RouteContext) {
 
     if (error) {
       console.error('[FINANCE PLAN CANCEL RPC ERROR]', error);
-      const response = NextResponse.json({ error: error.message || 'Plan iptal edilemedi.' }, { status: 400 });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
+      return handleFinanceApiError(error, 'Plan iptal edilemedi.');
     }
 
     const response = NextResponse.json({ success: true, result: data });

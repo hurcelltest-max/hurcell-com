@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin/require-admin-api';
 import { financeAdminClient } from '@/lib/finance/server-client';
+import { handleFinanceApiError } from '@/lib/finance/error-handler';
 
 type RouteContext = {
   params: Promise<{ customerId: string }>;
@@ -24,9 +25,7 @@ export async function GET(req: Request, context: RouteContext) {
 
     if (planErr) {
       console.error('[CUSTOMER FINANCE SUMMARY ERROR]', planErr);
-      const response = NextResponse.json({ error: 'Beklenmeyen bir sistem hatası oluştu.' }, { status: 500 });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
+      return handleFinanceApiError(planErr, 'Cari finansal özet alınamadı.');
     }
 
     const planIds = (plans || []).map((p: { id: string }) => p.id);

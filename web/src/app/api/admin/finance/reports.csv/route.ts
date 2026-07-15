@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/admin/require-admin-api';
 import { financeAdminClient } from '@/lib/finance/server-client';
+import { handleFinanceApiError } from '@/lib/finance/error-handler';
 
 function escapeCsvField(val: unknown): string {
   if (val === null || val === undefined) return '';
@@ -42,9 +43,7 @@ export async function GET(req: Request) {
 
     if (error) {
       console.error('[FINANCE REPORTS CSV ERROR]', error);
-      const response = NextResponse.json({ error: 'Rapor verileri alınamadı.' }, { status: 500 });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
+      return handleFinanceApiError(error, 'Rapor verileri alınamadı.');
     }
 
     // CSV Headers

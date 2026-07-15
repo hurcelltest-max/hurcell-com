@@ -121,7 +121,7 @@ Fiyat: ${formattedPrice}`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 };
 
-export const getFallbackImage = (category: string | null | undefined): string => {
+export const getFallbackImage = (category?: string | null | undefined): string => {
   const cat = (category || '').toLowerCase();
   let icon = '📦';
   let bg = '#f1f5f9'; // slate-100

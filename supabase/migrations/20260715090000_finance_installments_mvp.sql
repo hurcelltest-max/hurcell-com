@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS public.finance_audit_logs (
     actor TEXT NOT NULL,
     old_data JSONB,
     new_data JSONB,
+    reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

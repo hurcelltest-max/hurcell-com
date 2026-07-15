@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { createBrowserClient } from '@supabase/ssr'
 
 export function isPublicSupabaseConfigured(): boolean {

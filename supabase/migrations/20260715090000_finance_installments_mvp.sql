@@ -33,7 +33,14 @@ CREATE TABLE IF NOT EXISTS public.finance_plans (
     CONSTRAINT chk_financed_principal_calc CHECK (financed_principal = principal_amount - down_payment_amount),
     CONSTRAINT chk_down_payment_lt_principal CHECK (down_payment_amount < principal_amount),
     CONSTRAINT chk_total_due_calc CHECK (total_due_amount = financed_principal + finance_charge_amount),
-    CONSTRAINT chk_remaining_calc CHECK (remaining_amount = total_due_amount - amount_paid)
+    CONSTRAINT chk_remaining_calc CHECK (
+        (status = 'cancelled' AND remaining_amount = 0)
+        OR
+        (status <> 'cancelled' AND remaining_amount = total_due_amount - amount_paid)
+    ),
+    CONSTRAINT chk_amount_paid_limit CHECK (amount_paid <= total_due_amount),
+    CONSTRAINT chk_remaining_limit CHECK (remaining_amount <= total_due_amount),
+    CONSTRAINT chk_paid_status CHECK (status <> 'paid' OR remaining_amount = 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_finance_plans_customer ON public.finance_plans(credit_customer_id);
@@ -98,6 +105,9 @@ CREATE TABLE IF NOT EXISTS public.finance_audit_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Unique index to prevent duplicate cancel_plan audit entries per plan
+CREATE UNIQUE INDEX IF NOT EXISTS idx_finance_audit_logs_unique_cancel ON public.finance_audit_logs(finance_plan_id) WHERE action = 'cancel_plan';
+
 -- Enable RLS
 ALTER TABLE public.finance_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_installments ENABLE ROW LEVEL SECURITY;
@@ -129,14 +139,19 @@ CREATE POLICY service_role_all ON public.finance_collections FOR ALL TO service_
 DROP POLICY IF EXISTS service_role_all ON public.finance_audit_logs;
 CREATE POLICY service_role_all ON public.finance_audit_logs FOR ALL TO service_role USING (true);
 
--- Triggers to prevent updates/deletes on append-only tables
+-- Trigger function definition to prevent updates/deletes on append-only tables
 CREATE OR REPLACE FUNCTION public.prevent_finance_append_only_update_delete()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
 BEGIN
-    SET search_path = public, pg_temp;
-    RAISE EXCEPTION 'Updates and Deletes are strictly forbidden on table: %', TG_TABLE_NAME;
+    RAISE EXCEPTION 'Updates and deletes are forbidden on append-only table: %', TG_TABLE_NAME;
 END;
-$$ LANGUAGE plpgsql;
+$$;
+
+REVOKE ALL ON FUNCTION public.prevent_finance_append_only_update_delete() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.prevent_finance_append_only_update_delete() TO service_role;
 
 DROP TRIGGER IF EXISTS prevent_collections_modifications ON public.finance_collections;
 CREATE TRIGGER prevent_collections_modifications
@@ -204,31 +219,28 @@ DECLARE
     v_principal_trx_id UUID;
     v_charge_trx_id UUID;
 BEGIN
-    -- Idempotency Check
-    SELECT * INTO v_existing_plan FROM public.finance_plans WHERE idempotency_key = p_idempotency_key;
-    IF FOUND THEN
-        IF v_existing_plan.credit_customer_id != p_customer_id OR
-           v_existing_plan.source_type != p_source_type OR
-           v_existing_plan.source_reference != p_source_reference OR
-           v_existing_plan.principal_amount != p_principal_amount OR
-           v_existing_plan.down_payment_amount != p_down_payment_amount OR
-           v_existing_plan.term_rate_percent != p_term_rate_percent OR
-           v_existing_plan.installment_count != p_installment_count OR
-           v_existing_plan.statement_day != p_statement_day OR
-           v_existing_plan.first_due_date != p_first_due_date THEN
-            RAISE EXCEPTION 'Idempotency key payload mismatch';
-        END IF;
-
-        SELECT json_agg(i) INTO v_existing_inst FROM public.finance_installments i WHERE finance_plan_id = v_existing_plan.id;
-        SELECT current_balance INTO v_existing_balance FROM public.credit_accounts WHERE id = v_existing_plan.credit_account_id;
-        RETURN jsonb_build_object(
-            'plan', to_jsonb(v_existing_plan),
-            'installments', v_existing_inst,
-            'current_balance', v_existing_balance
-        );
-    END IF;
-
     -- Validations
+    IF p_idempotency_key IS NULL OR trim(p_idempotency_key) = '' THEN
+        RAISE EXCEPTION 'Idempotency key is required';
+    END IF;
+    IF p_source_reference IS NULL OR trim(p_source_reference) = '' THEN
+        RAISE EXCEPTION 'Source reference is required';
+    END IF;
+    IF p_created_by IS NULL OR trim(p_created_by) = '' THEN
+        RAISE EXCEPTION 'Created by is required';
+    END IF;
+    IF p_term_rate_percent IS NULL THEN
+        RAISE EXCEPTION 'Term rate percent is required';
+    END IF;
+    IF p_first_due_date IS NULL THEN
+        RAISE EXCEPTION 'First due date is required';
+    END IF;
+    IF p_down_payment_method IS NULL OR p_down_payment_method NOT IN ('cash', 'card', 'bank_transfer', 'other') THEN
+        RAISE EXCEPTION 'Invalid down payment method';
+    END IF;
+    IF p_source_type IS NULL OR p_source_type NOT IN ('store_sale', 'web_order', 'service_order', 'manual') THEN
+        RAISE EXCEPTION 'Invalid source type';
+    END IF;
     IF p_principal_amount IS NULL THEN
         RAISE EXCEPTION 'Principal amount is required';
     END IF;
@@ -257,7 +269,39 @@ BEGIN
         RAISE EXCEPTION 'Statement day must be 10, 15, 20, or 25';
     END IF;
     IF p_principal_amount != round(p_principal_amount, 2) OR p_down_payment_amount != round(p_down_payment_amount, 2) THEN
-        RAISE EXCEPTION 'Amounts can have at most 2 decimal places';
+        RAISE EXCEPTION 'Principal and down payment amounts can have at most 2 decimal places';
+    END IF;
+    IF p_term_rate_percent != round(p_term_rate_percent, 4) THEN
+        RAISE EXCEPTION 'Term rate percent can have at most 4 decimal places';
+    END IF;
+
+    -- Concurrency Advisory Lock
+    PERFORM pg_advisory_xact_lock(
+        hashtextextended('finance_plan:' || p_idempotency_key, 0)
+    );
+
+    -- Idempotency Check after Lock
+    SELECT * INTO v_existing_plan FROM public.finance_plans WHERE idempotency_key = p_idempotency_key;
+    IF FOUND THEN
+        IF v_existing_plan.credit_customer_id != p_customer_id OR
+           v_existing_plan.source_type != p_source_type OR
+           v_existing_plan.source_reference != p_source_reference OR
+           v_existing_plan.principal_amount != p_principal_amount OR
+           v_existing_plan.down_payment_amount != p_down_payment_amount OR
+           v_existing_plan.term_rate_percent != p_term_rate_percent OR
+           v_existing_plan.installment_count != p_installment_count OR
+           v_existing_plan.statement_day != p_statement_day OR
+           v_existing_plan.first_due_date != p_first_due_date THEN
+            RAISE EXCEPTION 'Idempotency key payload mismatch';
+        END IF;
+
+        SELECT json_agg(i) INTO v_existing_inst FROM public.finance_installments i WHERE finance_plan_id = v_existing_plan.id;
+        SELECT current_balance INTO v_existing_balance FROM public.credit_accounts WHERE id = v_existing_plan.credit_account_id;
+        RETURN jsonb_build_object(
+            'plan', to_jsonb(v_existing_plan),
+            'installments', v_existing_inst,
+            'current_balance', v_existing_balance
+        );
     END IF;
 
     -- Row Lock Customer & Account
@@ -265,8 +309,8 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Customer not found';
     END IF;
-    IF v_customer_status NOT IN ('approved', 'active') THEN
-        RAISE EXCEPTION 'Customer is not approved or active';
+    IF v_customer_status != 'active' THEN
+        RAISE EXCEPTION 'Customer is not active';
     END IF;
 
     SELECT id, status, credit_limit, current_balance INTO v_account_id, v_account_status, v_credit_limit, v_current_balance
@@ -426,7 +470,43 @@ DECLARE
     v_ledger_res JSONB;
     v_ledger_trx_id UUID;
 BEGIN
-    -- Idempotency Check
+    -- Validations
+    IF p_idempotency_key IS NULL OR trim(p_idempotency_key) = '' THEN
+        RAISE EXCEPTION 'Idempotency key is required';
+    END IF;
+    IF p_payment_method IS NULL OR p_payment_method NOT IN ('cash', 'card', 'bank_transfer', 'other') THEN
+        RAISE EXCEPTION 'Invalid payment method';
+    END IF;
+    IF p_collection_kind IS NULL OR p_collection_kind NOT IN ('down_payment', 'installment_payment', 'early_closure', 'adjustment') THEN
+        RAISE EXCEPTION 'Invalid collection kind';
+    END IF;
+    IF p_collected_at IS NULL THEN
+        RAISE EXCEPTION 'Collected at timestamp is required';
+    END IF;
+    IF p_created_by IS NULL OR trim(p_created_by) = '' THEN
+        RAISE EXCEPTION 'Created by is required';
+    END IF;
+    IF p_plan_id IS NULL THEN
+        RAISE EXCEPTION 'Plan ID is required';
+    END IF;
+    IF p_amount IS NULL THEN
+        RAISE EXCEPTION 'Payment amount is required';
+    END IF;
+    IF p_amount <= 0 THEN
+        RAISE EXCEPTION 'Payment amount must be greater than zero';
+    END IF;
+    IF p_amount != round(p_amount, 2) THEN
+        RAISE EXCEPTION 'Payment amount can have at most 2 decimal places';
+    END IF;
+
+    p_note := trim(p_note);
+
+    -- Concurrency Advisory Lock
+    PERFORM pg_advisory_xact_lock(
+        hashtextextended('finance_collection:' || p_idempotency_key, 0)
+    );
+
+    -- Idempotency Check after Lock
     SELECT * INTO v_existing_col FROM public.finance_collections WHERE idempotency_key = p_idempotency_key;
     IF FOUND THEN
         IF v_existing_col.finance_plan_id != p_plan_id OR
@@ -446,17 +526,6 @@ BEGIN
             'installments', v_existing_inst,
             'current_balance', v_existing_balance
         );
-    END IF;
-
-    -- Validations
-    IF p_amount IS NULL THEN
-        RAISE EXCEPTION 'Payment amount is required';
-    END IF;
-    IF p_amount <= 0 THEN
-        RAISE EXCEPTION 'Payment amount must be greater than zero';
-    END IF;
-    IF p_amount != round(p_amount, 2) THEN
-        RAISE EXCEPTION 'Payment amount can have at most 2 decimal places';
     END IF;
 
     -- Lock Plan & Account
@@ -588,6 +657,8 @@ DECLARE
     v_receipt_number TEXT;
     v_plan_principal_trx UUID;
     v_plan_charge_trx UUID;
+    
+    v_starting_balance NUMERIC;
 BEGIN
     p_reason := trim(p_reason);
     IF p_reason IS NULL OR p_reason = '' THEN
@@ -618,29 +689,13 @@ BEGIN
     SELECT current_balance, credit_customer_id INTO v_current_balance, v_customer_id
     FROM public.credit_accounts WHERE id = v_account_id FOR UPDATE;
 
-    -- 1. Reverse Principal Purchase
-    IF v_plan_principal_trx IS NOT NULL THEN
-        v_ledger_res := public.add_credit_transaction(
-            v_customer_id, v_account_id, 'reversal', 'credit', v_financed_principal,
-            'Taksitli Plan İptali (Borç İadesi) - Ref: ' || v_source_reference,
-            'reversal', v_source_reference, NULL, NULL, p_admin_username, v_plan_principal_trx, NULL
-        );
-    END IF;
-
-    -- 2. Reverse Finance Charge (Fee)
-    IF v_plan_charge_trx IS NOT NULL AND v_finance_charge > 0 THEN
-        v_ledger_res := public.add_credit_transaction(
-            v_customer_id, v_account_id, 'reversal', 'credit', v_finance_charge,
-            'Taksitli Plan İptali (Vade Farkı İadesi) - Ref: ' || v_source_reference,
-            'reversal', v_source_reference, NULL, NULL, p_admin_username, v_plan_charge_trx, NULL
-        );
-    END IF;
-
-    -- 3. Reverse each Collection (FIFO / Locked list)
+    -- 1. Reverse each Collection (FIFO / Deterministic Lock order)
     FOR v_col IN 
         SELECT id, amount, receipt_number, collection_kind, payment_method, ledger_transaction_id, note, idempotency_key
         FROM public.finance_collections
-        WHERE finance_plan_id = p_plan_id AND direction = 'in' FOR UPDATE
+        WHERE finance_plan_id = p_plan_id AND direction = 'in' 
+        ORDER BY collected_at, id
+        FOR UPDATE
     LOOP
         -- Check if already refunded
         SELECT EXISTS (
@@ -674,18 +729,43 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Update plan and installment statuses
+    -- 2. Reverse Principal Purchase
+    IF v_plan_principal_trx IS NOT NULL THEN
+        v_ledger_res := public.add_credit_transaction(
+            v_customer_id, v_account_id, 'reversal', 'credit', v_financed_principal,
+            'Taksitli Plan İptali (Borç İadesi) - Ref: ' || v_source_reference,
+            'reversal', v_source_reference, NULL, NULL, p_admin_username, v_plan_principal_trx, NULL
+        );
+    END IF;
+
+    -- 3. Reverse Finance Charge (Fee)
+    IF v_plan_charge_trx IS NOT NULL AND v_finance_charge > 0 THEN
+        v_ledger_res := public.add_credit_transaction(
+            v_customer_id, v_account_id, 'reversal', 'credit', v_finance_charge,
+            'Taksitli Plan İptali (Vade Farkı İadesi) - Ref: ' || v_source_reference,
+            'reversal', v_source_reference, NULL, NULL, p_admin_username, v_plan_charge_trx, NULL
+        );
+    END IF;
+
+    -- 4. Update plan and installment statuses
     UPDATE public.finance_plans SET status = 'cancelled', remaining_amount = 0, updated_at = now() WHERE id = p_plan_id;
     UPDATE public.finance_installments SET status = 'cancelled', remaining_amount = 0, updated_at = now() WHERE finance_plan_id = p_plan_id;
 
     -- Fetch the final updated balance from credit_accounts
     SELECT current_balance INTO v_new_balance FROM public.credit_accounts WHERE id = v_account_id;
 
+    -- Calculate starting balance mathematically to verify restored equality
+    v_starting_balance := v_current_balance - v_financed_principal - v_finance_charge + 
+        (SELECT coalesce(sum(amount), 0) FROM public.finance_collections 
+         WHERE finance_plan_id = p_plan_id AND direction = 'in' AND ledger_transaction_id IS NOT NULL);
+
     -- Audit Log
     INSERT INTO public.finance_audit_logs (finance_plan_id, action, actor, old_data, new_data, reason)
     VALUES (p_plan_id, 'cancel_plan', p_admin_username, 
             jsonb_build_object('status', v_status, 'total_due', v_total_due, 'amount_paid', v_amount_paid), 
-            jsonb_build_object('status', 'cancelled', 'total_due', v_total_due, 'amount_paid', v_amount_paid), p_reason);
+            jsonb_build_object('status', 'cancelled', 'total_due', v_total_due, 'amount_paid', v_amount_paid,
+                               'starting_balance', v_starting_balance, 'final_balance', v_new_balance,
+                               'balance_restored', (v_starting_balance = v_new_balance)), p_reason);
 
     RETURN jsonb_build_object(
         'plan', (SELECT to_jsonb(p) FROM public.finance_plans p WHERE id = p_plan_id),

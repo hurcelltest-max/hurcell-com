@@ -58,6 +58,7 @@ export type FinanceCustomerRow = {
   full_name: string
   phone: string
   email: string | null
+  status?: string
 }
 
 export type FinanceDashboardMetrics = {

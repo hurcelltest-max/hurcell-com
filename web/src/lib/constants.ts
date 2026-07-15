@@ -389,7 +389,7 @@ export function getPublicProductTitle(product: {
   // Clean consecutive duplicate words at the very beginning
   const words = title.split(/\s+/);
   if (words.length >= 2) {
-    let cleanedWords = [...words];
+    const cleanedWords = [...words];
     while (cleanedWords.length >= 2) {
       const w1 = cleanedWords[0].toLocaleLowerCase('tr-TR');
       const w2 = cleanedWords[1].toLocaleLowerCase('tr-TR');

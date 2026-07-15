@@ -81,11 +81,16 @@ export async function POST(req: Request) {
       .select('product_id')
       .eq('order_id', order.id);
 
+    interface OrderItemRow {
+      product_id: string | null;
+    }
+
     if (items && items.length > 0) {
-      const productIds = items.map((item: any) => item.product_id).filter(Boolean);
+      const typedItems = items as unknown as OrderItemRow[];
+      const productIds = typedItems.map((item) => item.product_id).filter(Boolean);
       if (productIds.length > 0) {
         // Since campaign benefit columns do not exist, this check is skipped.
-        const products: any[] = [];
+        const products: Record<string, unknown>[] = [];
         if (products && products.length > 0) {
           hasCampaignBenefitWarning = true;
         }
@@ -175,7 +180,7 @@ export async function POST(req: Request) {
       message: 'Talebiniz başarıyla alınmıştır. İnceleme sürecinden sonra sizinle iletişime geçilecektir.'
     });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Return request API error:', err);
     return NextResponse.json(
       { error: 'Talep işlenirken bir sunucu hatası oluştu.' },

@@ -8,7 +8,7 @@ export const metadata = {
   description: 'HurCELL Tçeknoloji Mağazası ndaki tüm iİndirimli telefon, bilgisayar ve aksesuarlar. İİndirimli ürünleri ve fiyat avantajlarıını inceleyin.',
 };
 
-export const revalidate = 60; // 1 minute caching
+export const dynamic = 'force-dynamic';
 
 export default async function IİndirimliUrunlerPage() {
   const supabase = createClient();

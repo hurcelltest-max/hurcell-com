@@ -66,13 +66,18 @@ export async function GET(req: Request) {
       );
     }
 
+    interface OrderItemRow {
+      product_id: string | null;
+    }
+
     // 4. Fetch product campaign info to see if any requires return
     let hasCampaignBenefitWarning = false;
     if (items && items.length > 0) {
-      const productIds = items.map((item: any) => item.product_id).filter(Boolean);
+      const typedItems = items as unknown as OrderItemRow[];
+      const productIds = typedItems.map((item) => item.product_id).filter(Boolean);
       if (productIds.length > 0) {
         // Since campaign benefit columns do not exist, this check is skipped.
-        const products: any[] = [];
+        const products: Record<string, unknown>[] = [];
         
         if (products && products.length > 0) {
           hasCampaignBenefitWarning = true;
@@ -105,7 +110,7 @@ export async function GET(req: Request) {
       items: items || [],
       hasCampaignBenefitWarning
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Get order error:', err);
     return NextResponse.json(
       { error: 'Sunucu hatası oluştu.' },

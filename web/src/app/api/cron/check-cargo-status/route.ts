@@ -39,7 +39,7 @@ export async function GET(req: Request) {
       // 2. Fetch external status
       // MOCK SAFETY: Do not use mock adapter in production unless explicitly bypassed (we shouldn't bypass)
       let externalStatus = 'taşıma halinde';
-      let payload = { code: 'PENDING', msg: 'Awaiting real DHL API integration' };
+      let payload: Record<string, unknown> = { code: 'PENDING', msg: 'Awaiting real DHL API integration' };
 
       const isProduction = process.env.VERCEL_ENV === 'production';
       const isPreview = process.env.VERCEL_ENV === 'preview';
@@ -59,9 +59,14 @@ export async function GET(req: Request) {
       // 3. Map to internal status
       const internalStatus = cargoStatusMapper(externalStatus);
       
-      let updatePayload: any = {
+      const updatePayload: {
+        last_cargo_status_checked_at: string;
+        last_cargo_status_payload: unknown;
+        shipping_status?: string;
+        delivered_at?: string;
+      } = {
         last_cargo_status_checked_at: new Date().toISOString(),
-        last_cargo_status_payload: payload,
+        last_cargo_status_payload: payload as unknown,
       };
 
       let stockReleased = false;
@@ -106,7 +111,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, processed: orders?.length || 0, results });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('CRON Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

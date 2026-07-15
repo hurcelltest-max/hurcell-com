@@ -56,8 +56,27 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Veritabanı hatası oluştu.' }, { status: 500 });
     }
 
+    interface CreditAccountRow {
+      status: string;
+      credit_limit: number;
+      current_balance: number;
+      statement_day: number | null;
+    }
+    interface CustomerRow {
+      id: string;
+      card_token: string | null;
+      customer_card_code: string | null;
+      full_name: string;
+      phone: string;
+      status: string;
+      created_at: string;
+      credit_accounts: CreditAccountRow[] | null;
+    }
+
+    const typedData = (data || []) as unknown as CustomerRow[];
+
     // Format response
-    const formattedData = data.map((customer: any) => {
+    const formattedData = typedData.map((customer) => {
       const account = customer.credit_accounts && customer.credit_accounts.length > 0 
         ? customer.credit_accounts[0] 
         : null;

@@ -8,7 +8,7 @@ export const metadata = {
   description: 'HurCELL Tçeknoloji Mağazası aktif kampanyalarıı ve fırsat ürünleri. Telefon, bilgisayar ve aksesuarlarda öözel avantajlarıı kaçırmayın.',
 };
 
-export const revalidate = 60; // 1 minute caching
+export const dynamic = 'force-dynamic';
 
 export default async function KampanyalarPage() {
   const supabase = createClient();

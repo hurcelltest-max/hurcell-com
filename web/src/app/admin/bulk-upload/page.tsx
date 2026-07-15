@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState, useCallback } from 'react'
+
+export const dynamic = 'force-dynamic'
 import { useDropzone } from 'react-dropzone'
 import Papa from 'papaparse'
 import { createClient } from '@/lib/supabase'

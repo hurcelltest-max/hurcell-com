@@ -1,26 +1,66 @@
 'use client';
 
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState, use, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import Barcode from 'react-barcode';
 import { Phone, MapPin, AlertCircle, FileText, Calendar, CreditCard, ChevronLeft, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import TransactionList from '@/components/admin/cari/TransactionList';
 import TransactionForm from '@/components/admin/cari/TransactionForm';
 
+const StatusBadge = ({ status }: { status: string }) => {
+  switch (status) {
+    case 'pending_review': return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">İnceleme Bekliyor</span>;
+    case 'active': return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">Aktif</span>;
+    case 'rejected': return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">Reddedildi</span>;
+    case 'suspended': return <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">Askıya Alındı</span>;
+    case 'closed': return <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">Kapalı</span>;
+    default: return <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">{status}</span>;
+  }
+};
+
 export default function CariKartPage(props: { params: Promise<{ card_token: string }> }) {
   const params = use(props.params);
-  const router = useRouter();
-  const token = params.card_token;
-  const [customer, setCustomer] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [notes, setNotes] = useState<any[]>([]);
+    const token = params.card_token;
+  const [customer, setCustomer] = useState<{ id: string; full_name: string; phone: string; tc_kimlik: string; city: string; district: string; address: string; notes: string; status: string; created_at: string; customer_card_code: string; credit_accounts?: { available_limit: number; credit_limit: number; current_balance: number; statement_day: number; status: string }[]; credit_audit_logs?: Array<{ id: string; action_type: string; new_value?: Record<string, unknown>; admin_users?: { username: string }; created_at: string }>; credit_agreement_acceptances?: Array<Record<string, unknown>>; account?: { available_limit: number; credit_limit: number; current_balance: number; statement_day: number; status: string } } | null>(null);
+  const [transactions, setTransactions] = useState<Array<{ id: string; transaction_type: string; amount_cents: number; description: string; created_at: string; status: string }>>([]);
+  const [notes, setNotes] = useState<Array<{ id: string; note: string; created_by: string; created_at: string; admin_users: { username: string } }>>([]);
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [noteLoading, setNoteLoading] = useState(false);
   const [showCard, setShowCard] = useState(false);
+  const [financeSummary, setFinanceSummary] = useState<{
+    plans: Array<{
+      id: string;
+      source_reference: string;
+      source_type: string;
+      principal_amount: number;
+      down_payment_amount: number;
+      finance_charge_amount: number;
+      total_due_amount: number;
+      status: string;
+      created_at: string;
+    }>;
+    installments: Array<{
+      id: string;
+      finance_plan_id: string;
+      installment_no: number;
+      due_date: string;
+      principal_amount: number;
+      finance_charge_amount: number;
+      amount_due: number;
+      amount_paid: number;
+      remaining_amount: number;
+      status: string;
+      finance_plans?: { source_reference: string };
+    }>;
+    collections: Array<{
+      id: string;
+      amount: number;
+      collected_at: string;
+    }>;
+  }>({ plans: [], installments: [], collections: [] });
   
   // Review Form State
   const [decision, setDecision] = useState<'approve'|'reject'|'suspend'>('approve');
@@ -39,11 +79,19 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState('');
 
-  useEffect(() => {
-    fetchCustomer();
-  }, [token]);
 
-  const fetchCustomer = async () => {
+
+    const fetchNotes = async (customerId: string) => {
+    try {
+      const res = await fetch(`/api/admin/cari/notlar?customerId=${customerId}`);
+      const data = await res.json();
+      if (res.ok) setNotes(data.notes);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchCustomer = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/cari/musteri/${token}`);
       const data = await res.json();
@@ -57,22 +105,24 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
         setLimit(account.credit_limit.toString());
         setStatementDay(account.statement_day || getInitialStatementDay());
       }
-    } catch (err: any) {
-      setError(err.message);
+
+      // Fetch Finance Summary
+      try {
+        const finRes = await fetch(`/api/admin/finance/summary/${data.customer.id}`);
+        const finJson = await finRes.json();
+        if (finRes.ok && finJson.success) {
+          setFinanceSummary(finJson);
+        }
+      } catch (fErr) {
+        console.error('Error fetching customer finance summary:', fErr);
+      }
+    } catch (err: unknown) {
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
-  const fetchNotes = async (customerId: string) => {
-    try {
-      const res = await fetch(`/api/admin/cari/notlar?customerId=${customerId}`);
-      const data = await res.json();
-      if (res.ok) setNotes(data.notes);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,12 +182,19 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
       alert('İnceleme başarıyla kaydedildi.');
       fetchCustomer();
       setReason(''); // Reset reason
-    } catch (err: any) {
-      setReviewError(err.message);
+    } catch (err: unknown) {
+      setReviewError((err instanceof Error ? err.message : String(err)));
     } finally {
       setReviewLoading(false);
     }
   };
+
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchCustomer();
+    };
+    void loadData();
+  }, [fetchCustomer]);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Yükleniyor...</div>;
   if (error || !customer) return <div className="p-8 text-center text-red-500">{error || 'Bulunamadı'}</div>;
@@ -146,18 +203,9 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
   const auditLogs = customer.credit_audit_logs || [];
   const qrUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/cari/kart/${token}`;
 
-  const StatusBadge = ({ status }: { status: string }) => {
-    switch (status) {
-      case 'pending_review': return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">İnceleme Bekliyor</span>;
-      case 'active': return <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">Aktif</span>;
-      case 'rejected': return <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">Reddedildi</span>;
-      case 'suspended': return <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">Askıya Alındı</span>;
-      case 'closed': return <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">Kapalı</span>;
-      default: return <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">{status}</span>;
-    }
-  };
 
-  const DigitalCardModal = () => {
+
+  const renderDigitalCardModal = () => {
     if (!showCard) return null;
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -246,7 +294,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
-      <DigitalCardModal />
+      {renderDigitalCardModal()}
       <Link href="/admin/cari" className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 mb-6 transition-colors">
         <ChevronLeft className="w-4 h-4 mr-1" />
         Aramaya Dön
@@ -336,10 +384,87 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
               <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                 <p className="text-sm text-amber-600 mb-1">Hesap Kesim</p>
                 <p className="text-lg font-bold text-amber-700 flex items-center gap-1">
-                  <Calendar className="w-4 h-4" /> Her ayın {account?.statement_day || 10}'u
+                  <Calendar className="w-4 h-4" /> Her ayın {account?.statement_day || 10}&apos;u
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Taksitli Satış Planları ve Sözleşmeler (Finans MVP) */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <CreditCard className="w-5 h-5 text-indigo-500" />
+              Taksit Planları & Sözleşmeler ({financeSummary.plans?.length || 0})
+            </h2>
+
+            {financeSummary.plans?.length === 0 ? (
+              <p className="text-sm text-gray-500 py-2">Müşterinin henüz aktif taksitli satış sözleşmesi bulunmamaktadır.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-gray-500 pb-2">
+                        <th className="pb-2 font-semibold">Referans Kodu</th>
+                        <th className="pb-2 font-semibold">Tür</th>
+                        <th className="pb-2 text-right font-semibold">Toplam Borç</th>
+                        <th className="pb-2 font-semibold text-center">Durum</th>
+                        <th className="pb-2 text-center font-semibold">İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {financeSummary.plans.map((p) => (
+                        <tr key={p.id} className="hover:bg-gray-50/50">
+                          <td className="py-2.5 font-bold text-indigo-600">{p.source_reference}</td>
+                          <td className="py-2.5 text-gray-600 font-mono uppercase">{p.source_type}</td>
+                          <td className="py-2.5 text-right font-semibold">₺{p.total_due_amount.toFixed(2)}</td>
+                          <td className="py-2.5 text-center">
+                            {p.status === 'active' && <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] rounded-full font-bold">Aktif</span>}
+                            {p.status === 'paid' && <span className="px-2 py-0.5 bg-green-100 text-green-800 text-[10px] rounded-full font-bold">Ödendi</span>}
+                            {p.status === 'overdue' && <span className="px-2 py-0.5 bg-red-100 text-red-800 text-[10px] rounded-full font-bold">Gecikmiş</span>}
+                            {p.status === 'cancelled' && <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-[10px] rounded-full font-bold">İptal</span>}
+                          </td>
+                          <td className="py-2.5 text-center">
+                            <Link href={`/admin/finans/plan/${p.id}`} className="text-blue-600 hover:text-blue-800 font-bold">
+                              Yönet
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Yaklaşan / Geciken Taksit Detayları */}
+                {financeSummary.installments?.length > 0 && (
+                  <div className="pt-4 border-t border-gray-100">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Açık Taksit Kalemleri</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {financeSummary.installments
+                        .filter((inst) => inst.status !== "paid" && inst.status !== "cancelled")
+                        .map((inst) => (
+                          <div key={inst.id} className="p-3 bg-gray-50 border border-gray-100 rounded-xl flex justify-between items-center text-xs">
+                            <div>
+                              <div className="font-semibold text-gray-900">{inst.finance_plans?.source_reference || 'Ref'} • Taksit {inst.installment_no}</div>
+                              <div className="text-gray-500 mt-0.5">Vade: {new Date(inst.due_date).toLocaleDateString('tr-TR')}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-gray-900">₺{inst.remaining_amount.toFixed(2)}</div>
+                              <div className="mt-0.5">
+                                {inst.status === 'overdue' ? (
+                                  <span className="px-1.5 py-0.5 bg-red-100 text-red-800 text-[9px] rounded font-bold uppercase">Gecikmiş</span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[9px] rounded font-bold uppercase">Bekliyor</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Cari Hareketler */}
@@ -369,7 +494,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
                   <label className="block text-sm font-medium text-gray-700 mb-1">Karar</label>
                   <select 
                     value={decision}
-                    onChange={(e: any) => setDecision(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDecision(e.target.value as "approve" | "reject" | "suspend")}
                     className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500"
                   >
                     <option value="approve">Onayla (Active)</option>
@@ -398,10 +523,10 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
                     onChange={(e) => setStatementDay(Number(e.target.value))}
                     className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500"
                   >
-                    <option value={10}>Her ayın 10'u</option>
-                    <option value={15}>Her ayın 15'i</option>
-                    <option value={20}>Her ayın 20'si</option>
-                    <option value={25}>Her ayın 25'i</option>
+                    <option value={10}>Her ayın 10&apos;u</option>
+                    <option value={15}>Her ayın 15&apos;i</option>
+                    <option value={20}>Her ayın 20&apos;si</option>
+                    <option value={25}>Her ayın 25&apos;i</option>
                   </select>
                 </div>
               </div>
@@ -440,7 +565,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
                 {auditLogs.length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-8">Henüz işlem yapılmamış.</p>
                 ) : (
-                  auditLogs.map((log: any) => (
+                  auditLogs.map((log: { id: string; action_type: string; new_value?: Record<string, unknown>; admin_username?: string; created_at: string; reason?: string }) => (
                     <div key={log.id} className="text-sm border-l-2 border-gray-200 pl-4 py-1">
                       <p className="font-medium text-gray-900">
                         {log.action_type === 'application_review' 
@@ -449,7 +574,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
                       </p>
                       <p className="text-gray-600 mt-1">{log.reason}</p>
                       {log.new_value?.limit !== undefined && (
-                        <p className="text-xs text-gray-500 mt-1">Limit: {log.new_value.limit} TL</p>
+                        <p className="text-xs text-gray-500 mt-1">Limit: {String(log.new_value.limit)} TL</p>
                       )}
                       <p className="text-xs text-gray-400 mt-2">
                         {new Date(log.created_at).toLocaleString('tr-TR')} • İşlem: {log.admin_username}

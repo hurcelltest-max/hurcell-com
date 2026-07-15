@@ -210,3 +210,76 @@ export function getInternalAlertPhones(): string[] {
   if (!envVar) return [];
   return envVar.split(',').map(p => p.trim()).filter(Boolean);
 }
+
+export async function sendFinanceSms(
+  planId: string,
+  event: 'finance_plan_created' | 'finance_payment_received' | 'finance_balance_remaining' | 'finance_installment_due_soon' | 'finance_installment_overdue',
+  rawPhone: string,
+  data: {
+    amount?: string;
+    installment_count?: number;
+    due_date?: string;
+    remaining_balance?: string;
+    source_reference?: string;
+  }
+): Promise<{ success: boolean; skipped?: boolean }> {
+  try {
+    const dedupeKey = `finance:${planId}:${event}:${data.due_date || ''}:${Date.now()}`;
+    const phone = normalizeTurkishPhoneNumber(rawPhone);
+    const masked = maskPhone(phone);
+    const message = generateFinanceMessage(event, data);
+
+    console.log(`[FINANCE SMS] Event: ${event} | To: ${masked} | Message: ${message}`);
+
+    // Insert into sms_notifications database table
+    const { error: insertError } = await (supabaseAdmin as any)
+      .from('sms_notifications')
+      .insert({
+        recipient_type: 'customer',
+        recipient_phone: phone,
+        event_type: event,
+        dedupe_key: dedupeKey,
+        status: 'sent', // Mark as sent (since we are mocking it for the sprint)
+        attempt_count: 1,
+        last_attempt_at: new Date().toISOString(),
+        sent_at: new Date().toISOString(),
+        metadata: { ...data, message_body: message }
+      })
+      .select('id')
+      .single();
+
+    if (insertError) {
+      console.error('[FINANCE SMS DB INSERT ERROR]', insertError);
+      return { success: false };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('[FINANCE SMS FATAL ERROR]', err);
+    return { success: false };
+  }
+}
+
+interface FinanceSmsData {
+  amount?: string;
+  installment_count?: number;
+  due_date?: string;
+  remaining_balance?: string;
+}
+
+function generateFinanceMessage(event: string, data: FinanceSmsData): string {
+  switch (event) {
+    case 'finance_plan_created':
+      return `Taksit planiniz olusturuldu. Tutar: ${data.amount} TL, Taksit: ${data.installment_count} ay. Ilk Odeme: ${data.due_date}. HurCELL`;
+    case 'finance_payment_received':
+      return `${data.amount} TL odemeniz alinmistir. Kalan Plan Borcu: ${data.remaining_balance} TL. Tesekkurler. HurCELL`;
+    case 'finance_balance_remaining':
+      return `Taksit planinizda kalan toplam borc: ${data.remaining_balance} TL. HurCELL`;
+    case 'finance_installment_due_soon':
+      return `${data.due_date} vadeli ${data.amount} TL tutarindaki taksit odemeniz yaklasmaktadir. HurCELL`;
+    case 'finance_installment_overdue':
+      return `Odenmemis ${data.amount} TL tutarindaki taksit borcunuz gecikmistir. Lutfen odeme yapiniz. HurCELL`;
+    default:
+      return `HurCELL Bildirim: Finans Plani Guncellemesi`;
+  }
+}

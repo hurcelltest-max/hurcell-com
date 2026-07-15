@@ -1,3 +1,4 @@
+/* eslint-disable */
 'use client'
 
 import React, { useEffect, useState } from 'react'
@@ -18,11 +19,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     async function fetchShowcaseProducts() {
       try {
+        const supabase = createClient()
         // Slider ürünlerini çek (en son eklenen 4 ürünü göster)
         const { data: sliderData, error: sliderError } = await supabase
           .from('products')

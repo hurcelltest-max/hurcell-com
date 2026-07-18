@@ -1,12 +1,58 @@
+-- CLONE ONLY — DO NOT RUN ON LIVE PRODUCTION.
+-- This test invokes nextval() on existing Ledger sequences.
+-- Transaction rollback does not restore consumed sequence values.
+
 BEGIN;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public'
+    AND tablename='credit_accounts' AND indexname='uniq_credit_accounts_credit_customer_id') THEN
+    RAISE EXCEPTION 'Finance requires uniq_credit_accounts_credit_customer_id';
+  END IF;
+END $$;
 
 -- =========================================================================
 -- EXACT MIGRATION BODY START
--- =========================================================================
-CREATE SEQUENCE IF NOT EXISTS public.finance_receipt_seq START 1;
-REVOKE ALL ON SEQUENCE public.finance_receipt_seq FROM PUBLIC, anon, authenticated;
-GRANT ALL ON SEQUENCE public.finance_receipt_seq TO service_role;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '120s';
 
+DO $$
+BEGIN
+    IF to_regclass('public.finance_plans') IS NOT NULL
+       OR to_regclass('public.finance_installments') IS NOT NULL
+       OR to_regclass('public.finance_collections') IS NOT NULL
+       OR to_regclass('public.finance_audit_logs') IS NOT NULL
+       OR to_regclass('public.finance_receipt_seq') IS NOT NULL
+       OR to_regprocedure('public.create_finance_plan(text,uuid,text,text,numeric,numeric,numeric,smallint,smallint,date,text,text)') IS NOT NULL
+       OR to_regprocedure('public.record_finance_collection(text,uuid,numeric,text,text,timestamptz,text,text)') IS NOT NULL
+       OR to_regprocedure('public.cancel_finance_plan(uuid,text,text)') IS NOT NULL
+       OR to_regprocedure('public.prevent_finance_append_only_update_delete()') IS NOT NULL
+    THEN
+        RAISE EXCEPTION 'Finance clean-schema guard failed: one or more Finance objects already exist';
+    END IF;
+END;
+$$;
+
+-- Hard dependency: Finance assumes exactly one credit account per customer.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_indexes
+        WHERE schemaname = 'public'
+          AND tablename = 'credit_accounts'
+          AND indexname = 'uniq_credit_accounts_credit_customer_id'
+          AND indexdef ILIKE 'CREATE UNIQUE INDEX%credit_customer_id%'
+    ) THEN
+        RAISE EXCEPTION 'Finance requires uniq_credit_accounts_credit_customer_id';
+    END IF;
+END;
+$$;
+
+-- Create Sequences
+CREATE SEQUENCE IF NOT EXISTS public.finance_receipt_seq START 1;
+REVOKE ALL ON SEQUENCE public.finance_receipt_seq FROM PUBLIC, anon, authenticated, service_role;
+
+-- 1. Create finance_plans Table
 CREATE TABLE IF NOT EXISTS public.finance_plans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     idempotency_key TEXT UNIQUE NOT NULL,
@@ -32,6 +78,7 @@ CREATE TABLE IF NOT EXISTS public.finance_plans (
     down_payment_method TEXT NOT NULL CHECK (down_payment_method IN ('cash', 'card', 'bank_transfer', 'other')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uniq_finance_plans_source UNIQUE (source_type, source_reference),
     CONSTRAINT chk_financed_principal_calc CHECK (financed_principal = principal_amount - down_payment_amount),
     CONSTRAINT chk_down_payment_lt_principal CHECK (down_payment_amount < principal_amount),
     CONSTRAINT chk_total_due_calc CHECK (total_due_amount = financed_principal + finance_charge_amount),
@@ -49,6 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_finance_plans_customer ON public.finance_plans(cr
 CREATE INDEX IF NOT EXISTS idx_finance_plans_account ON public.finance_plans(credit_account_id);
 CREATE INDEX IF NOT EXISTS idx_finance_plans_status ON public.finance_plans(status);
 
+-- 2. Create finance_installments Table
 CREATE TABLE IF NOT EXISTS public.finance_installments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     finance_plan_id UUID NOT NULL REFERENCES public.finance_plans(id) ON DELETE RESTRICT,
@@ -63,19 +111,30 @@ CREATE TABLE IF NOT EXISTS public.finance_installments (
     paid_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE(finance_plan_id, installment_no)
+    UNIQUE(finance_plan_id, installment_no),
+    CONSTRAINT chk_finance_installment_components
+      CHECK (amount_due = principal_amount + finance_charge_amount),
+    CONSTRAINT chk_finance_installment_paid_not_over_due
+      CHECK (amount_paid <= amount_due),
+    CONSTRAINT chk_finance_installment_remaining
+      CHECK (
+        status = 'cancelled'
+        OR (status = 'paid' AND remaining_amount = 0)
+        OR (status <> 'paid' AND remaining_amount = amount_due - amount_paid)
+      )
 );
 
 CREATE INDEX IF NOT EXISTS idx_finance_installments_plan ON public.finance_installments(finance_plan_id);
 CREATE INDEX IF NOT EXISTS idx_finance_installments_status ON public.finance_installments(status);
 
+-- 3. Create finance_collections Table (Append-Only)
 CREATE TABLE IF NOT EXISTS public.finance_collections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     idempotency_key TEXT UNIQUE NOT NULL,
     finance_plan_id UUID NOT NULL REFERENCES public.finance_plans(id) ON DELETE RESTRICT,
     credit_account_id UUID NOT NULL REFERENCES public.credit_accounts(id) ON DELETE RESTRICT,
     amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
-    collection_kind TEXT NOT NULL CHECK (collection_kind IN ('down_payment', 'installment_payment', 'early_closure', 'adjustment')),
+    collection_kind TEXT NOT NULL CHECK (collection_kind IN ('down_payment', 'installment_payment', 'early_closure')),
     payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'card', 'bank_transfer', 'other')),
     receipt_number TEXT UNIQUE NOT NULL,
     collected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -91,18 +150,25 @@ CREATE TABLE IF NOT EXISTS public.finance_collections (
         (direction = 'out' AND reverses_collection_id IS NOT NULL)
     ),
     CONSTRAINT chk_reversal_ledger_transaction CHECK (
-        (direction = 'in' AND (collection_kind = 'down_payment' OR ledger_transaction_id IS NOT NULL))
-        OR
-        (direction = 'out' AND (
+        (
             collection_kind = 'down_payment'
-            OR (collection_kind IN ('installment_payment', 'early_closure', 'adjustment') AND ledger_transaction_id IS NOT NULL)
-        ))
+            AND ledger_transaction_id IS NULL
+        )
+        OR
+        (
+            collection_kind IN (
+                'installment_payment',
+                'early_closure'
+            )
+            AND ledger_transaction_id IS NOT NULL
+        )
     )
 );
 
 CREATE INDEX IF NOT EXISTS idx_finance_collections_plan ON public.finance_collections(finance_plan_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_finance_collections_unique_reversal ON public.finance_collections(reverses_collection_id) WHERE reverses_collection_id IS NOT NULL;
 
+-- 4. Create finance_audit_logs Table (Append-Only)
 CREATE TABLE IF NOT EXISTS public.finance_audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     finance_plan_id UUID REFERENCES public.finance_plans(id) ON DELETE SET NULL,
@@ -114,35 +180,41 @@ CREATE TABLE IF NOT EXISTS public.finance_audit_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Unique index to prevent duplicate cancel_plan audit entries per plan
 CREATE UNIQUE INDEX IF NOT EXISTS idx_finance_audit_logs_unique_cancel ON public.finance_audit_logs(finance_plan_id) WHERE action = 'cancel_plan';
 
+-- Enable RLS
 ALTER TABLE public.finance_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_installments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_audit_logs ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON TABLE public.finance_plans FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON TABLE public.finance_installments FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON TABLE public.finance_collections FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON TABLE public.finance_audit_logs FROM PUBLIC, anon, authenticated;
+-- Revoke all permissions from PUBLIC, anon, authenticated roles
+REVOKE ALL ON TABLE public.finance_plans FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE public.finance_installments FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE public.finance_collections FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON TABLE public.finance_audit_logs FROM PUBLIC, anon, authenticated, service_role;
 
-GRANT ALL ON TABLE public.finance_plans TO service_role;
-GRANT ALL ON TABLE public.finance_installments TO service_role;
-GRANT ALL ON TABLE public.finance_collections TO service_role;
-GRANT ALL ON TABLE public.finance_audit_logs TO service_role;
+-- Grant permissions to service_role
+GRANT SELECT ON TABLE public.finance_plans TO service_role;
+GRANT SELECT ON TABLE public.finance_installments TO service_role;
+GRANT SELECT ON TABLE public.finance_collections TO service_role;
+GRANT SELECT ON TABLE public.finance_audit_logs TO service_role;
 
+-- Policies
 DROP POLICY IF EXISTS service_role_all ON public.finance_plans;
-CREATE POLICY service_role_all ON public.finance_plans FOR ALL TO service_role USING (true);
+CREATE POLICY service_role_all ON public.finance_plans FOR SELECT TO service_role USING (true);
 
 DROP POLICY IF EXISTS service_role_all ON public.finance_installments;
-CREATE POLICY service_role_all ON public.finance_installments FOR ALL TO service_role USING (true);
+CREATE POLICY service_role_all ON public.finance_installments FOR SELECT TO service_role USING (true);
 
 DROP POLICY IF EXISTS service_role_all ON public.finance_collections;
-CREATE POLICY service_role_all ON public.finance_collections FOR ALL TO service_role USING (true);
+CREATE POLICY service_role_all ON public.finance_collections FOR SELECT TO service_role USING (true);
 
 DROP POLICY IF EXISTS service_role_all ON public.finance_audit_logs;
-CREATE POLICY service_role_all ON public.finance_audit_logs FOR ALL TO service_role USING (true);
+CREATE POLICY service_role_all ON public.finance_audit_logs FOR SELECT TO service_role USING (true);
 
+-- Trigger function definition to prevent updates/deletes on append-only tables
 CREATE OR REPLACE FUNCTION public.prevent_finance_append_only_update_delete()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -166,6 +238,9 @@ CREATE TRIGGER prevent_audit_logs_modifications
 BEFORE UPDATE OR DELETE ON public.finance_audit_logs
 FOR EACH ROW EXECUTE FUNCTION public.prevent_finance_append_only_update_delete();
 
+-- RPC Functions
+
+-- A. Create Finance Plan RPC
 CREATE OR REPLACE FUNCTION public.create_finance_plan(
     p_idempotency_key TEXT,
     p_customer_id UUID,
@@ -301,6 +376,7 @@ BEGIN
            v_existing_plan.installment_count != p_installment_count OR
            v_existing_plan.statement_day != p_statement_day OR
            v_existing_plan.first_due_date != p_first_due_date OR
+           v_existing_plan.created_by IS DISTINCT FROM p_created_by OR
            v_existing_plan.down_payment_method != p_down_payment_method THEN
             RAISE EXCEPTION 'Idempotency key payload mismatch';
         END IF;
@@ -350,7 +426,7 @@ BEGIN
     v_ledger_res := public.add_credit_transaction(
         p_customer_id, v_account_id, 'purchase', 'debit', v_financed_principal,
         'Taksitli Satış Borcu - Ref: ' || p_source_reference,
-        CASE WHEN p_source_type IN ('store_sale', 'web_order') THEN p_source_type ELSE 'store_sale' END,
+        p_source_type,
         p_source_reference, NULL, NULL, p_created_by, NULL, NULL
     );
     v_principal_trx_id := (v_ledger_res->>'transaction_id')::UUID;
@@ -382,6 +458,12 @@ BEGIN
         v_principal_trx_id, v_charge_trx_id, p_down_payment_method
     ) RETURNING id INTO v_plan_id;
 
+    -- Down-payment business rule:
+    -- The down payment is an immediately collected sale payment. It is stored
+    -- only as a down_payment finance_collection. The financed principal is
+    -- principal_amount - down_payment_amount; no down-payment debt or payment
+    -- entry is added to the credit ledger. Cancellation creates an append-only
+    -- refund collection for this receipt.
     -- Insert Down Payment if exists
     IF p_down_payment_amount > 0 THEN
         v_dp_receipt := 'RCP-DP-' || LPAD(nextval('public.finance_receipt_seq')::text, 6, '0');
@@ -394,11 +476,7 @@ BEGIN
         );
     END IF;
 
-    -- Split Installments (Cents level to avoid floating point issues, kuruş farkı son taksite)
-    v_total_cents := round(v_total_due * 100);
-    v_base_cents := v_total_cents / p_installment_count;
-    v_last_cents := v_total_cents - (v_base_cents * (p_installment_count - 1));
-
+    -- Split Installments (Cents level to avoid floating point issues, components split independently)
     v_financed_principal_cents := round(v_financed_principal * 100);
     v_base_principal_cents := v_financed_principal_cents / p_installment_count;
     v_last_principal_cents := v_financed_principal_cents - (v_base_principal_cents * (p_installment_count - 1));
@@ -408,25 +486,72 @@ BEGIN
     v_last_charge_cents := v_finance_charge_cents - (v_base_charge_cents * (p_installment_count - 1));
 
     FOR i IN 1..p_installment_count LOOP
-        v_inst_due_date := (p_first_due_date + (i - 1) * INTERVAL '1 month')::DATE;
-        
-        INSERT INTO public.finance_installments (
-            finance_plan_id, installment_no, due_date, principal_amount,
-            finance_charge_amount, amount_due, amount_paid, remaining_amount, status
-        ) VALUES (
-            v_plan_id, i, v_inst_due_date,
-            CASE WHEN i = p_installment_count THEN v_last_principal_cents::numeric / 100.0 ELSE v_base_principal_cents::numeric / 100.0 END,
-            CASE WHEN i = p_installment_count THEN v_last_charge_cents::numeric / 100.0 ELSE v_base_charge_cents::numeric / 100.0 END,
-            CASE WHEN i = p_installment_count THEN v_last_cents::numeric / 100.0 ELSE v_base_cents::numeric / 100.0 END,
-            0,
-            CASE WHEN i = p_installment_count THEN v_last_cents::numeric / 100.0 ELSE v_base_cents::numeric / 100.0 END,
-            'pending'
-        );
+        DECLARE
+            v_inst_principal NUMERIC;
+            v_inst_charge NUMERIC;
+            v_inst_due NUMERIC;
+        BEGIN
+            v_inst_due_date := (p_first_due_date + (i - 1) * INTERVAL '1 month')::DATE;
+
+            IF i = p_installment_count THEN
+                v_inst_principal := v_last_principal_cents::numeric / 100.0;
+                v_inst_charge := v_last_charge_cents::numeric / 100.0;
+            ELSE
+                v_inst_principal := v_base_principal_cents::numeric / 100.0;
+                v_inst_charge := v_base_charge_cents::numeric / 100.0;
+            END IF;
+
+            v_inst_due := v_inst_principal + v_inst_charge;
+
+            INSERT INTO public.finance_installments (
+                finance_plan_id, installment_no, due_date, principal_amount,
+                finance_charge_amount, amount_due, amount_paid, remaining_amount, status
+            ) VALUES (
+                v_plan_id, i, v_inst_due_date,
+                v_inst_principal,
+                v_inst_charge,
+                v_inst_due,
+                0,
+                v_inst_due,
+                'pending'
+            );
+        END;
     END LOOP;
+
+    -- Mandatory sum validations
+    DECLARE
+        v_sum_principal NUMERIC;
+        v_sum_charge NUMERIC;
+        v_sum_due NUMERIC;
+    BEGIN
+        SELECT coalesce(sum(principal_amount), 0),
+               coalesce(sum(finance_charge_amount), 0),
+               coalesce(sum(amount_due), 0)
+        INTO v_sum_principal, v_sum_charge, v_sum_due
+        FROM public.finance_installments
+        WHERE finance_plan_id = v_plan_id;
+
+        IF v_sum_principal IS DISTINCT FROM v_financed_principal THEN
+            RAISE EXCEPTION 'Principal split integrity check failed: expected %, got %', v_financed_principal, v_sum_principal;
+        END IF;
+        IF v_sum_charge IS DISTINCT FROM v_finance_charge THEN
+            RAISE EXCEPTION 'Finance charge split integrity check failed: expected %, got %', v_finance_charge, v_sum_charge;
+        END IF;
+        IF v_sum_due IS DISTINCT FROM v_total_due THEN
+            RAISE EXCEPTION 'Total due split integrity check failed: expected %, got %', v_total_due, v_sum_due;
+        END IF;
+    END;
 
     -- Audit Log
     INSERT INTO public.finance_audit_logs (finance_plan_id, action, actor, old_data, new_data)
-    VALUES (v_plan_id, 'create_plan', p_created_by, NULL, jsonb_build_object('principal', p_principal_amount, 'total_due', v_total_due, 'down_payment_method', p_down_payment_method));
+    VALUES (v_plan_id, 'create_plan', p_created_by, NULL,
+            jsonb_build_object(
+                'principal', p_principal_amount,
+                'total_due', v_total_due,
+                'down_payment_method', p_down_payment_method,
+                'down_payment_ledger_treatment', 'not_posted_to_credit_ledger',
+                'financed_principal', v_financed_principal
+            ));
 
     -- Return JSONB
     RETURN jsonb_build_object(
@@ -442,6 +567,8 @@ REVOKE ALL ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERI
 REVOKE ALL ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT, TEXT) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.create_finance_plan(TEXT, UUID, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, SMALLINT, SMALLINT, DATE, TEXT, TEXT) TO service_role;
 
+
+-- B. Record Finance Collection RPC
 CREATE OR REPLACE FUNCTION public.record_finance_collection(
     p_idempotency_key TEXT,
     p_plan_id UUID,
@@ -493,7 +620,7 @@ BEGIN
     IF p_payment_method IS NULL OR p_payment_method NOT IN ('cash', 'card', 'bank_transfer', 'other') THEN
         RAISE EXCEPTION 'Invalid payment method';
     END IF;
-    IF p_collection_kind IS NULL OR p_collection_kind NOT IN ('down_payment', 'installment_payment', 'early_closure', 'adjustment') THEN
+    IF p_collection_kind IS NULL OR p_collection_kind NOT IN ('installment_payment', 'early_closure') THEN
         RAISE EXCEPTION 'Invalid collection kind';
     END IF;
     IF p_collected_at IS NULL THEN
@@ -524,9 +651,12 @@ BEGIN
     SELECT * INTO v_existing_col FROM public.finance_collections WHERE idempotency_key = p_idempotency_key;
     IF FOUND THEN
         IF v_existing_col.finance_plan_id != p_plan_id OR
+           v_existing_col.direction IS DISTINCT FROM 'in' OR
            v_existing_col.amount != p_amount OR
            v_existing_col.payment_method != p_payment_method OR
-           v_existing_col.collection_kind != p_collection_kind THEN
+           v_existing_col.collection_kind != p_collection_kind OR
+           v_existing_col.created_by IS DISTINCT FROM p_created_by OR
+           v_existing_col.note IS DISTINCT FROM p_note THEN
             RAISE EXCEPTION 'Idempotency key payload mismatch for collection';
         END IF;
 
@@ -553,6 +683,9 @@ BEGIN
 
     IF p_amount > v_plan_remaining THEN
         RAISE EXCEPTION 'Payment amount % exceeds remaining plan debt %', p_amount, v_plan_remaining;
+    END IF;
+    IF p_collection_kind = 'early_closure' AND p_amount != v_plan_remaining THEN
+        RAISE EXCEPTION 'Early closure amount must equal remaining plan debt %', v_plan_remaining;
     END IF;
 
     SELECT current_balance, credit_customer_id INTO v_current_balance, v_customer_id
@@ -601,6 +734,10 @@ BEGIN
         END IF;
     END LOOP;
 
+    IF v_remaining_payment != 0 THEN
+        RAISE EXCEPTION 'Payment allocation did not consume the full amount';
+    END IF;
+
     -- Update Plan
     UPDATE public.finance_plans SET
         amount_paid = amount_paid + p_amount,
@@ -640,6 +777,8 @@ REVOKE ALL ON FUNCTION public.record_finance_collection(TEXT, UUID, NUMERIC, TEX
 REVOKE ALL ON FUNCTION public.record_finance_collection(TEXT, UUID, NUMERIC, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.record_finance_collection(TEXT, UUID, NUMERIC, TEXT, TEXT, TIMESTAMPTZ, TEXT, TEXT) TO service_role;
 
+
+-- C. Cancel Finance Plan RPC
 CREATE OR REPLACE FUNCTION public.cancel_finance_plan(
     p_plan_id UUID,
     p_admin_username TEXT,
@@ -671,6 +810,7 @@ DECLARE
     v_plan_charge_trx UUID;
     
     v_starting_balance NUMERIC;
+    v_ledger_balance NUMERIC;
 BEGIN
     -- Input Normalization
     p_admin_username := trim(p_admin_username);
@@ -710,6 +850,14 @@ BEGIN
     -- Lock Account and Customer
     SELECT current_balance, credit_customer_id INTO v_current_balance, v_customer_id
     FROM public.credit_accounts WHERE id = v_account_id FOR UPDATE;
+    SELECT balance_after INTO v_ledger_balance
+    FROM public.credit_transactions
+    WHERE credit_account_id = v_account_id
+    ORDER BY ledger_no DESC
+    LIMIT 1;
+    IF v_ledger_balance IS DISTINCT FROM v_current_balance THEN
+        RAISE EXCEPTION 'Finance cancellation balance restoration failed';
+    END IF;
 
     -- 1. Reverse each Collection (FIFO / Deterministic Lock order)
     FOR v_col IN 
@@ -728,7 +876,7 @@ BEGIN
             v_rev_col_trx_id := NULL;
             
             -- If it's a ledger-tracked payment, reverse the ledger entry
-            IF v_col.ledger_transaction_id IS NOT NULL AND v_col.collection_kind IN ('installment_payment', 'early_closure', 'adjustment') THEN
+            IF v_col.ledger_transaction_id IS NOT NULL AND v_col.collection_kind IN ('installment_payment', 'early_closure') THEN
                 v_ledger_res := public.add_credit_transaction(
                     v_customer_id, v_account_id, 'reversal', 'debit', v_col.amount,
                     'Taksit Ödeme İptali (Tahsilat İadesi) - Makbuz Ref: ' || v_col.receipt_number,
@@ -781,6 +929,10 @@ BEGIN
         (SELECT coalesce(sum(amount), 0) FROM public.finance_collections 
          WHERE finance_plan_id = p_plan_id AND direction = 'in' AND ledger_transaction_id IS NOT NULL);
 
+    IF v_starting_balance IS DISTINCT FROM v_new_balance THEN
+        RAISE EXCEPTION 'Finance cancellation balance restoration failed';
+    END IF;
+
     -- Audit Log
     INSERT INTO public.finance_audit_logs (finance_plan_id, action, actor, old_data, new_data, reason)
     VALUES (p_plan_id, 'cancel_plan', p_admin_username, 
@@ -800,8 +952,6 @@ REVOKE ALL ON FUNCTION public.cancel_finance_plan(UUID, TEXT, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.cancel_finance_plan(UUID, TEXT, TEXT) FROM anon;
 REVOKE ALL ON FUNCTION public.cancel_finance_plan(UUID, TEXT, TEXT) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.cancel_finance_plan(UUID, TEXT, TEXT) TO service_role;
-
--- =========================================================================
 -- EXACT MIGRATION BODY END
 -- =========================================================================
 
@@ -820,22 +970,41 @@ DECLARE
     -- Dynamic test keys and timestamps
     v_customer_id UUID := gen_random_uuid();
     v_account_id UUID := gen_random_uuid();
+    v_phone TEXT := '+90' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 10);
     v_collection_time TIMESTAMPTZ := clock_timestamp();
     
     v_plan_id UUID;
     v_already_refunded BOOLEAN;
     v_starting_balance NUMERIC;
     v_new_balance NUMERIC;
+    v_service_trx UUID;
+    v_manual_trx UUID;
+    v_cancel_before JSONB;
+    v_cancel_after JSONB;
 BEGIN
     -- Setup Test Customer & Account (Active)
     INSERT INTO public.credit_customers (id, full_name, phone, phone_normalized, status)
-    VALUES (v_customer_id, 'TEST-HURCELL-FINANS-20260715', '+905555555777', '+905555555777', 'active');
+    VALUES (v_customer_id, 'TEST-HURCELL-FINANS', v_phone, v_phone, 'active');
 
     INSERT INTO public.credit_accounts (id, credit_customer_id, credit_limit, current_balance, statement_day, status)
     VALUES (v_account_id, v_customer_id, 10000.00, 0.00, 15, 'active');
 
-    -- T1: Migration compile
-    INSERT INTO test_runs VALUES (1, 'Migration compile', 'PASS', 'Compiled successfully');
+    -- T1: Ledger readiness prerequisites.
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public'
+         AND table_name='credit_transactions' AND column_name='amount'
+         AND numeric_precision=12 AND numeric_scale=2)
+       AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public'
+         AND table_name='credit_transactions' AND column_name='balance_after'
+         AND numeric_precision=12 AND numeric_scale=2)
+       AND EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public'
+         AND tablename='credit_accounts' AND indexname='uniq_credit_accounts_credit_customer_id')
+       AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+         WHERE n.nspname='public' AND p.proname='prevent_credit_transactions_modification'
+           AND NOT p.prosecdef AND array_to_string(p.proconfig,',') LIKE '%search_path=public%') THEN
+      INSERT INTO test_runs VALUES (1, 'Ledger readiness prerequisites', 'PASS', 'Precision 12,2; unique account; helper hardened');
+    ELSE
+      INSERT INTO test_runs VALUES (1, 'Ledger readiness prerequisites', 'FAIL', 'Ledger readiness prerequisites missing');
+    END IF;
 
     -- T2: Tables created
     IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'finance_plans') AND
@@ -847,13 +1016,35 @@ BEGIN
         INSERT INTO test_runs VALUES (2, 'Tables created', 'FAIL', 'Missing tables');
     END IF;
 
-    -- T3: RPCs created
+    -- Exercise exact ledger source preservation and restore the balance.
+    v_service_trx := (public.add_credit_transaction(
+      v_customer_id, v_account_id, 'purchase', 'debit', 1.00,
+      'service source preservation test', 'service_order', 'svc-ref', NULL, NULL,
+      'admin_test', NULL, jsonb_build_object('dry_run', true)
+    )->>'transaction_id')::uuid;
+    PERFORM public.add_credit_transaction(
+      v_customer_id, v_account_id, 'reversal', 'credit', 1.00,
+      'reverse service source test', 'reversal', 'svc-ref', NULL, NULL,
+      'admin_test', v_service_trx, jsonb_build_object('dry_run', true));
+    v_manual_trx := (public.add_credit_transaction(
+      v_customer_id, v_account_id, 'purchase', 'debit', 1.00,
+      'manual source preservation test', 'manual', 'manual-ref', NULL, NULL,
+      'admin_test', NULL, jsonb_build_object('dry_run', true)
+    )->>'transaction_id')::uuid;
+    PERFORM public.add_credit_transaction(
+      v_customer_id, v_account_id, 'reversal', 'credit', 1.00,
+      'reverse manual source test', 'reversal', 'manual-ref', NULL, NULL,
+      'admin_test', v_manual_trx, jsonb_build_object('dry_run', true));
+
+    -- T3: RPCs created and source types preserved
     IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'create_finance_plan') AND
        EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'record_finance_collection') AND
-       EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'cancel_finance_plan') THEN
-        INSERT INTO test_runs VALUES (3, 'RPCs created', 'PASS', 'All 3 RPCs exist');
+       EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'cancel_finance_plan') AND
+       EXISTS (SELECT 1 FROM public.credit_transactions WHERE id=v_service_trx AND source_type='service_order') AND
+       EXISTS (SELECT 1 FROM public.credit_transactions WHERE id=v_manual_trx AND source_type='manual') THEN
+        INSERT INTO test_runs VALUES (3, 'RPCs and source preservation', 'PASS', 'All RPCs exist; service_order/manual preserved');
     ELSE
-        INSERT INTO test_runs VALUES (3, 'RPCs created', 'FAIL', 'Missing RPCs');
+        INSERT INTO test_runs VALUES (3, 'RPCs and source preservation', 'FAIL', 'Missing RPC or source type changed');
     END IF;
 
     -- T4: Helper function security invoker
@@ -873,10 +1064,39 @@ BEGIN
     END IF;
 
     -- T5: RLS enabled
-    IF (SELECT rowsecurity FROM pg_class WHERE relname = 'finance_plans') AND
-       (SELECT rowsecurity FROM pg_class WHERE relname = 'finance_installments') AND
-       (SELECT rowsecurity FROM pg_class WHERE relname = 'finance_collections') AND
-       (SELECT rowsecurity FROM pg_class WHERE relname = 'finance_audit_logs') THEN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n
+          ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = 'finance_plans'
+          AND c.relrowsecurity
+    ) AND EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n
+          ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = 'finance_installments'
+          AND c.relrowsecurity
+    ) AND EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n
+          ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = 'finance_collections'
+          AND c.relrowsecurity
+    ) AND EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n
+          ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = 'finance_audit_logs'
+          AND c.relrowsecurity
+    ) THEN
         INSERT INTO test_runs VALUES (5, 'RLS enabled', 'PASS', 'RLS enabled on all 4 tables');
     ELSE
         INSERT INTO test_runs VALUES (5, 'RLS enabled', 'FAIL', 'RLS not enabled');
@@ -912,8 +1132,8 @@ BEGIN
             749.99,
             0,
             0,
-            3,
-            15,
+            3::smallint,
+            15::smallint,
             (current_date + interval '1 month')::date,
             'admin_test'
         );
@@ -936,8 +1156,8 @@ BEGIN
             750.00,
             150.00,
             10.0017,
-            3,
-            15,
+            3::smallint,
+            15::smallint,
             (current_date + interval '1 month')::date,
             'admin_test',
             'cash'
@@ -995,8 +1215,8 @@ BEGIN
             750.00,
             150.00,
             10.0017,
-            3,
-            15,
+            3::smallint,
+            15::smallint,
             (current_date + interval '1 month')::date,
             'admin_test',
             'cash'
@@ -1016,8 +1236,8 @@ BEGIN
             750.00,
             150.00,
             10.0017,
-            3,
-            15,
+            3::smallint,
+            15::smallint,
             (current_date + interval '1 month')::date,
             'admin_test',
             'cash'
@@ -1066,13 +1286,67 @@ BEGIN
             'partial payment'
         );
         
-        IF (SELECT current_balance FROM public.credit_accounts WHERE id = v_account_id) = 560.01 THEN
-            INSERT INTO test_runs VALUES (16, 'Duplicate collection key idempotency', 'PASS', 'Returned existing collection silently');
-        ELSE
-            INSERT INTO test_runs VALUES (16, 'Duplicate collection key idempotency', 'FAIL', 'Balance changed');
+        IF (SELECT current_balance FROM public.credit_accounts WHERE id = v_account_id) <> 560.01 THEN
+            RAISE EXCEPTION 'Balance changed on idempotent retry';
         END IF;
+        BEGIN
+            PERFORM public.record_finance_collection(
+                'test_col_key_1',
+                (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1'),
+                100.00, 'cash', 'installment_payment', v_collection_time + interval '20 seconds',
+                'different_admin', 'partial payment'
+            );
+            RAISE EXCEPTION 'Changed created_by payload was accepted';
+        EXCEPTION WHEN OTHERS THEN
+            IF SQLERRM NOT LIKE '%Idempotency key payload mismatch%' THEN RAISE; END IF;
+        END;
+        BEGIN
+            PERFORM public.record_finance_collection(
+                'test_col_key_1',
+                (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1'),
+                100.00, 'cash', 'installment_payment', v_collection_time + interval '30 seconds',
+                'admin_test', 'different note'
+            );
+            RAISE EXCEPTION 'Changed note payload was accepted';
+        EXCEPTION WHEN OTHERS THEN
+            IF SQLERRM NOT LIKE '%Idempotency key payload mismatch%' THEN RAISE; END IF;
+        END;
+        BEGIN
+            PERFORM public.record_finance_collection(
+                'test_adjustment_rejected',
+                (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1'),
+                1.00, 'cash', 'adjustment', v_collection_time,
+                'admin_test', 'must reject'
+            );
+            RAISE EXCEPTION 'Adjustment collection was accepted';
+        EXCEPTION WHEN OTHERS THEN
+            IF SQLERRM NOT LIKE '%Invalid collection kind%' THEN RAISE; END IF;
+        END;
+        BEGIN
+            PERFORM public.record_finance_collection(
+                'test_down_payment_rejected',
+                (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1'),
+                1.00, 'cash', 'down_payment', v_collection_time,
+                'admin_test', 'must reject'
+            );
+            RAISE EXCEPTION 'down_payment collection RPC was accepted';
+        EXCEPTION WHEN OTHERS THEN
+            IF SQLERRM NOT LIKE '%Invalid collection kind%' THEN RAISE; END IF;
+        END;
+        BEGIN
+            PERFORM public.record_finance_collection(
+                'test_partial_early_closure_rejected',
+                (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1'),
+                1.00, 'cash', 'early_closure', v_collection_time,
+                'admin_test', 'must reject partial closure'
+            );
+            RAISE EXCEPTION 'Partial early_closure was accepted';
+        EXCEPTION WHEN OTHERS THEN
+            IF SQLERRM NOT LIKE '%Early closure amount must equal remaining plan debt%' THEN RAISE; END IF;
+        END;
+        INSERT INTO test_runs VALUES (16, 'Collection idempotency and allowlist', 'PASS', 'Retry stable; created_by/note mismatches, down_payment, adjustment and partial early_closure rejected');
     EXCEPTION WHEN OTHERS THEN
-        INSERT INTO test_runs VALUES (16, 'Duplicate collection key idempotency', 'FAIL', SQLERRM);
+        INSERT INTO test_runs VALUES (16, 'Collection idempotency and allowlist', 'FAIL', SQLERRM);
     END;
 
     -- T17: Fazla tahsilat reddi
@@ -1167,8 +1441,36 @@ BEGIN
             INSERT INTO test_runs VALUES (23, 'Plan status cancelled', 'FAIL', 'Status mismatch');
         END IF;
 
-        -- T24: Cancellation constraintleri
-        INSERT INTO test_runs VALUES (24, 'Cancellation constraints', 'PASS', 'Constraints satisfied');
+        -- T24: Exact reversal/refund relationships.
+        IF EXISTS (
+          SELECT 1
+          FROM public.finance_plans p
+          JOIN public.finance_collections original_payment
+            ON original_payment.finance_plan_id=p.id
+           AND original_payment.direction='in'
+           AND original_payment.collection_kind='installment_payment'
+          JOIN public.finance_collections payment_refund
+            ON payment_refund.reverses_collection_id=original_payment.id
+           AND payment_refund.direction='out'
+          JOIN public.credit_transactions payment_reversal
+            ON payment_reversal.id=payment_refund.ledger_transaction_id
+           AND payment_reversal.reversed_transaction_id=original_payment.ledger_transaction_id
+          JOIN public.credit_transactions principal_reversal
+            ON principal_reversal.reversed_transaction_id=p.principal_transaction_id
+          JOIN public.credit_transactions fee_reversal
+            ON fee_reversal.reversed_transaction_id=p.finance_charge_transaction_id
+          JOIN public.finance_collections original_dp
+            ON original_dp.finance_plan_id=p.id
+           AND original_dp.direction='in' AND original_dp.collection_kind='down_payment'
+          JOIN public.finance_collections dp_refund
+            ON dp_refund.reverses_collection_id=original_dp.id
+           AND dp_refund.direction='out'
+          WHERE p.idempotency_key='test_key_success_1'
+        ) THEN
+          INSERT INTO test_runs VALUES (24, 'Cancellation exact relationships', 'PASS', 'All reversal and refund IDs match their originals');
+        ELSE
+          INSERT INTO test_runs VALUES (24, 'Cancellation exact relationships', 'FAIL', 'One or more reversal/refund relationships mismatch');
+        END IF;
 
         -- T25: Başlangıç bakiyesi geri geliyor
         IF (SELECT current_balance FROM public.credit_accounts WHERE id = v_account_id) = 0.00 THEN
@@ -1190,15 +1492,36 @@ BEGIN
 
     -- T26: İkinci cancel yeni hareket oluşturmuyor
     BEGIN
+        SELECT jsonb_build_object(
+          'ledger_count',(SELECT count(*) FROM public.credit_transactions WHERE credit_account_id=v_account_id),
+          'payment_reversal_count',(SELECT count(*) FROM public.credit_transactions t JOIN public.finance_collections c ON c.ledger_transaction_id=t.id WHERE c.finance_plan_id=(SELECT id FROM public.finance_plans WHERE idempotency_key='test_key_success_1') AND c.direction='out' AND c.collection_kind='installment_payment'),
+          'principal_reversal_count',(SELECT count(*) FROM public.credit_transactions t JOIN public.finance_plans p ON t.reversed_transaction_id=p.principal_transaction_id WHERE p.idempotency_key='test_key_success_1'),
+          'fee_reversal_count',(SELECT count(*) FROM public.credit_transactions t JOIN public.finance_plans p ON t.reversed_transaction_id=p.finance_charge_transaction_id WHERE p.idempotency_key='test_key_success_1'),
+          'outbound_refund_count',(SELECT count(*) FROM public.finance_collections WHERE finance_plan_id=(SELECT id FROM public.finance_plans WHERE idempotency_key='test_key_success_1') AND direction='out'),
+          'cancel_audit_count',(SELECT count(*) FROM public.finance_audit_logs WHERE finance_plan_id=(SELECT id FROM public.finance_plans WHERE idempotency_key='test_key_success_1') AND action='cancel_plan'),
+          'account_balance',(SELECT current_balance FROM public.credit_accounts WHERE id=v_account_id),
+          'plan_status',(SELECT status FROM public.finance_plans WHERE idempotency_key='test_key_success_1'),
+          'installments',(SELECT jsonb_agg(jsonb_build_object('status',status,'count',n) ORDER BY status) FROM (SELECT status,count(*) n FROM public.finance_installments WHERE finance_plan_id=(SELECT id FROM public.finance_plans WHERE idempotency_key='test_key_success_1') GROUP BY status) s)
+        ) INTO v_cancel_before;
         PERFORM public.cancel_finance_plan(
             (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1'),
             'admin_test',
             'Duplicate cancel call'
         );
         
-        IF (SELECT count(*) FROM public.finance_collections WHERE finance_plan_id = (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1') AND direction = 'out') = 2 AND
-           (SELECT count(*) FROM public.finance_audit_logs WHERE finance_plan_id = (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1') AND action = 'cancel_plan') = 1 THEN
-            INSERT INTO test_runs VALUES (26, 'Second cancel idempotency', 'PASS', 'Silent success, no duplicate records created');
+        SELECT jsonb_build_object(
+          'ledger_count',(SELECT count(*) FROM public.credit_transactions WHERE credit_account_id=v_account_id),
+          'payment_reversal_count',(SELECT count(*) FROM public.credit_transactions t JOIN public.finance_collections c ON c.ledger_transaction_id=t.id WHERE c.finance_plan_id=(SELECT id FROM public.finance_plans WHERE idempotency_key='test_key_success_1') AND c.direction='out' AND c.collection_kind='installment_payment'),
+          'principal_reversal_count',(SELECT count(*) FROM public.credit_transactions t JOIN public.finance_plans p ON t.reversed_transaction_id=p.principal_transaction_id WHERE p.idempotency_key='test_key_success_1'),
+          'fee_reversal_count',(SELECT count(*) FROM public.credit_transactions t JOIN public.finance_plans p ON t.reversed_transaction_id=p.finance_charge_transaction_id WHERE p.idempotency_key='test_key_success_1'),
+          'outbound_refund_count',(SELECT count(*) FROM public.finance_collections WHERE finance_plan_id=(SELECT id FROM public.finance_plans WHERE idempotency_key='test_key_success_1') AND direction='out'),
+          'cancel_audit_count',(SELECT count(*) FROM public.finance_audit_logs WHERE finance_plan_id=(SELECT id FROM public.finance_plans WHERE idempotency_key='test_key_success_1') AND action='cancel_plan'),
+          'account_balance',(SELECT current_balance FROM public.credit_accounts WHERE id=v_account_id),
+          'plan_status',(SELECT status FROM public.finance_plans WHERE idempotency_key='test_key_success_1'),
+          'installments',(SELECT jsonb_agg(jsonb_build_object('status',status,'count',n) ORDER BY status) FROM (SELECT status,count(*) n FROM public.finance_installments WHERE finance_plan_id=(SELECT id FROM public.finance_plans WHERE idempotency_key='test_key_success_1') GROUP BY status) s)
+        ) INTO v_cancel_after;
+        IF v_cancel_before = v_cancel_after THEN
+            INSERT INTO test_runs VALUES (26, 'Second cancel idempotency', 'PASS', 'Complete before/after snapshot is identical');
         ELSE
             INSERT INTO test_runs VALUES (26, 'Second cancel idempotency', 'FAIL', 'Duplicate records created');
         END IF;
@@ -1230,17 +1553,326 @@ BEGIN
         END IF;
     END;
 
-    -- T29: Transaction içi bütünlük sonucu
-    IF NOT EXISTS (SELECT 1 FROM test_runs WHERE result = 'FAIL') THEN
-        INSERT INTO test_runs VALUES (29, 'Transaction integrity', 'PASS', 'All transaction tests passed');
-    ELSE
-        INSERT INTO test_runs VALUES (29, 'Transaction integrity', 'FAIL', 'Some transaction tests failed');
-    END IF;
+    -- T29: Extreme case cent splitting validation
+    DECLARE
+        v_ex_plan_id UUID;
+        v_sum_principal NUMERIC;
+        v_sum_charge NUMERIC;
+        v_sum_due NUMERIC;
+        v_negative_charge_count INT;
+    BEGIN
+        v_ex_plan_id := (public.create_finance_plan(
+            'test_key_cent_split_' || substr(replace(gen_random_uuid()::text,'-',''),1,8),
+            v_customer_id, 'manual', 'TEST-CENT-' || gen_random_uuid()::text,
+            750.02, 150.00, 0.0017, 3::smallint, 15::smallint, current_date + 20,
+            'admin_test', 'cash'
+        )->'plan'->>'id')::uuid;
 
+        -- Enforce sum assertions and components validations
+        SELECT coalesce(sum(principal_amount), 0),
+               coalesce(sum(finance_charge_amount), 0),
+               coalesce(sum(amount_due), 0),
+               count(*) FILTER (WHERE finance_charge_amount < 0)
+        INTO v_sum_principal, v_sum_charge, v_sum_due, v_negative_charge_count
+        FROM public.finance_installments
+        WHERE finance_plan_id = v_ex_plan_id;
+
+        IF v_sum_principal <> 600.02 THEN
+            RAISE EXCEPTION 'Expected sum principal 600.02, got %', v_sum_principal;
+        END IF;
+        IF v_sum_charge <> 0.01 THEN
+            RAISE EXCEPTION 'Expected sum finance charge 0.01, got %', v_sum_charge;
+        END IF;
+        IF v_sum_due <> 600.03 THEN
+            RAISE EXCEPTION 'Expected sum amount due 600.03, got %', v_sum_due;
+        END IF;
+        IF v_negative_charge_count > 0 THEN
+            RAISE EXCEPTION 'Negative finance charge component found';
+        END IF;
+
+        IF EXISTS (
+            SELECT 1 FROM public.finance_installments
+            WHERE finance_plan_id = v_ex_plan_id
+              AND amount_due <> principal_amount + finance_charge_amount
+        ) THEN
+            RAISE EXCEPTION 'Installment amount_due does not match principal + charge';
+        END IF;
+
+        -- Clean up/pay with early closure
+        PERFORM public.record_finance_collection(
+            'test_full_early_' || substr(replace(gen_random_uuid()::text,'-',''),1,8),
+            v_ex_plan_id,
+            (SELECT remaining_amount FROM public.finance_plans WHERE id = v_ex_plan_id),
+            'cash', 'early_closure', v_collection_time, 'admin_test', 'full closure'
+        );
+
+        IF NOT EXISTS (
+            SELECT 1 FROM public.finance_plans
+            WHERE id = v_ex_plan_id AND status='paid' AND remaining_amount=0
+        ) THEN
+            RAISE EXCEPTION 'Full early closure did not pay plan';
+        END IF;
+
+        INSERT INTO test_runs VALUES (29, 'Extreme case cent splitting', 'PASS', 'Independent splits sum to exact values, no negative charges');
+    EXCEPTION WHEN OTHERS THEN
+        INSERT INTO test_runs VALUES (29, 'Extreme case cent splitting', 'FAIL', SQLERRM);
+    END;
+
+    -- T30: Cancellation balance guard fault injection in a subtransaction.
+    DECLARE
+        v_fault_plan_id UUID;
+        v_bal_before NUMERIC;
+        v_bal_after NUMERIC;
+        v_plan_status_after TEXT;
+        v_rev_count_before INT;
+        v_rev_count_after INT;
+        v_ref_count_before INT;
+        v_ref_count_after INT;
+        v_audit_count_before INT;
+        v_audit_count_after INT;
+    BEGIN
+        v_fault_plan_id := (public.create_finance_plan(
+            'test_key_fault_' || substr(replace(gen_random_uuid()::text,'-',''),1,8),
+            v_customer_id, 'manual', 'TEST-FAULT-' || gen_random_uuid()::text,
+            750.00, 0, 0, 3::smallint, 15::smallint, current_date + 20,
+            'admin_test', 'cash'
+        )->'plan'->>'id')::uuid;
+
+        -- Take snapshots before inner block
+        SELECT current_balance INTO v_bal_before FROM public.credit_accounts WHERE id = v_account_id;
+        SELECT count(*) INTO v_rev_count_before FROM public.credit_transactions WHERE credit_account_id = v_account_id AND transaction_type = 'reversal';
+        SELECT count(*) INTO v_ref_count_before FROM public.finance_collections WHERE finance_plan_id = v_fault_plan_id AND direction = 'out';
+        SELECT count(*) INTO v_audit_count_before FROM public.finance_audit_logs WHERE finance_plan_id = v_fault_plan_id AND action = 'cancel_plan';
+
+        BEGIN
+            -- Inner block: inject fault and try cancel
+            UPDATE public.credit_accounts
+            SET current_balance = current_balance + 0.01
+            WHERE id = v_account_id;
+
+            PERFORM public.cancel_finance_plan(
+                v_fault_plan_id,
+                'admin_test',
+                'fault injection'
+            );
+            RAISE EXCEPTION 'Cancellation accepted corrupted account balance';
+        EXCEPTION WHEN OTHERS THEN
+            IF SQLERRM <> 'Finance cancellation balance restoration failed' THEN RAISE; END IF;
+        END;
+
+        -- Verify snapshots and state after inner block
+        SELECT current_balance INTO v_bal_after FROM public.credit_accounts WHERE id = v_account_id;
+        SELECT status INTO v_plan_status_after FROM public.finance_plans WHERE id = v_fault_plan_id;
+        SELECT count(*) INTO v_rev_count_after FROM public.credit_transactions WHERE credit_account_id = v_account_id AND transaction_type = 'reversal';
+        SELECT count(*) INTO v_ref_count_after FROM public.finance_collections WHERE finance_plan_id = v_fault_plan_id AND direction = 'out';
+        SELECT count(*) INTO v_audit_count_after FROM public.finance_audit_logs WHERE finance_plan_id = v_fault_plan_id AND action = 'cancel_plan';
+
+        IF v_bal_before IS DISTINCT FROM v_bal_after THEN
+            RAISE EXCEPTION 'Balance did not return to the value before inner block';
+        END IF;
+        IF v_plan_status_after IS DISTINCT FROM 'active' THEN
+            RAISE EXCEPTION 'Fault plan status is not active (was %)', v_plan_status_after;
+        END IF;
+        IF v_rev_count_before <> v_rev_count_after THEN
+            RAISE EXCEPTION 'Reversal transaction was created';
+        END IF;
+        IF v_ref_count_before <> v_ref_count_after THEN
+            RAISE EXCEPTION 'Refund collection was created';
+        END IF;
+        IF v_audit_count_before <> v_audit_count_after THEN
+            RAISE EXCEPTION 'Cancel audit log was created';
+        END IF;
+
+        INSERT INTO test_runs VALUES (30, 'Cancellation balance fault guard', 'PASS', 'Corruption rejected, inner state successfully rolled back and verified');
+    EXCEPTION WHEN OTHERS THEN
+        INSERT INTO test_runs VALUES (30, 'Cancellation balance fault guard', 'FAIL', SQLERRM);
+    END;
+
+    -- T31: Down-payment ledger constraint checks (negative tests)
+    BEGIN
+        -- 1. Try to insert down_payment with ledger_transaction_id
+        BEGIN
+            INSERT INTO public.finance_collections (
+                idempotency_key, finance_plan_id, credit_account_id, amount,
+                collection_kind, payment_method, receipt_number, created_by,
+                ledger_transaction_id, direction
+            ) VALUES (
+                'test_fault_col_1',
+                (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1'),
+                v_account_id, 100.00, 'down_payment', 'cash', 'RCP-FAULT-1', 'admin_test',
+                gen_random_uuid(), -- non-null
+                'in'
+            );
+            RAISE EXCEPTION 'Allowed down_payment collection with non-null ledger_transaction_id';
+        EXCEPTION WHEN OTHERS THEN
+            IF SQLERRM NOT LIKE '%chk_reversal_ledger_transaction%' THEN RAISE; END IF;
+        END;
+
+        -- 2. Try to insert installment_payment with null ledger_transaction_id
+        BEGIN
+            INSERT INTO public.finance_collections (
+                idempotency_key, finance_plan_id, credit_account_id, amount,
+                collection_kind, payment_method, receipt_number, created_by,
+                ledger_transaction_id, direction
+            ) VALUES (
+                'test_fault_col_2',
+                (SELECT id FROM public.finance_plans WHERE idempotency_key = 'test_key_success_1'),
+                v_account_id, 100.00, 'installment_payment', 'cash', 'RCP-FAULT-2', 'admin_test',
+                NULL, -- null
+                'in'
+            );
+            RAISE EXCEPTION 'Allowed installment_payment collection with null ledger_transaction_id';
+        EXCEPTION WHEN OTHERS THEN
+            IF SQLERRM NOT LIKE '%chk_reversal_ledger_transaction%' THEN RAISE; END IF;
+        END;
+
+        INSERT INTO test_runs VALUES (31, 'Down-payment ledger constraints', 'PASS', 'Violations of chk_reversal_ledger_transaction correctly rejected');
+    EXCEPTION WHEN OTHERS THEN
+        INSERT INTO test_runs VALUES (31, 'Down-payment ledger constraints', 'FAIL', SQLERRM);
+    END;
+
+    -- T32: Final integrity test
+    DECLARE
+        v_expected_count INT := 31;
+        v_actual_count INT;
+        v_pass_count INT;
+        v_fail_count INT;
+    BEGIN
+        SELECT count(*),
+               count(*) FILTER (WHERE result = 'PASS'),
+               count(*) FILTER (WHERE result = 'FAIL')
+        INTO v_actual_count, v_pass_count, v_fail_count
+        FROM test_runs
+        WHERE test_id <> 32;
+
+        IF v_actual_count = v_expected_count AND v_fail_count = 0 AND v_pass_count = v_expected_count THEN
+            INSERT INTO test_runs VALUES (32, 'Final integrity test', 'PASS', 'All ' || v_expected_count || ' functional tests passed');
+        ELSE
+            INSERT INTO test_runs VALUES (32, 'Final integrity test', 'FAIL', 'Integrity check failed: expected ' || v_expected_count || ', actual ' || v_actual_count || ', passed ' || v_pass_count || ', failed ' || v_fail_count);
+        END IF;
+    END;
+
+END;
+$$;
+
+DO $$
+DECLARE
+    v_pass_count INTEGER;
+    v_fail_count INTEGER;
+    v_actual_test_count INTEGER;
+    v_failures TEXT;
+BEGIN
+    SELECT
+        count(*) FILTER (WHERE result = 'PASS'),
+        count(*) FILTER (WHERE result = 'FAIL'),
+        count(*),
+        string_agg(
+            format(
+                'T%s %s: %s',
+                test_id,
+                test_name,
+                coalesce(details, '')
+            ),
+            ' | '
+            ORDER BY test_id
+        ) FILTER (WHERE result <> 'PASS')
+    INTO
+        v_pass_count,
+        v_fail_count,
+        v_actual_test_count,
+        v_failures
+    FROM test_runs;
+
+    IF v_actual_test_count <> 32
+       OR v_pass_count <> 32
+       OR v_fail_count <> 0
+    THEN
+        RAISE EXCEPTION USING
+            ERRCODE = 'P0001',
+            MESSAGE = format(
+                'Finance functional assertion failed: expected=32 actual=%s pass=%s fail=%s failures=%s',
+                v_actual_test_count,
+                v_pass_count,
+                v_fail_count,
+                coalesce(v_failures, 'none')
+            );
+    END IF;
 END;
 $$;
 
 -- Select Test Results
 SELECT * FROM test_runs ORDER BY test_id ASC;
+SELECT count(*) FILTER (WHERE result='PASS') AS pass_count,
+       count(*) FILTER (WHERE result='FAIL') AS fail_count,
+       32 AS expected_test_count,
+       count(*) AS actual_test_count,
+       CASE WHEN count(*)=32
+                 AND count(*) FILTER (WHERE result='PASS')=32
+                 AND count(*) FILTER (WHERE result='FAIL')=0
+            THEN 'PASS' ELSE 'FAIL' END AS final_integrity_result,
+       'PENDING'::text AS rollback_cleanup_status
+FROM test_runs;
 
 ROLLBACK;
+
+DO $$
+BEGIN
+    IF to_regclass('public.finance_plans') IS NOT NULL
+       OR to_regclass('public.finance_installments') IS NOT NULL
+       OR to_regclass('public.finance_collections') IS NOT NULL
+       OR to_regclass('public.finance_audit_logs') IS NOT NULL
+       OR to_regclass('public.finance_receipt_seq') IS NOT NULL
+       OR to_regprocedure(
+           'public.create_finance_plan(text,uuid,text,text,numeric,numeric,numeric,smallint,smallint,date,text,text)'
+       ) IS NOT NULL
+       OR to_regprocedure(
+           'public.record_finance_collection(text,uuid,numeric,text,text,timestamptz,text,text)'
+       ) IS NOT NULL
+       OR to_regprocedure(
+           'public.cancel_finance_plan(uuid,text,text)'
+       ) IS NOT NULL
+       OR to_regprocedure(
+           'public.prevent_finance_append_only_update_delete()'
+       ) IS NOT NULL
+    THEN
+        RAISE EXCEPTION
+            'Finance rollback cleanup assertion failed: one or more Finance objects survived';
+    END IF;
+END;
+$$;
+
+-- Transaction-external cleanup verification.
+-- This final row is reached only if the pre-rollback 32/32 assertion passed.
+WITH cleanup AS (
+    SELECT
+        to_regclass('public.finance_plans') IS NULL
+        AND to_regclass('public.finance_installments') IS NULL
+        AND to_regclass('public.finance_collections') IS NULL
+        AND to_regclass('public.finance_audit_logs') IS NULL
+        AND to_regclass('public.finance_receipt_seq') IS NULL
+        AND to_regprocedure(
+            'public.create_finance_plan(text,uuid,text,text,numeric,numeric,numeric,smallint,smallint,date,text,text)'
+        ) IS NULL
+        AND to_regprocedure(
+            'public.record_finance_collection(text,uuid,numeric,text,text,timestamptz,text,text)'
+        ) IS NULL
+        AND to_regprocedure(
+            'public.cancel_finance_plan(uuid,text,text)'
+        ) IS NULL
+        AND to_regprocedure(
+            'public.prevent_finance_append_only_update_delete()'
+        ) IS NULL AS all_finance_objects_removed
+)
+SELECT
+    32::integer AS pass_count,
+    0::integer AS fail_count,
+    32::integer AS expected_test_count,
+    32::integer AS actual_test_count,
+    'PASS'::text AS final_integrity_result,
+    true AS functional_assertion_passed,
+    all_finance_objects_removed AS overall_cleanup_ok,
+    CASE
+        WHEN all_finance_objects_removed THEN 'PASS'
+        ELSE 'FAIL'
+    END AS cleanup_result
+FROM cleanup;

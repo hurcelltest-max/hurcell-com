@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useState, use, useCallback } from 'react';
+import React, { useEffect, useState, use, useCallback, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import Barcode from 'react-barcode';
 import { Phone, MapPin, AlertCircle, FileText, Calendar, CreditCard, ChevronLeft, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import TransactionList from '@/components/admin/cari/TransactionList';
 import TransactionForm from '@/components/admin/cari/TransactionForm';
+import KredimetreDetailCard from '@/components/admin/KredimetreDetailCard';
 
 const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
@@ -21,7 +22,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 export default function CariKartPage(props: { params: Promise<{ card_token: string }> }) {
   const params = use(props.params);
-    const token = params.card_token;
+  const token = params.card_token;
   const [customer, setCustomer] = useState<{ id: string; full_name: string; phone: string; tc_kimlik: string; city: string; district: string; address: string; notes: string; status: string; created_at: string; customer_card_code: string; credit_accounts?: { available_limit: number; credit_limit: number; current_balance: number; statement_day: number; status: string }[]; credit_audit_logs?: Array<{ id: string; action_type: string; new_value?: Record<string, unknown>; admin_users?: { username: string }; created_at: string }>; credit_agreement_acceptances?: Array<Record<string, unknown>>; account?: { available_limit: number; credit_limit: number; current_balance: number; statement_day: number; status: string } } | null>(null);
   const [transactions, setTransactions] = useState<Array<{ id: string; transaction_type: string; amount_cents: number; description: string; created_at: string; status: string }>>([]);
   const [notes, setNotes] = useState<Array<{ id: string; note: string; created_by: string; created_at: string; admin_users: { username: string } }>>([]);
@@ -30,6 +31,24 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
   const [error, setError] = useState('');
   const [noteLoading, setNoteLoading] = useState(false);
   const [showCard, setShowCard] = useState(false);
+
+  // Kredimetre State
+  const [kredimetre, setKredimetre] = useState<{
+    credit_score: number | null;
+    credit_label: string;
+    credit_color: string;
+    paid_installment_count: number;
+    on_time_paid_installment_count: number;
+    current_overdue_amount: number;
+    maximum_days_overdue: number;
+    limit_utilization_percent: number;
+    last_payment_at: string | null;
+    total_plan_count: number;
+    due_installment_count: number;
+  } | null>(null);
+  const [kredimetreLoading, setKredimetreLoading] = useState(true);
+  const [kredimetreError, setKredimetreError] = useState(false);
+
   const [financeSummary, setFinanceSummary] = useState<{
     plans: Array<{
       id: string;
@@ -79,26 +98,50 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState('');
 
+  // Race condition guard
+  const requestIdRef = useRef(0);
 
-
-    const fetchNotes = async (customerId: string) => {
+  const fetchNotes = async (customerId: string, reqId: number) => {
     try {
       const res = await fetch(`/api/admin/cari/notlar?customerId=${customerId}`);
       const data = await res.json();
-      if (res.ok) setNotes(data.notes);
+      if (res.ok && reqId === requestIdRef.current) {
+        setNotes(data.notes);
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
   const fetchCustomer = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+
+    // Clear stale Kredimetre / Customer data before fetching new customer
+    setLoading(true);
+    setError('');
+    setCustomer(null);
+    setTransactions([]);
+    setNotes([]);
+    setFinanceSummary({
+      plans: [],
+      installments: [],
+      collections: []
+    });
+
+    setKredimetre(null);
+    setKredimetreError(false);
+    setKredimetreLoading(true);
+
     try {
       const res = await fetch(`/api/admin/cari/musteri/${token}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      if (requestId !== requestIdRef.current) return;
+
       setCustomer(data.customer);
       setTransactions(data.transactions || []);
-      fetchNotes(data.customer.id);
+      fetchNotes(data.customer.id, requestId);
       
       const account = data.customer.credit_accounts?.[0];
       if (account) {
@@ -106,10 +149,82 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
         setStatementDay(account.statement_day || getInitialStatementDay());
       }
 
+      // Card code validation
+      const customerCardCode = typeof data.customer.customer_card_code === 'string'
+        ? data.customer.customer_card_code.trim()
+        : '';
+
+      if (!customerCardCode) {
+        setKredimetre(null);
+        setKredimetreError(true);
+        setKredimetreLoading(false);
+      } else {
+        // Fetch Kredimetre details from /api/admin/cari/list?search=
+        try {
+          const krRes = await fetch(`/api/admin/cari/list?search=${encodeURIComponent(customerCardCode)}`);
+          const krJson = await krRes.json();
+
+          if (requestId !== requestIdRef.current) return;
+
+          if (krRes.ok && Array.isArray(krJson?.data)) {
+            const matchingCustomer = krJson.data.find(
+              (c: {
+                customer_id: string;
+                customer_card_code: string;
+                credit_score: number | null;
+                credit_label: string;
+                credit_color: string;
+                paid_installment_count: number;
+                on_time_paid_installment_count: number;
+                current_overdue_amount: number;
+                maximum_days_overdue: number;
+                limit_utilization_percent: number;
+                last_payment_at: string | null;
+                total_plan_count: number;
+                due_installment_count: number;
+              }) => c.customer_id === data.customer.id && c.customer_card_code === customerCardCode
+            );
+            if (matchingCustomer) {
+              setKredimetre({
+                credit_score: matchingCustomer.credit_score,
+                credit_label: matchingCustomer.credit_label,
+                credit_color: matchingCustomer.credit_color,
+                paid_installment_count: matchingCustomer.paid_installment_count,
+                on_time_paid_installment_count: matchingCustomer.on_time_paid_installment_count,
+                current_overdue_amount: matchingCustomer.current_overdue_amount,
+                maximum_days_overdue: matchingCustomer.maximum_days_overdue,
+                limit_utilization_percent: matchingCustomer.limit_utilization_percent,
+                last_payment_at: matchingCustomer.last_payment_at,
+                total_plan_count: matchingCustomer.total_plan_count,
+                due_installment_count: matchingCustomer.due_installment_count,
+              });
+            } else {
+              setKredimetre(null);
+              setKredimetreError(true);
+            }
+          } else {
+            setKredimetre(null);
+            setKredimetreError(true);
+          }
+        } catch (kErr) {
+          console.error('Error fetching customer Kredimetre details:', kErr);
+          if (requestId === requestIdRef.current) {
+            setKredimetreError(true);
+          }
+        } finally {
+          if (requestId === requestIdRef.current) {
+            setKredimetreLoading(false);
+          }
+        }
+      }
+
       // Fetch Finance Summary
       try {
         const finRes = await fetch(`/api/admin/finance/summary/${data.customer.id}`);
         const finJson = await finRes.json();
+
+        if (requestId !== requestIdRef.current) return;
+
         if (finRes.ok && finJson.success) {
           setFinanceSummary(finJson);
         }
@@ -117,9 +232,13 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
         console.error('Error fetching customer finance summary:', fErr);
       }
     } catch (err: unknown) {
-      setError((err instanceof Error ? err.message : String(err)));
+      if (requestId === requestIdRef.current) {
+        setError((err instanceof Error ? err.message : String(err)));
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [token]);
 
@@ -132,11 +251,13 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
       const res = await fetch('/api/admin/cari/notlar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: customer.id, note: newNote })
+        body: JSON.stringify({ customerId: customer?.id, note: newNote })
       });
       if (res.ok) {
         setNewNote('');
-        fetchNotes(customer.id);
+        if (customer) {
+          await fetchNotes(customer.id, requestIdRef.current);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -389,6 +510,23 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
               </div>
             </div>
           </div>
+
+          {/* Kredimetre Detay */}
+          <KredimetreDetailCard
+            score={kredimetre?.credit_score ?? null}
+            label={kredimetre?.credit_label ?? 'Veri Yok'}
+            color={kredimetre?.credit_color ?? 'gray'}
+            paidInstallments={kredimetre?.paid_installment_count ?? 0}
+            onTimePaidInstallments={kredimetre?.on_time_paid_installment_count ?? 0}
+            currentOverdueAmount={kredimetre?.current_overdue_amount ?? 0}
+            maximumDaysOverdue={kredimetre?.maximum_days_overdue ?? 0}
+            limitUtilizationPercent={kredimetre?.limit_utilization_percent ?? 0}
+            lastPaymentAt={kredimetre?.last_payment_at ?? null}
+            totalPlans={kredimetre?.total_plan_count ?? 0}
+            dueInstallments={kredimetre?.due_installment_count ?? 0}
+            loading={kredimetreLoading}
+            error={kredimetreError}
+          />
 
           {/* Taksitli Satış Planları ve Sözleşmeler (Finans MVP) */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">

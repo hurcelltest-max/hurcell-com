@@ -11,7 +11,7 @@ export const metadata = {
 
 export default async function LimitliAlisverisSozlesmesiPage() {
   // Read the markdown file
-  const filePath = path.join(process.cwd(), 'src', 'content', 'agreements', 'limitli-alisveris-2026-07-v1.md')
+  const filePath = path.join(process.cwd(), 'src', 'content', 'agreements', 'limitli-alisveris-2026-07-v2.md')
   let contractContent = ''
   let errorMsg = ''
   

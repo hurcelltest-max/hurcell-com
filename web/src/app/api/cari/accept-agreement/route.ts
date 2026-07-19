@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     }
 
     // Server-side agreement read
-    const agreementVersion = '2026-07-v1';
+    const agreementVersion = '2026-07-v2';
     const agreementTitle = 'HurCELL Limitli Alışveriş / Cari Hesap Sözleşmesi';
     const filePath = path.join(process.cwd(), 'src', 'content', 'agreements', `limitli-alisveris-${agreementVersion}.md`);
     let agreementBodySnapshot = '';

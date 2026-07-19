@@ -73,7 +73,7 @@ export default function AgreementOtpForm() {
     e.preventDefault()
     setError('')
     setSuccess('')
-    
+
     // Basic validation
     const cleanPhone = phone.replace(/\D/g, '')
     if (!/^5\d{9}$/.test(cleanPhone)) {
@@ -98,8 +98,8 @@ export default function AgreementOtpForm() {
 
       setSuccess('Doğrulama kodu telefonunuza gönderildi.')
       setStep(2)
-    } catch (err: any) {
-      setError(err.message || 'Beklenmeyen bir hata oluştu.')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Beklenmeyen bir hata oluştu.')
     } finally {
       setLoading(false)
     }
@@ -133,10 +133,10 @@ export default function AgreementOtpForm() {
       }
 
       setVerificationToken(data.verificationToken)
-      setSuccess('Telefon numaranız doğrulandı. Lütfen sözleşmeyi onaylayınız.')
+      setSuccess('Telefon numaranız başarıyla doğrulandı. Lütfen başvuru bilgilerinizi giriniz.')
       setStep(3)
-    } catch (err: any) {
-      setError(err.message || 'Beklenmeyen bir hata oluştu.')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Beklenmeyen bir hata oluştu.')
     } finally {
       setLoading(false)
     }
@@ -153,7 +153,7 @@ export default function AgreementOtpForm() {
     }
 
     if (!firstName || !lastName || firstName.trim().length < 2 || lastName.trim().length < 2) {
-      setError('Lütfen adınızı ve soyadınızı tam giriniz.')
+      setError('Lütfen adınızı ve soyadınızı en az 2 karakter olacak şekilde giriniz.')
       return
     }
 
@@ -170,8 +170,8 @@ export default function AgreementOtpForm() {
         body: JSON.stringify({
           phone: phone.replace(/\D/g, ''),
           verificationToken,
-          firstName,
-          lastName,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
           checkbox_terms_accepted: termsAccepted,
           checkbox_payment_terms_accepted: paymentTermsAccepted,
           checkbox_kvkk_notice_read: kvkkAccepted,
@@ -187,13 +187,13 @@ export default function AgreementOtpForm() {
       }
 
       setStep(1) // Hide form
-      
+
       if (data.existingCustomer) {
         setSuccess('Bu telefon numarasıyla daha önce bir cari / limitli alışveriş kaydı oluşturulmuş. Yeni başvuru açılmadı. Limit veya cari işlem talepleriniz için HurCELL ile iletişime geçebilirsiniz.')
       } else {
         setSuccess('Sözleşme onayınız ve limitli alışveriş başvurunuz başarıyla alınmıştır. Başvurunuz HurCELL tarafından incelendikten sonra uygun görülürse limit tanımlanacaktır.')
       }
-      
+
       // Reset form
       setPhone('')
       setCode('')
@@ -205,17 +205,77 @@ export default function AgreementOtpForm() {
       setKvkkAccepted(false)
       setMarketingSms(false)
       setMarketingWhatsapp(false)
-    } catch (err: any) {
-      setError(err.message || 'Beklenmeyen bir hata oluştu.')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Beklenmeyen bir hata oluştu.')
     } finally {
       setLoading(false)
     }
   }
 
+  const isStep2Completed = step === 3 && firstName.trim().length >= 2 && lastName.trim().length >= 2;
+  const isStep3Completed = isStep2Completed && termsAccepted && paymentTermsAccepted && kvkkAccepted;
+
   return (
     <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-      <h3 className="text-xl font-bold text-gray-900 mb-4">Dijital Onay ve Kimlik Doğrulama</h3>
-      
+      <h3 className="text-xl font-bold text-gray-900 mb-6">Telefon Doğrulama ve Başvuru Onayı</h3>
+
+      {/* Süreç Göstergesi */}
+      <div className="mb-8 border-b border-gray-100 pb-6">
+        <div className="flex items-center justify-between">
+          {/* Adım 1: Telefon Doğrulama */}
+          <div className="flex flex-col items-center flex-1">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+              step === 3
+                ? 'bg-green-100 text-green-700'
+                : 'bg-blue-600 text-white'
+            }`}>
+              {step === 3 ? '✓' : '1'}
+            </div>
+            <span className={`text-[10px] sm:text-xs mt-2 font-semibold text-center ${step === 3 ? 'text-green-700' : 'text-blue-600'}`}>
+              Telefon Doğrulama
+            </span>
+          </div>
+          <div className={`h-0.5 flex-1 -mt-4 transition-colors ${step === 3 ? 'bg-green-200' : 'bg-gray-200'}`} />
+
+          {/* Adım 2: Başvuru Bilgileri */}
+          <div className="flex flex-col items-center flex-1">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+              step === 3
+                ? (isStep2Completed ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white')
+                : 'bg-gray-100 text-gray-400'
+            }`}>
+              {isStep2Completed ? '✓' : '2'}
+            </div>
+            <span className={`text-[10px] sm:text-xs mt-2 font-semibold text-center ${
+              step === 3
+                ? (isStep2Completed ? 'text-green-700' : 'text-blue-600')
+                : 'text-gray-400'
+            }`}>
+              Başvuru Bilgileri
+            </span>
+          </div>
+          <div className={`h-0.5 flex-1 -mt-4 transition-colors ${isStep2Completed ? 'bg-green-200' : 'bg-gray-200'}`} />
+
+          {/* Adım 3: Sözleşme Onayı */}
+          <div className="flex flex-col items-center flex-1">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+              isStep3Completed
+                ? 'bg-green-600 text-white'
+                : (step === 3 && isStep2Completed ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400')
+            }`}>
+              {isStep3Completed ? '✓' : '3'}
+            </div>
+            <span className={`text-[10px] sm:text-xs mt-2 font-semibold text-center ${
+              isStep3Completed
+                ? 'text-green-700'
+                : (step === 3 && isStep2Completed ? 'text-blue-600' : 'text-gray-400')
+            }`}>
+              Sözleşme Onayı
+            </span>
+          </div>
+        </div>
+      </div>
+
       {error && (
         <div className="mb-4 p-4 bg-red-50 rounded-lg flex gap-3 text-red-700 items-start">
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -253,6 +313,9 @@ export default function AgreementOtpForm() {
             <p className="mt-2 text-xs text-gray-500">
               Başında 0 olmadan 10 haneli olarak giriniz.
             </p>
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg text-blue-800 text-xs leading-normal">
+              Bu SMS kodu yalnızca telefon numaranızı doğrular. Sözleşme onayı, sonraki adımda ad-soyad bilgileriniz ve ayrı onay kutuları ile tamamlanacaktır.
+            </div>
           </div>
 
           <button
@@ -260,7 +323,7 @@ export default function AgreementOtpForm() {
             disabled={loading || !/^5\d{9}$/.test(phone)}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SMS Kodu Gönder'}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Doğrulama Kodu Gönder'}
           </button>
         </form>
       )}
@@ -272,7 +335,7 @@ export default function AgreementOtpForm() {
               {success}
             </div>
           )}
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Doğrulama Kodu (SMS)
@@ -295,7 +358,7 @@ export default function AgreementOtpForm() {
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Doğrula'}
           </button>
-          
+
           <button
             type="button"
             onClick={() => {
@@ -319,13 +382,25 @@ export default function AgreementOtpForm() {
               {success}
             </div>
           )}
-          
+
           <div className="space-y-3">
-            <div className="p-4 bg-blue-50 text-blue-800 text-sm rounded-lg mb-4">
-              Ad soyad bilgisi başvuru beyanıdır. Limit tanımı HurCELL incelemesi ve onayı sonrası yapılır.
+            <div className="p-4 bg-blue-50 text-blue-800 text-sm rounded-lg mb-4 leading-normal">
+              Ad ve soyad bilgilerinizi doğru girdiğinizi beyan edersiniz. Başvurunuz HurCELL tarafından incelendikten sonra sonuçlandırılır.
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Doğrulanmış Telefon Numarası
+              </label>
+              <input
+                type="text"
+                readOnly
+                value={`+90 ${phone}`}
+                className="bg-gray-50 border border-gray-200 text-gray-500 focus:outline-none block w-full sm:text-sm rounded-md py-2 px-3 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Adınız <span className="text-red-500">*</span></label>
                 <input type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)} className="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 px-3 border outline-none" placeholder="Örn: Ali" />
@@ -402,7 +477,7 @@ export default function AgreementOtpForm() {
               </div>
               <div className="ml-3 text-sm">
                 <label htmlFor="marketingSms" className="text-gray-600">
-                  SMS ile kampanya ve bilgilendirme mesajları almak istiyorum.
+                  SMS ile kampanya ve bilgilendirme mesajları almak istiyorum. (İsteğe Bağlı)
                 </label>
               </div>
             </div>
@@ -419,7 +494,7 @@ export default function AgreementOtpForm() {
               </div>
               <div className="ml-3 text-sm">
                 <label htmlFor="marketingWhatsapp" className="text-gray-600">
-                  WhatsApp ile kampanya ve bilgilendirme mesajları almak istiyorum.
+                  WhatsApp ile kampanya ve bilgilendirme mesajları almak istiyorum. (İsteğe Bağlı)
                 </label>
               </div>
             </div>
@@ -427,10 +502,10 @@ export default function AgreementOtpForm() {
 
           <button
             type="submit"
-            disabled={loading || !termsAccepted || !paymentTermsAccepted || !kvkkAccepted || !firstName.trim() || !lastName.trim()}
+            disabled={loading || !termsAccepted || !paymentTermsAccepted || !kvkkAccepted || firstName.trim().length < 2 || lastName.trim().length < 2 || !verificationToken}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Sözleşmeyi Onaylıyorum'}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Başvuruyu ve Sözleşmeyi Onayla'}
           </button>
         </form>
       )}

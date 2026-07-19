@@ -1,5 +1,5 @@
 import React from 'react'
-import { LayoutDashboard, Package, ShoppingBag, Users, Upload } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingBag, Users, Upload, CreditCard } from 'lucide-react'
 import Link from 'next/link'
 
 export default function AdminLayout({
@@ -26,6 +26,9 @@ export default function AdminLayout({
           </Link>
           <Link href="/admin/cari" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors text-blue-400">
             <Users size={20} /> Cari / Veresiye
+          </Link>
+          <Link href="/admin/finans" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors text-indigo-400">
+            <CreditCard size={20} /> Finans
           </Link>
           <Link href="/admin/users" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
             <Users size={20} /> Kullanıcılar

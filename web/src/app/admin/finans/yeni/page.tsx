@@ -6,6 +6,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Search, Save, AlertCircle } from 'lucide-react';
 import { FinanceCustomerRow } from '@/lib/finance/types';
+import {
+  calculateFinanceAmounts,
+  FINANCE_MONTHLY_RATE_PERCENT,
+  getFinanceTermRatePercent
+} from '@/lib/finance/tariff';
 
 export default function AdminFinansYeniSozlesme() {
   const router = useRouter();
@@ -23,7 +28,6 @@ export default function AdminFinansYeniSozlesme() {
   const [sourceReference, setSourceReference] = useState('');
   const [cashPrice, setCashPrice] = useState('');
   const [downPayment, setDownPayment] = useState('0');
-  const [financeRate, setFinanceRate] = useState('0');
   const [installmentCount, setInstallmentCount] = useState(3);
   const [statementDay, setStatementDay] = useState(10);
   const [firstDueDate, setFirstDueDate] = useState(() => {
@@ -38,7 +42,6 @@ export default function AdminFinansYeniSozlesme() {
     setSourceReference('');
     setCashPrice('');
     setDownPayment('0');
-    setFinanceRate('0');
     setInstallmentCount(3);
     setStatementDay(10);
 
@@ -148,28 +151,56 @@ export default function AdminFinansYeniSozlesme() {
   };
 
   // Preview calculations
-  const principalAmount = Math.max(0, parseFloat(cashPrice || '0') - parseFloat(downPayment || '0'));
-  const termRate = parseFloat(financeRate || '0');
-  const chargeAmount = Math.round(principalAmount * termRate) / 100;
-  const totalDueAmount = principalAmount + chargeAmount;
+  const priceVal = parseFloat(cashPrice || '0');
+  const downPayVal = parseFloat(downPayment || '0');
+
+  let financedPrincipal = 0;
+  let termRatePercent = 0;
+  let chargeAmount = 0;
+  let totalDueAmount = 0;
+  let calculatedInstallments: Array<{ installmentNo: number; amount: number }> = [];
+  let calculatedMonthlyRate = FINANCE_MONTHLY_RATE_PERCENT;
+
+  if (priceVal >= 0 && downPayVal >= 0 && priceVal >= downPayVal) {
+    try {
+      const result = calculateFinanceAmounts(priceVal, downPayVal, installmentCount);
+      financedPrincipal = result.financedPrincipal;
+      termRatePercent = result.termRatePercent;
+      chargeAmount = result.chargeAmount;
+      totalDueAmount = result.totalDueAmount;
+      calculatedInstallments = result.installments;
+      calculatedMonthlyRate = result.monthlyRatePercent;
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  const monthlyRateLabel = FINANCE_MONTHLY_RATE_PERCENT.toLocaleString('tr-TR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  const tariffRatesList = [1, 2, 3].map(count => ({
+    count,
+    rate: getFinanceTermRatePercent(count)
+  }));
 
   const previewInstallments = () => {
     if (totalDueAmount <= 0 || installmentCount <= 0) return [];
-    
-    // Split using cents for accuracy
-    const totalCents = Math.round(totalDueAmount * 100);
-    const baseCents = Math.floor(totalCents / installmentCount);
-    const lastCents = totalCents - baseCents * (installmentCount - 1);
-    
+
     const list = [];
     const baseDate = new Date(firstDueDate);
     for (let i = 1; i <= installmentCount; i++) {
       const dueDate = new Date(baseDate);
       dueDate.setMonth(dueDate.getMonth() + (i - 1));
+
+      const calcInst = calculatedInstallments.find(x => x.installmentNo === i);
+      const amount = calcInst ? calcInst.amount : 0;
+
       list.push({
         num: i,
         date: dueDate.toLocaleDateString('tr-TR'),
-        amount: (i === installmentCount ? lastCents : baseCents) / 100
+        amount: amount
       });
     }
     return list;
@@ -212,7 +243,6 @@ export default function AdminFinansYeniSozlesme() {
           sourceReference,
           principalAmount: principal,
           downPaymentAmount: downPay,
-          termRatePercent: termRate,
           installmentCount,
           statementDay,
           firstDueDate,
@@ -376,15 +406,24 @@ export default function AdminFinansYeniSozlesme() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Vade Farkı Oranı (%)</label>
-              <input
-                type="number"
-                step="0.0001"
-                value={financeRate}
-                onChange={e => setFinanceRate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                required
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Otomatik Vade Farkı</label>
+              <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 text-sm space-y-1">
+                <div><span className="font-semibold">Aylık Referans Oran:</span> %{monthlyRateLabel}</div>
+                <div><span className="font-semibold">Toplam Vade Farkı Oranı:</span></div>
+                <ul className="list-disc list-inside pl-2 text-xs text-gray-600">
+                  {tariffRatesList.map(item => (
+                    <li key={item.count}>
+                      {item.count} Taksit: %{item.rate.toLocaleString('tr-TR', {
+                        minimumFractionDigits: 4,
+                        maximumFractionDigits: 4
+                      })}
+                    </li>
+                  ))}
+                </ul>
+                <div className="text-[11px] text-gray-500 pt-1 leading-normal">
+                  Vade farkı, HurCELL’in aylık %{monthlyRateLabel} standart tarifesine göre taksit sayısı üzerinden bileşik olarak otomatik hesaplanır.
+                </div>
+              </div>
             </div>
           </div>
 
@@ -430,8 +469,41 @@ export default function AdminFinansYeniSozlesme() {
 
           {/* Taksit Önizleme */}
           {totalDueAmount > 0 && (
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <h3 className="text-sm font-bold text-gray-900 mb-3">Taksit Planı Önizleme (Sunucu Hesabı)</h3>
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 mb-1">Taksit Planı Önizleme (Otomatik Tarife Hesabı)</h3>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs text-gray-600 border-b border-gray-200 pb-3">
+                <div>
+                  <span className="block font-medium text-gray-500">Satış Bedeli</span>
+                  <span className="font-semibold text-gray-900 text-sm">{priceVal.toFixed(2)} TL</span>
+                </div>
+                <div>
+                  <span className="block font-medium text-gray-500">Peşinat</span>
+                  <span className="font-semibold text-gray-900 text-sm">{downPayVal.toFixed(2)} TL</span>
+                </div>
+                <div>
+                  <span className="block font-medium text-gray-500">Kalan Ana Para</span>
+                  <span className="font-semibold text-gray-900 text-sm">{financedPrincipal.toFixed(2)} TL</span>
+                </div>
+                <div>
+                  <span className="block font-medium text-gray-500">Aylık Referans Oran</span>
+                  <span className="font-semibold text-gray-900 text-sm">
+                    %{calculatedMonthlyRate.toLocaleString('tr-TR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </span>
+                </div>
+                <div>
+                  <span className="block font-medium text-gray-500">Toplam Vade Farkı Oranı</span>
+                  <span className="font-semibold text-gray-900 text-sm">%{termRatePercent.toFixed(4)}</span>
+                </div>
+                <div>
+                  <span className="block font-medium text-gray-500">Vade Farkı Tutarı</span>
+                  <span className="font-semibold text-gray-900 text-sm">{chargeAmount.toFixed(2)} TL</span>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 {previewInstallments().map(inst => (
                   <div key={inst.num} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-1.5 last:border-0 last:pb-0">

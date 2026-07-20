@@ -4,6 +4,7 @@ import { financeAdminClient } from '@/lib/finance/server-client';
 import { z } from 'zod';
 import { sendFinanceSms } from '@/lib/sms/transactional';
 import { handleFinanceApiError } from '@/lib/finance/error-handler';
+import { getFinanceTermRatePercent, FINANCE_TARIFF_VERSION, FINANCE_MONTHLY_RATE_PERCENT } from '@/lib/finance/tariff';
 
 const createPlanSchema = z.object({
   customerId: z.string().uuid(),
@@ -11,7 +12,6 @@ const createPlanSchema = z.object({
   sourceReference: z.string().min(1),
   principalAmount: z.number().min(750),
   downPaymentAmount: z.number().nonnegative(),
-  termRatePercent: z.number().nonnegative(),
   installmentCount: z.number().int().min(1).max(3),
   statementDay: z.number().int().refine((val) => [10, 15, 20, 25].includes(val), {
     message: 'Statement day must be 10, 15, 20, or 25',
@@ -72,6 +72,20 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+
+    if (
+      body !== null &&
+      typeof body === 'object' &&
+      Object.prototype.hasOwnProperty.call(body, 'termRatePercent')
+    ) {
+      const response = NextResponse.json(
+        { error: 'İstek parametreleri geçersizdir.' },
+        { status: 400 }
+      );
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
+    }
+
     const parseResult = createPlanSchema.safeParse(body);
     if (!parseResult.success) {
       const response = NextResponse.json({ error: 'Geçersiz parametreler.', details: parseResult.error.issues[0]?.message }, { status: 400 });
@@ -86,6 +100,8 @@ export async function POST(req: Request) {
       return response;
     }
 
+    const termRatePercent = getFinanceTermRatePercent(val.installmentCount);
+
     // Call create_finance_plan RPC
     const rpcArgs = {
       p_idempotency_key: val.idempotencyKey,
@@ -94,7 +110,7 @@ export async function POST(req: Request) {
       p_source_reference: val.sourceReference,
       p_principal_amount: val.principalAmount,
       p_down_payment_amount: val.downPaymentAmount,
-      p_term_rate_percent: val.termRatePercent,
+      p_term_rate_percent: termRatePercent,
       p_installment_count: val.installmentCount,
       p_statement_day: val.statementDay,
       p_first_due_date: val.firstDueDate,
@@ -139,7 +155,15 @@ export async function POST(req: Request) {
       }
     }
 
-    const response = NextResponse.json({ success: true, result: data });
+    const response = NextResponse.json({
+      success: true,
+      result: data,
+      tariff: {
+        version: FINANCE_TARIFF_VERSION,
+        monthlyRatePercent: FINANCE_MONTHLY_RATE_PERCENT,
+        termRatePercent
+      }
+    });
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (err: unknown) {

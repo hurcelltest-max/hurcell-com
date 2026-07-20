@@ -82,7 +82,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
   }>({ plans: [], installments: [], collections: [] });
   
   // Review Form State
-  const [decision, setDecision] = useState<'approve'|'reject'|'suspend'>('approve');
+  const [decision, setDecision] = useState<'approve'|'reject'|'suspend'|''>('');
   const [limit, setLimit] = useState<string>('0');
   const getInitialStatementDay = () => {
     const day = new Date().getDate();
@@ -115,6 +115,11 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
 
   const fetchCustomer = useCallback(async () => {
     const requestId = ++requestIdRef.current;
+
+    // Reset review states immediately
+    setDecision('');
+    setReason('');
+    setReviewError('');
 
     // Clear stale Kredimetre / Customer data before fetching new customer
     setLoading(true);
@@ -268,6 +273,10 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
 
   const handleReview = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!decision) {
+      setReviewError('Lütfen bir karar seçiniz.');
+      return;
+    }
     if (!reason.trim()) {
       setReviewError('Sebep girmek zorunludur.');
       return;
@@ -283,7 +292,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
     setReviewLoading(true);
     setReviewError('');
     try {
-      const payloadLimit = decision === 'reject' ? '0' : limit;
+      const payloadLimit = decision === 'reject' || decision === '' ? '0' : limit;
       
       const res = await fetch('/api/admin/cari/review', {
         method: 'POST',
@@ -301,8 +310,9 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
       
       // Refresh customer data
       alert('İnceleme başarıyla kaydedildi.');
+      setDecision('');
+      setReason('');
       fetchCustomer();
-      setReason(''); // Reset reason
     } catch (err: unknown) {
       setReviewError((err instanceof Error ? err.message : String(err)));
     } finally {
@@ -632,9 +642,10 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
                   <label className="block text-sm font-medium text-gray-700 mb-1">Karar</label>
                   <select 
                     value={decision}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDecision(e.target.value as "approve" | "reject" | "suspend")}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDecision(e.target.value as "approve" | "reject" | "suspend" | "")}
                     className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500"
                   >
+                    <option value="" disabled>Karar Seçiniz</option>
                     <option value="approve">Onayla (Active)</option>
                     <option value="suspend">Askıya Al (Suspend)</option>
                     <option value="reject">Reddet (Reject)</option>
@@ -647,9 +658,9 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
                     type="number"
                     min="0"
                     step="1"
-                    value={decision === 'reject' ? '0' : limit}
+                    value={decision === 'reject' || decision === '' ? '0' : limit}
                     onChange={(e) => setLimit(e.target.value)}
-                    disabled={decision === 'reject'}
+                    disabled={decision === 'reject' || decision === ''}
                     className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100"
                   />
                 </div>
@@ -684,7 +695,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
 
               <button 
                 type="submit"
-                disabled={reviewLoading}
+                disabled={reviewLoading || !decision || !reason.trim()}
                 className="w-full bg-purple-600 text-white font-medium py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
               >
                 {reviewLoading ? 'İşleniyor...' : 'Kararı Kaydet'}

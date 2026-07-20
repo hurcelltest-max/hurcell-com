@@ -14,6 +14,7 @@ export default function AgreementOtpForm() {
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [isCompleted, setIsCompleted] = useState(false)
 
   // Checkboxes
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -73,6 +74,7 @@ export default function AgreementOtpForm() {
     e.preventDefault()
     setError('')
     setSuccess('')
+    setIsCompleted(false)
 
     // Basic validation
     const cleanPhone = phone.replace(/\D/g, '')
@@ -187,6 +189,7 @@ export default function AgreementOtpForm() {
       }
 
       setStep(1) // Hide form
+      setIsCompleted(true)
 
       if (data.existingCustomer) {
         setSuccess('Bu telefon numarasıyla daha önce bir cari / limitli alışveriş kaydı oluşturulmuş. Yeni başvuru açılmadı. Limit veya cari işlem talepleriniz için HurCELL ile iletişime geçebilirsiniz.')
@@ -225,48 +228,52 @@ export default function AgreementOtpForm() {
           {/* Adım 1: Telefon Doğrulama */}
           <div className="flex flex-col items-center flex-1">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-              step === 3
+              step === 3 || isCompleted
                 ? 'bg-green-100 text-green-700'
                 : 'bg-blue-600 text-white'
             }`}>
-              {step === 3 ? '✓' : '1'}
+              {step === 3 || isCompleted ? '✓' : '1'}
             </div>
-            <span className={`text-[10px] sm:text-xs mt-2 font-semibold text-center ${step === 3 ? 'text-green-700' : 'text-blue-600'}`}>
+            <span className={`text-[10px] sm:text-xs mt-2 font-semibold text-center ${step === 3 || isCompleted ? 'text-green-700' : 'text-blue-600'}`}>
               Telefon Doğrulama
             </span>
           </div>
-          <div className={`h-0.5 flex-1 -mt-4 transition-colors ${step === 3 ? 'bg-green-200' : 'bg-gray-200'}`} />
+          <div className={`h-0.5 flex-1 -mt-4 transition-colors ${step === 3 || isCompleted ? 'bg-green-200' : 'bg-gray-200'}`} />
 
           {/* Adım 2: Başvuru Bilgileri */}
           <div className="flex flex-col items-center flex-1">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-              step === 3
-                ? (isStep2Completed ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white')
-                : 'bg-gray-100 text-gray-400'
+              isCompleted
+                ? 'bg-green-100 text-green-700'
+                : (step === 3
+                    ? (isStep2Completed ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white')
+                    : 'bg-gray-100 text-gray-400')
             }`}>
-              {isStep2Completed ? '✓' : '2'}
+              {isCompleted || isStep2Completed ? '✓' : '2'}
             </div>
             <span className={`text-[10px] sm:text-xs mt-2 font-semibold text-center ${
-              step === 3
-                ? (isStep2Completed ? 'text-green-700' : 'text-blue-600')
-                : 'text-gray-400'
+              isCompleted
+                ? 'text-green-700'
+                : (step === 3
+                    ? (isStep2Completed ? 'text-green-700' : 'text-blue-600')
+                    : 'text-gray-400')
             }`}>
               Başvuru Bilgileri
             </span>
           </div>
-          <div className={`h-0.5 flex-1 -mt-4 transition-colors ${isStep2Completed ? 'bg-green-200' : 'bg-gray-200'}`} />
+          <div className={`h-0.5 flex-1 -mt-4 transition-colors ${isCompleted || isStep2Completed ? 'bg-green-200' : 'bg-gray-200'}`} />
 
           {/* Adım 3: Sözleşme Onayı */}
           <div className="flex flex-col items-center flex-1">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-              isStep3Completed
+              isCompleted || isStep3Completed
                 ? 'bg-green-600 text-white'
                 : (step === 3 && isStep2Completed ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400')
             }`}>
-              {isStep3Completed ? '✓' : '3'}
+              {isCompleted || isStep3Completed ? '✓' : '3'}
             </div>
             <span className={`text-[10px] sm:text-xs mt-2 font-semibold text-center ${
-              isStep3Completed
+              isCompleted || isStep3Completed
                 ? 'text-green-700'
                 : (step === 3 && isStep2Completed ? 'text-blue-600' : 'text-gray-400')
             }`}>

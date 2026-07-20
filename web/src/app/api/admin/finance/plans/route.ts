@@ -9,7 +9,7 @@ import { getFinanceTermRatePercent, FINANCE_TARIFF_VERSION, FINANCE_MONTHLY_RATE
 const createPlanSchema = z.object({
   customerId: z.string().uuid(),
   sourceType: z.enum(['store_sale', 'web_order', 'service_order', 'manual']),
-  sourceReference: z.string().min(1),
+  sourceReference: z.string().trim().min(1),
   principalAmount: z.number().min(750),
   downPaymentAmount: z.number().nonnegative(),
   installmentCount: z.number().int().min(1).max(3),
@@ -17,7 +17,7 @@ const createPlanSchema = z.object({
     message: 'Statement day must be 10, 15, 20, or 25',
   }),
   firstDueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  idempotencyKey: z.string().min(1),
+  idempotencyKey: z.string().trim().min(1),
   downPaymentMethod: z.enum(['cash', 'card', 'bank_transfer', 'other']).optional().default('cash'),
 });
 

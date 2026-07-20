@@ -11,6 +11,7 @@ import {
   FINANCE_MONTHLY_RATE_PERCENT,
   getFinanceTermRatePercent
 } from '@/lib/finance/tariff';
+import { buildFinancePlanIdempotencyKey } from '@/lib/finance/idempotency';
 
 export default function AdminFinansYeniSozlesme() {
   const router = useRouter();
@@ -210,6 +211,12 @@ export default function AdminFinansYeniSozlesme() {
     e.preventDefault();
     if (!customer || !account) return;
 
+    const normalizedSourceReference = sourceReference.trim();
+    if (!normalizedSourceReference) {
+      setErrorMsg('Kaynak referans kodu zorunludur.');
+      return;
+    }
+
     const principal = parseFloat(cashPrice || '0');
     const downPay = parseFloat(downPayment || '0');
 
@@ -232,26 +239,43 @@ export default function AdminFinansYeniSozlesme() {
     setErrorMsg('');
 
     try {
-      const idempotencyKey = `${customer.id}:${sourceType}:${sourceReference}:${Date.now()}`;
+      const idempotencyKey = buildFinancePlanIdempotencyKey(
+        customer.id,
+        sourceType,
+        normalizedSourceReference
+      );
       
-      const res = await fetch('/api/admin/finance/plans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId: customer.id,
-          sourceType,
-          sourceReference,
-          principalAmount: principal,
-          downPaymentAmount: downPay,
-          installmentCount,
-          statementDay,
-          firstDueDate,
-          idempotencyKey
-        })
-      });
+      let res;
+      try {
+        res = await fetch('/api/admin/finance/plans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId: customer.id,
+            sourceType,
+            sourceReference: normalizedSourceReference,
+            principalAmount: principal,
+            downPaymentAmount: downPay,
+            installmentCount,
+            statementDay,
+            firstDueDate,
+            idempotencyKey
+          })
+        });
+      } catch (netErr) {
+        throw new Error('İşlem sonucu alınamadı. Aynı bilgilerle tekrar deneyebilirsiniz; sistem mükerrer plan oluşturmayı engeller.');
+      }
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Plan kaydedilemedi.');
+      let json;
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        throw new Error('İşlem sonucu alınamadı. Aynı bilgilerle tekrar deneyebilirsiniz; sistem mükerrer plan oluşturmayı engeller.');
+      }
+
+      if (!res.ok) {
+        throw new Error(json.error || 'Plan kaydedilemedi.');
+      }
 
       router.push(`/admin/finans/plan/${json.result.plan.id}`);
     } catch (err: unknown) {

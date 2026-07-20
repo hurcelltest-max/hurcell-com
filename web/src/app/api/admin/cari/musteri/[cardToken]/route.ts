@@ -32,6 +32,7 @@ export async function GET(req: Request, context: { params: Promise<{ cardToken: 
       available_limit?: number;
     }
     const account = customer.credit_accounts?.[0] as unknown as CreditAccountWithLimit;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let transactions: any[] = [];
     
     if (account) {
@@ -53,7 +54,11 @@ export async function GET(req: Request, context: { params: Promise<{ cardToken: 
       }
     }
 
-    return NextResponse.json({ customer, transactions });
+    return NextResponse.json({
+      customer,
+      account: account ?? null,
+      transactions
+    });
   } catch (err) {
     console.error('[CARI GET CUSTOMER ERROR]', err);
     return NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 });

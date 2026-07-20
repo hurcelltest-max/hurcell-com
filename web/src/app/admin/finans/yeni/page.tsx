@@ -1,7 +1,7 @@
 /* eslint-disable */
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Search, Save, AlertCircle } from 'lucide-react';
@@ -9,6 +9,7 @@ import { FinanceCustomerRow } from '@/lib/finance/types';
 
 export default function AdminFinansYeniSozlesme() {
   const router = useRouter();
+  const searchRequestIdRef = useRef(0);
 
   // Search Customer State
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,38 +33,116 @@ export default function AdminFinansYeniSozlesme() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const resetPlanDraft = () => {
+    setSourceType('store_sale');
+    setSourceReference('');
+    setCashPrice('');
+    setDownPayment('0');
+    setFinanceRate('0');
+    setInstallmentCount(3);
+    setStatementDay(10);
+
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    setFirstDueDate(nextMonth.toISOString().slice(0, 10));
+  };
+
+  const handleSearchQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = e.target.value;
+
+    // Devam eden eski aramaları geçersiz kıl.
+    searchRequestIdRef.current += 1;
+
+    setSearchQuery(nextValue);
+    setSearchLoading(false);
+    setErrorMsg('');
+    setCustomer(null);
+    setAccount(null);
+    resetPlanDraft();
+  };
+
   const handleSearchCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
+
+    const requestId = ++searchRequestIdRef.current;
 
     setSearchLoading(true);
     setErrorMsg('');
     setCustomer(null);
     setAccount(null);
+    resetPlanDraft();
 
     try {
       const res = await fetch('/api/admin/cari/arama', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchQuery })
+        body: JSON.stringify({ query: searchQuery.trim() })
       });
 
+      if (requestId !== searchRequestIdRef.current) return;
       const json = await res.json();
+      if (requestId !== searchRequestIdRef.current) return;
       if (!res.ok) throw new Error(json.error || 'Cari müşteri bulunamadı.');
 
+      const cardToken =
+        typeof json?.card_token === 'string'
+          ? json.card_token.trim()
+          : '';
+
+      if (!cardToken) {
+        throw new Error('Müşteri kart bilgisi alınamadı.');
+      }
+
+      if (requestId !== searchRequestIdRef.current) return;
       // Fetch customer detail & account details
-      const detailRes = await fetch(`/api/admin/cari/musteri/${json.card_token}`);
+      const detailRes = await fetch(`/api/admin/cari/musteri/${encodeURIComponent(cardToken)}`);
+      if (requestId !== searchRequestIdRef.current) return;
       const detailJson = await detailRes.json();
+      if (requestId !== searchRequestIdRef.current) return;
       if (!detailRes.ok) throw new Error(detailJson.error || 'Hesap ayrıntıları alınamadı.');
 
-      setCustomer(detailJson.customer);
-      setAccount(detailJson.account);
-      if (detailJson.account && [10, 15, 20, 25].includes(detailJson.account.statement_day)) {
-        setStatementDay(detailJson.account.statement_day);
+      const detailCustomer = detailJson?.customer;
+      if (!detailCustomer) {
+        throw new Error('Cari müşteri bilgileri alınamadı.');
+      }
+
+      const rawAccount =
+        detailJson?.account ??
+        detailCustomer?.credit_accounts?.[0] ??
+        null;
+
+      if (!rawAccount) {
+        throw new Error('Müşteriye ait cari hesap bulunamadı.');
+      }
+
+      const normalizedAccount = {
+        ...rawAccount,
+        id: String(rawAccount.id ?? ''),
+        credit_limit: Number(rawAccount.credit_limit ?? 0),
+        current_balance: Number(rawAccount.current_balance ?? 0),
+        available_limit: Number(
+          rawAccount.available_limit ??
+          Number(rawAccount.credit_limit ?? 0) -
+          Number(rawAccount.current_balance ?? 0)
+        ),
+        statement_day: Number(rawAccount.statement_day ?? 10),
+        status: String(rawAccount.status ?? '')
+      };
+
+      if (requestId !== searchRequestIdRef.current) return;
+      setCustomer(detailCustomer);
+      if (requestId !== searchRequestIdRef.current) return;
+      setAccount(normalizedAccount);
+      if (requestId !== searchRequestIdRef.current) return;
+      if ([10, 15, 20, 25].includes(normalizedAccount.statement_day)) {
+        setStatementDay(normalizedAccount.statement_day);
       }
     } catch (err: unknown) {
+      if (requestId !== searchRequestIdRef.current) return;
       setErrorMsg(err instanceof Error ? err.message : String(err) || 'Müşteri bulunurken hata oluştu.');
     } finally {
+      if (requestId !== searchRequestIdRef.current) return;
       setSearchLoading(false);
     }
   };
@@ -176,7 +255,7 @@ export default function AdminFinansYeniSozlesme() {
             type="text"
             placeholder="Telefon no, kart kodu veya QR token..."
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={handleSearchQueryChange}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
@@ -191,14 +270,34 @@ export default function AdminFinansYeniSozlesme() {
         </form>
 
         {customer && account && (
-          <div className="mt-5 p-4 bg-blue-50 border border-blue-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-5 p-4 bg-blue-50 border border-blue-100 rounded-lg grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <div className="text-xs text-gray-500 font-medium">Müşteri Adı</div>
               <div className="font-semibold text-gray-900 mt-0.5">{customer.full_name}</div>
             </div>
             <div>
+              <div className="text-xs text-gray-500 font-medium">Kart Kodu</div>
+              <div className="font-semibold text-gray-900 mt-0.5">{customer.customer_card_code}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 font-medium">Müşteri Statüsü</div>
+              <div className={`font-semibold mt-0.5 capitalize ${
+                customer.status === 'active'
+                  ? 'text-green-700'
+                  : customer.status === 'pending_review'
+                    ? 'text-amber-700'
+                    : 'text-red-700'
+              }`}>{customer.status}</div>
+            </div>
+            <div>
               <div className="text-xs text-gray-500 font-medium">Cari Hesap Durumu</div>
-              <div className="font-semibold text-green-700 mt-0.5 capitalize">{account.status}</div>
+              <div className={`font-semibold mt-0.5 capitalize ${
+                account.status === 'active'
+                  ? 'text-green-700'
+                  : account.status === 'pending_review'
+                    ? 'text-amber-700'
+                    : 'text-red-700'
+              }`}>{account.status}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500 font-medium">Kullanılabilir Limit</div>

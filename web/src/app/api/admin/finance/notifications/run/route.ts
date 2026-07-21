@@ -76,6 +76,18 @@ export async function POST(req: Request) {
       const customerName = customer.full_name || 'Bilinmeyen Müşteri';
       const rawPhone = customer.phone;
 
+      const installmentId =
+        typeof inst.id === 'string'
+          ? inst.id.trim()
+          : '';
+
+      if (!installmentId) {
+        console.warn(
+          '[FINANCE NOTIFICATION WARNING] Installment ID is missing. Skipping SMS.'
+        );
+        continue;
+      }
+
       // Construct message body
       let message = '';
       const eventType = type === 'due_soon' ? 'finance_installment_due_soon' : 'finance_installment_overdue';
@@ -90,10 +102,23 @@ export async function POST(req: Request) {
       const maskedPhone = rawPhone.replace(/(?<=\+?\d{4})\d+(?=\d{2})/, (m: string) => '*'.repeat(m.length));
 
       if (!dryRun) {
+        const asOfDateVal = asOfDate || new Date().toISOString().split('T')[0];
+        const eventInstanceKey = type === 'due_soon'
+          ? `installment:${installmentId}:due:${dueDate}`
+          : `installment:${installmentId}:as-of:${asOfDateVal}`;
+
         // Trigger SMS sending
-        await sendFinanceSms(planId, eventType, rawPhone, {
-          amount: amount.toFixed(2),
-          due_date: dueDate
+        await sendFinanceSms({
+          planId,
+          event: eventType,
+          eventInstanceKey,
+          rawPhone,
+          data: {
+            amount: amount.toFixed(2),
+            due_date: dueDate,
+            installment_id: installmentId,
+            as_of_date: asOfDateVal
+          }
         });
       }
 

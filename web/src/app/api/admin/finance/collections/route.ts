@@ -56,6 +56,8 @@ export async function POST(req: Request) {
         remaining_amount: number;
       };
       collection?: {
+        id: string;
+        receipt_number?: string;
         amount: number;
       };
     };
@@ -63,27 +65,47 @@ export async function POST(req: Request) {
     const col = resultData?.collection;
 
     if (plan && plan.id && col) {
-      try {
-        const { data: customer } = await financeAdminClient
-          .from('credit_customers')
-          .select('phone')
-          .eq('id', plan.credit_customer_id)
-          .single();
+      if (!col.id) {
+        console.warn('[FINANCE COLLECTION SMS WARNING] collection.id is missing. Skipping SMS notifications.');
+      } else {
+        try {
+          const { data: customer } = await financeAdminClient
+            .from('credit_customers')
+            .select('phone')
+            .eq('id', plan.credit_customer_id)
+            .single();
 
-        if (customer && customer.phone) {
-          // Send payment received SMS
-          await sendFinanceSms(plan.id, 'finance_payment_received', customer.phone, {
-            amount: Number(col.amount).toFixed(2),
-            remaining_balance: Number(plan.remaining_amount).toFixed(2)
-          });
+          if (customer && customer.phone) {
+            // Send payment received SMS
+            await sendFinanceSms({
+              planId: plan.id,
+              event: 'finance_payment_received',
+              eventInstanceKey: `collection:${col.id}`,
+              rawPhone: customer.phone,
+              data: {
+                amount: Number(col.amount).toFixed(2),
+                remaining_balance: Number(plan.remaining_amount).toFixed(2),
+                collection_id: col.id,
+                receipt_number: col.receipt_number
+              }
+            });
 
-          // Send balance remaining SMS if plan is paid or has balance
-          await sendFinanceSms(plan.id, 'finance_balance_remaining', customer.phone, {
-            remaining_balance: Number(plan.remaining_amount).toFixed(2)
-          });
+            // Send balance remaining SMS if plan is paid or has balance
+            await sendFinanceSms({
+              planId: plan.id,
+              event: 'finance_balance_remaining',
+              eventInstanceKey: `collection:${col.id}`,
+              rawPhone: customer.phone,
+              data: {
+                remaining_balance: Number(plan.remaining_amount).toFixed(2),
+                collection_id: col.id,
+                receipt_number: col.receipt_number
+              }
+            });
+          }
+        } catch (smsErr) {
+          console.error('[FINANCE COLLECTION SMS TRIGGER ERROR]', smsErr);
         }
-      } catch (smsErr) {
-        console.error('[FINANCE COLLECTION SMS TRIGGER ERROR]', smsErr);
       }
     }
 

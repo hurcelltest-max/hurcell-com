@@ -144,10 +144,16 @@ export async function POST(req: Request) {
           .single();
 
         if (customer && customer.phone) {
-          await sendFinanceSms(plan.id, 'finance_plan_created', customer.phone, {
-            amount: Number(plan.total_due_amount).toFixed(2),
-            installment_count: plan.installment_count,
-            due_date: plan.first_due_date
+          await sendFinanceSms({
+            planId: plan.id,
+            event: 'finance_plan_created',
+            eventInstanceKey: 'plan',
+            rawPhone: customer.phone,
+            data: {
+              amount: Number(plan.total_due_amount).toFixed(2),
+              installment_count: plan.installment_count,
+              due_date: plan.first_due_date
+            }
           });
         }
       } catch (smsErr) {

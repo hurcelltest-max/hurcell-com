@@ -2,6 +2,7 @@ import { getSmsProvider } from './mock-provider';
 import { normalizeTurkishPhoneNumber } from './phone';
 import { maskPhone } from './netgsm-provider';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { buildFinanceSmsDedupeKey, FinanceSmsEvent } from './finance-dedupe';
 
 type RecipientType = 'customer' | 'internal';
 type EventType = 'order_created' | 'order_shipped' | 'order_delivered' | 'delivery_failed' | 'return_requested';
@@ -207,62 +208,202 @@ export function getInternalAlertPhones(): string[] {
   return envVar.split(',').map(p => p.trim()).filter(Boolean);
 }
 
-export async function sendFinanceSms(
-  planId: string,
-  event: 'finance_plan_created' | 'finance_payment_received' | 'finance_balance_remaining' | 'finance_installment_due_soon' | 'finance_installment_overdue',
-  rawPhone: string,
-  data: {
-    amount?: string;
-    installment_count?: number;
-    due_date?: string;
-    remaining_balance?: string;
-    source_reference?: string;
-  }
-): Promise<{ success: boolean; skipped?: boolean }> {
+export interface FinanceSmsData {
+  amount?: string;
+  installment_count?: number;
+  due_date?: string;
+  remaining_balance?: string;
+  source_reference?: string;
+  collection_id?: string;
+  receipt_number?: string;
+  installment_id?: string;
+  as_of_date?: string;
+}
+
+export async function sendFinanceSms(options: {
+  planId: string;
+  event: FinanceSmsEvent;
+  eventInstanceKey: string;
+  rawPhone: string;
+  data: FinanceSmsData;
+}): Promise<{
+  success: boolean;
+  skipped?: boolean;
+  status?: 'sent' | 'pending' | 'failed';
+}> {
   try {
-    const dedupeKey = `finance:${planId}:${event}:${data.due_date || ''}:${Date.now()}`;
+    const {
+      planId,
+      event,
+      eventInstanceKey,
+      rawPhone,
+      data
+    } = options;
+
+    const dedupeKey = buildFinanceSmsDedupeKey(
+      planId,
+      event,
+      eventInstanceKey
+    );
+
     const phone = normalizeTurkishPhoneNumber(rawPhone);
     const masked = maskPhone(phone);
     const message = generateFinanceMessage(event, data);
 
-    console.log(`[FINANCE SMS] Event: ${event} | To: ${masked} | Message: ${message}`);
+    console.log(`[FINANCE SMS] Event: ${event} | To: ${masked}`);
 
-    const { error: insertError } = await getSupabaseAdmin()
+    const { data: existing, error: fetchError } = await getSupabaseAdmin()
       .from('sms_notifications')
-      .insert({
-        recipient_type: 'customer',
-        recipient_phone: phone,
-        event_type: event,
-        dedupe_key: dedupeKey,
-        status: 'sent', // Mark as sent (since we are mocking it for the sprint)
-        attempt_count: 1,
-        last_attempt_at: new Date().toISOString(),
-        sent_at: new Date().toISOString(),
-        metadata: { ...data, message_body: message }
-      })
-      .select('id')
-      .single();
+      .select('*')
+      .eq('dedupe_key', dedupeKey)
+      .maybeSingle();
 
-    if (insertError) {
-      console.error('[FINANCE SMS DB INSERT ERROR]', insertError);
+    if (fetchError) {
+      console.error('[FINANCE SMS DB FETCH ERROR]', fetchError);
       return { success: false };
     }
 
-    return { success: true };
+    let logEntryId: string;
+    const now = new Date();
+
+    if (existing) {
+      if (existing.status === 'sent') {
+        console.log(`[FINANCE SMS DEDUPE] Skipping duplicate SMS for key: ${dedupeKey}`);
+        return { success: true, skipped: true, status: 'sent' };
+      }
+
+      if (existing.status === 'pending') {
+        const lastAttempt = existing.last_attempt_at ? new Date(existing.last_attempt_at) : null;
+        if (lastAttempt && (now.getTime() - lastAttempt.getTime()) < 5 * 60 * 1000) {
+          console.log(`[FINANCE SMS DEDUPE] Skipping pending, still processing for key: ${dedupeKey}`);
+          return { success: true, skipped: true, status: 'pending' };
+        }
+      } else if (existing.status === 'failed') {
+        const nextRetry = existing.next_retry_at ? new Date(existing.next_retry_at) : null;
+        if (nextRetry && nextRetry > now) {
+          console.log(`[FINANCE SMS DEDUPE] Skipping retry, next_retry_at not reached yet for key: ${dedupeKey}`);
+          return { success: false, skipped: true, status: 'failed' };
+        }
+      } else if (existing.status === 'skipped') {
+        return { success: true, skipped: true };
+      }
+
+      const observedAttemptCount = Number(existing.attempt_count);
+      if (!Number.isInteger(observedAttemptCount) || observedAttemptCount < 1) {
+        console.error('[FINANCE SMS DEDUPE] Invalid attempt count');
+        return {
+          success: false,
+          status: existing.status === 'failed' ? 'failed' : 'pending'
+        };
+      }
+
+      const { data: updated, error: updateErr } = await getSupabaseAdmin()
+        .from('sms_notifications')
+        .update({
+          status: 'pending',
+          attempt_count: observedAttemptCount + 1,
+          last_attempt_at: now.toISOString(),
+          next_retry_at: null,
+          error_message: null
+        })
+        .eq('id', existing.id)
+        .eq('status', existing.status)
+        .eq('attempt_count', observedAttemptCount)
+        .select('id')
+        .maybeSingle();
+
+      if (updateErr || !updated) {
+        console.warn('[FINANCE SMS DEDUPE] Optimistic update failed or parallel execution caught for key:', dedupeKey);
+        return {
+          success: true,
+          skipped: true,
+          status: existing.status === 'failed' ? 'failed' : 'pending'
+        };
+      }
+      logEntryId = updated.id;
+    } else {
+      const { data: logEntry, error: insertError } = await getSupabaseAdmin()
+        .from('sms_notifications')
+        .insert({
+          recipient_type: 'customer',
+          recipient_phone: phone,
+          event_type: event,
+          dedupe_key: dedupeKey,
+          status: 'pending',
+          attempt_count: 1,
+          last_attempt_at: now.toISOString(),
+          metadata: {
+            plan_id: planId,
+            event_instance_key: eventInstanceKey,
+            ...data,
+            message_body: message
+          }
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        if (insertError.code === '23505') {
+          console.log(`[FINANCE SMS DEDUPE] Parallel insert caught for key: ${dedupeKey}`);
+          return { success: true, skipped: true };
+        }
+        console.error('[FINANCE SMS DB INSERT ERROR]', insertError);
+        return { success: false };
+      }
+      logEntryId = logEntry.id;
+    }
+
+    const provider = getSmsProvider();
+    let status: 'sent' | 'failed' = 'sent';
+    let errorMessage: string | null = null;
+    let providerMessageId: string | null = null;
+
+    try {
+      const result = await provider.sendSms(phone, message);
+
+      if (!result.success) {
+        status = 'failed';
+        errorMessage = result.error || 'SMS provider returned success=false';
+      } else {
+        providerMessageId = result.messageId || null;
+      }
+    } catch (err: unknown) {
+      status = 'failed';
+      errorMessage = err instanceof Error ? err.message : 'Unknown provider error';
+      console.error(`[FINANCE SMS SEND ERROR] Event: ${event}, To: ${masked}`);
+    }
+
+    const updatePayload: Record<string, string | null> = {
+      status,
+      provider_message_id: providerMessageId,
+      error_message: errorMessage,
+    };
+
+    if (status === 'sent') {
+      updatePayload.sent_at = new Date().toISOString();
+      updatePayload.next_retry_at = null;
+    } else {
+      updatePayload.next_retry_at = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    }
+
+    const { error: statusUpdateError } = await getSupabaseAdmin()
+      .from('sms_notifications')
+      .update(updatePayload)
+      .eq('id', logEntryId);
+
+    if (statusUpdateError) {
+      console.error(`[FINANCE SMS DB UPDATE ERROR] Event: ${event}, DB Error:`, statusUpdateError);
+      return { success: false };
+    }
+
+    return { success: status === 'sent', status };
   } catch (err) {
     console.error('[FINANCE SMS FATAL ERROR]', err);
     return { success: false };
   }
 }
 
-interface FinanceSmsData {
-  amount?: string;
-  installment_count?: number;
-  due_date?: string;
-  remaining_balance?: string;
-}
-
-function generateFinanceMessage(event: string, data: FinanceSmsData): string {
+function generateFinanceMessage(event: FinanceSmsEvent, data: FinanceSmsData): string {
   switch (event) {
     case 'finance_plan_created':
       return `Taksit planiniz olusturuldu. Tutar: ${data.amount} TL, Taksit: ${data.installment_count} ay. Ilk Odeme: ${data.due_date}. HurCELL`;

@@ -7,20 +7,15 @@ import { sendTransactionalSms } from '@/lib/sms/transactional';
 /**
  * HurCELL Checkout — Create Order
  *
- * Stok rezervasyon mantığı:
+ * Stok & Müşteri Master Akışı:
  *  1. Müşteri & sepet doğrulanır.
  *  2. Ürünler DB'den okunur; ön stok/fiyat kontrolü yapılır.
- *  3. Her ürün için decrement_product_stock_safe RPC çağrılır (atomik).
- *     - Aynı anda iki istek gelirse Postgres row-lock ile yalnızca biri kazanır.
- *  4. Herhangi bir ürün stok düşemezse: daha önce düşülen stoklar geri alınır,
- *     sipariş oluşturulmaz, kullanıcıya stok yetersiz hatası dönülür.
- *  5. Stok düşmeler başarılıysa: orders → order_items insert edilir.
- *  6. orders/order_items insert hatasında: tüm stoklar geri eklenir, 500 dönülür.
- *  7. Başarıda: sipariş "pending" statüde oluşur, stok düşmüş olur.
- *
- * İptal/iade/teslim edilemedi durumunda stok geri ekleme:
- *  - increment_product_stock_safe RPC çağrılır (ayrı handler'da).
- *  - orders.stock_released_at IS NULL kontrolü yapılır; iki kez eklenmez.
+ *  3. OTP token consume edilir.
+ *  4. upsert_customer_identity RPC çağrılarak müşteri master profili atomik oluşturulur/güncellenir.
+ *  5. Müşteri statüsü kontrol edilir (ACTIVE ise devam, SUSPENDED/BLOCKED ise reddedilir).
+ *  6. Her ürün için decrement_product_stock_safe RPC çağrılır (atomik row-lock).
+ *  7. orders (customer_id ile) → order_items insert edilir.
+ *  8. SMS bildirimleri gönderilir.
  */
 
 // Stok geri ekleme yardımcısı — insert hatası veya oversell rollback'te kullanılır
@@ -33,7 +28,6 @@ async function releaseStocks(
       p_qty: qty,
     });
     if (error) {
-      // Kritik: stok geri eklenemedi — logluyoruz, alarm kanalına gönderilebilir
       console.error('[Checkout Rollback] increment_product_stock_safe FAILED:', {
         product_id,
         qty,
@@ -41,6 +35,21 @@ async function releaseStocks(
       });
     }
   }
+}
+
+// Müşteri adını first_name ve last_name alanlarına ayrıştırma yardımcısı
+function parseCustomerName(rawName: string): { firstName: string | null; lastName: string | null; fullName: string | null } {
+  const trimmed = rawName?.trim() || '';
+  if (!trimmed) {
+    return { firstName: null, lastName: null, fullName: null };
+  }
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: null, fullName: trimmed };
+  }
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(' ');
+  return { firstName, lastName, fullName: trimmed };
 }
 
 export async function POST(req: Request) {
@@ -79,10 +88,14 @@ export async function POST(req: Request) {
     }
 
     // OTP Token Validation
-    const normalizedPhone = normalizeTurkishPhoneNumber(customer_phone);
+    let normalizedPhone: string;
+    try {
+      normalizedPhone = normalizeTurkishPhoneNumber(customer_phone);
+    } catch {
+      return NextResponse.json({ error: 'Geçersiz Türkiye telefon numarası formatı.' }, { status: 400 });
+    }
+
     const tokenHash = crypto.createHash('sha256').update(verification_token).digest('hex');
-
-
 
     interface CheckoutCartItem {
       product_id: string;
@@ -363,7 +376,86 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Geçersiz, süresi dolmuş veya zaten kullanılmış doğrulama kodu. Lütfen tekrar SMS doğrulayın.' }, { status: 400 });
     }
 
-    // 6. ATOMIK STOK DÜŞME
+    // 5.6 Müşteri Master Upsert (OTP doğrulandıktan hemen sonra, stok düşmeden önce)
+    const trustedPhoneVerifiedAt = new Date().toISOString();
+    const { firstName, lastName, fullName } = parseCustomerName(customer_name);
+    const trimmedEmail = customer_email?.trim() || null;
+
+    interface CustomerUpsertResultRow {
+      success: boolean;
+      customer_id: string;
+      created: boolean;
+      status: 'ACTIVE' | 'SUSPENDED' | 'BLOCKED' | string;
+      phone_normalized: string;
+    }
+
+    const { data: customerRpcResult, error: customerRpcError } = await getSupabaseAdmin().rpc(
+      'upsert_customer_identity',
+      {
+        p_phone_normalized: normalizedPhone,
+        p_registration_source: 'WEB',
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_full_name: fullName,
+        p_email: trimmedEmail,
+        p_phone_verified_at: trustedPhoneVerifiedAt,
+        p_whatsapp_wa_id: null,
+      }
+    );
+
+    if (customerRpcError || !customerRpcResult) {
+      console.error('[Checkout Error] Stage: upsert_customer_identity RPC failed.', customerRpcError ? { message: customerRpcError.message, code: customerRpcError.code } : 'No data');
+      return NextResponse.json(
+        { error: 'Müşteri profili işlenirken sunucu hatası oluştu.' },
+        { status: 500 }
+      );
+    }
+
+    const customerResult = (Array.isArray(customerRpcResult) ? customerRpcResult[0] : customerRpcResult) as CustomerUpsertResultRow | undefined;
+
+    // UUID Format Validasyonu
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (
+      !customerResult ||
+      !customerResult.success ||
+      !customerResult.customer_id ||
+      !uuidRegex.test(customerResult.customer_id) ||
+      !customerResult.status ||
+      customerResult.phone_normalized !== normalizedPhone
+    ) {
+      console.error('[Checkout Error] Stage: upsert_customer_identity returned invalid result payload.');
+      return NextResponse.json(
+        { error: 'Müşteri profil yanıtı doğrulanamadı.' },
+        { status: 500 }
+      );
+    }
+
+    // 5.7 Müşteri Statü Kontrolü (SUSPENDED / BLOCKED Durumunda Güvenli Reddetme)
+    if (customerResult.status === 'SUSPENDED') {
+      return NextResponse.json(
+        { error: 'Bu müşteri hesabı inceleme durumundadır. Lütfen HurCELL ile iletişime geçin.' },
+        { status: 403 }
+      );
+    }
+
+    if (customerResult.status === 'BLOCKED') {
+      return NextResponse.json(
+        { error: 'Bu müşteri hesabıyla sipariş oluşturulamıyor. Lütfen HurCELL ile iletişime geçin.' },
+        { status: 403 }
+      );
+    }
+
+    if (customerResult.status !== 'ACTIVE') {
+      return NextResponse.json(
+        { error: 'Müşteri durumunuz aktif değildir. Lütfen HurCELL ile iletişime geçin.' },
+        { status: 403 }
+      );
+    }
+
+    const customerId = customerResult.customer_id;
+
+    // 6. ATOMIK STOK DÜŞME (Müşteri doğrulandıktan ve statüsü ACTIVE onaylandıktan sonra)
     const reservedStocks: Array<{ product_id: string; qty: number }> = [];
 
     for (const item of validatedItems) {
@@ -407,11 +499,12 @@ export async function POST(req: Request) {
       reservedStocks.push({ product_id: item.product_id, qty: item.quantity });
     }
 
-    // 7. Sipariş oluştur (stok düşmeler başarılıysa)
+    // 7. Sipariş oluştur (stok düşmeler başarılıysa, customer_id bağı eklenerek)
     const now = new Date().toISOString();
 
     const { data: order, error: orderError } = await getSupabaseAdmin().from('orders')
       .insert({
+        customer_id: customerId,
         customer_name: customer_name.trim(),
         customer_email: customer_email.trim(),
         customer_phone: normalizedPhone,

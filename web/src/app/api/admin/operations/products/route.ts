@@ -31,7 +31,12 @@ const NO_CACHE_HEADERS = {
   'Content-Type': 'application/json',
 };
 
+// Explicit allowlist excluding 'barcode' (confirmed missing from production schema)
+const PRODUCTS_ALLOWLIST_SELECT = `id, name, sku, category, brand, stock, price, cost_price, min_stock_level, shelf_location, unit, is_active, is_web_visible, whatsapp_enabled, whatsapp_display_name, whatsapp_description, whatsapp_price, whatsapp_sort_order, image_url, created_at`;
+
 export async function GET(req: NextRequest) {
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
   try {
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(req.url);
@@ -52,22 +57,20 @@ export async function GET(req: NextRequest) {
     const webVisibleFilter = searchParams.get('is_web_visible');
     const activeFilter = searchParams.get('is_active');
 
+    // Explicit allowlist select query (NO select('*') overfetching)
     let query = supabase
       .from('products')
-      .select(
-        `id, name, sku, barcode, category, brand, stock, price, cost_price, min_stock_level, shelf_location, unit, is_active, is_web_visible, whatsapp_enabled, whatsapp_display_name, whatsapp_description, whatsapp_price, whatsapp_sort_order, image_url, created_at, updated_at`,
-        { count: 'exact' }
-      );
+      .select(PRODUCTS_ALLOWLIST_SELECT, { count: 'exact' });
 
-    // Apply search filter across name, sku, barcode, shelf_location with escaped ILIKE
+    // Apply search filter across name, sku with escaped ILIKE (excluding barcode)
     if (search) {
       const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&');
       query = query.or(
-        `name.ilike.%${sanitizedSearch}%,sku.ilike.%${sanitizedSearch}%,barcode.ilike.%${sanitizedSearch}%,shelf_location.ilike.%${sanitizedSearch}%`
+        `name.ilike.%${sanitizedSearch}%,sku.ilike.%${sanitizedSearch}%`
       );
     }
 
-    // Apply category filter
+    // Apply category filter only when non-empty and non-default
     if (category && category !== 'Tüm Kategoriler' && category !== 'Tüm Aksesuarlar') {
       query = query.eq('category', category);
     }
@@ -81,7 +84,7 @@ export async function GET(req: NextRequest) {
       query = query.gt('stock', 0).lte('stock', 5);
     }
 
-    // Apply channel & visibility filters
+    // Strict boolean channel & visibility filters
     if (whatsappFilter === 'true') query = query.eq('whatsapp_enabled', true);
     if (whatsappFilter === 'false') query = query.eq('whatsapp_enabled', false);
 
@@ -91,26 +94,30 @@ export async function GET(req: NextRequest) {
     if (activeFilter === 'true') query = query.eq('is_active', true);
     if (activeFilter === 'false') query = query.eq('is_active', false);
 
-    // Order priority: updated_at descending, nulls last
+    // Clean order & range
     query = query
-      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
       .range(offset, offset + limit - 1);
 
     const { data, count, error } = await query;
 
     if (error) {
-      console.error('[OPERATIONS_PRODUCTS_GET_ERROR]', error.message);
+      console.error(`[OPERATIONS_PRODUCTS_GET_ERROR] [request_id=${requestId}]`, error.message);
       return NextResponse.json(
-        { success: false, error: 'Stok ürün listesi alınırken bir hata oluştu.' },
+        {
+          success: false,
+          error: 'Stok ürün listesi alınırken bir hata oluştu.',
+          request_id: requestId,
+        },
         { status: 500, headers: NO_CACHE_HEADERS }
       );
     }
 
-    const normalizedProducts: OperationsProduct[] = (data || []).map((row) => ({
-      id: String(row.id),
+    const normalizedProducts: OperationsProduct[] = (data || []).map((row: Record<string, unknown>) => ({
+      id: String(row.id || ''),
       name: String(row.name || ''),
       sku: row.sku ? String(row.sku) : null,
-      barcode: row.barcode ? String(row.barcode) : null,
+      barcode: null, // Set to null as barcode is confirmed missing from production schema
       category: row.category ? String(row.category) : null,
       brand: row.brand ? String(row.brand) : null,
       stock: typeof row.stock === 'number' ? row.stock : parseInt(String(row.stock || '0'), 10),
@@ -119,9 +126,9 @@ export async function GET(req: NextRequest) {
       min_stock_level: row.min_stock_level !== null && row.min_stock_level !== undefined ? parseInt(String(row.min_stock_level), 10) : null,
       shelf_location: row.shelf_location ? String(row.shelf_location) : null,
       unit: row.unit ? String(row.unit) : null,
-      is_active: Boolean(row.is_active),
-      is_web_visible: Boolean(row.is_web_visible),
-      whatsapp_enabled: Boolean(row.whatsapp_enabled),
+      is_active: row.is_active !== undefined && row.is_active !== null ? Boolean(row.is_active) : true,
+      is_web_visible: row.is_web_visible !== undefined && row.is_web_visible !== null ? Boolean(row.is_web_visible) : true,
+      whatsapp_enabled: row.whatsapp_enabled !== undefined && row.whatsapp_enabled !== null ? Boolean(row.whatsapp_enabled) : false,
       whatsapp_display_name: row.whatsapp_display_name ? String(row.whatsapp_display_name) : null,
       whatsapp_description: row.whatsapp_description ? String(row.whatsapp_description) : null,
       whatsapp_price: row.whatsapp_price !== null && row.whatsapp_price !== undefined ? parseFloat(String(row.whatsapp_price)) : null,
@@ -144,14 +151,19 @@ export async function GET(req: NextRequest) {
           total,
           total_pages,
         },
+        request_id: requestId,
       },
       { headers: NO_CACHE_HEADERS }
     );
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'Bilinmeyen sunucu hatası';
-    console.error('[OPERATIONS_PRODUCTS_UNCAUGHT]', errorMsg);
+    console.error(`[OPERATIONS_PRODUCTS_UNCAUGHT] [request_id=${requestId}]`, errorMsg);
     return NextResponse.json(
-      { success: false, error: 'Sunucu tarafında işlem gerçekleştirilemedi.' },
+      {
+        success: false,
+        error: 'Sunucu tarafında işlem gerçekleştirilemedi.',
+        request_id: requestId,
+      },
       { status: 500, headers: NO_CACHE_HEADERS }
     );
   }

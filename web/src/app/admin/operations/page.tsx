@@ -71,6 +71,7 @@ export default function HurcellOperationsDashboard() {
   const [realProducts, setRealProducts] = useState<OperationsProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
   const [productsError, setProductsError] = useState<string | null>(null);
+  const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
   const [paginationInfo, setPaginationInfo] = useState({ page: 1, limit: 25, total: 0, total_pages: 1 });
 
   // Selected Product for Stock Movement Drawer
@@ -116,7 +117,8 @@ export default function HurcellOperationsDashboard() {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Stok verisi alınamadı.');
+        if (json.request_id) setErrorRequestId(json.request_id);
+        throw new Error(json.error || 'Stok ürün listesi alınamadı.');
       }
 
       setRealProducts(json.data || []);
@@ -414,17 +416,17 @@ export default function HurcellOperationsDashboard() {
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Live Data Badge Alert */}
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center justify-between gap-3 text-emerald-300 text-xs">
+          {/* Live Data High-Contrast Info Banner */}
+          <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 flex items-center justify-between gap-3 text-emerald-950 shadow-sm">
             <div className="flex items-center gap-3">
-              <Database size={18} className="shrink-0 text-emerald-400" />
-              <span>
-                <strong>Production Stok Verisi Bağlantısı Aktif:</strong> Stok ekranı doğrudan Supabase veritabanına bağlıdır. Müşteri, SMS, Baskı ve Sadakat modülleri tasarım aşamasındadır ve etiketiyle prototip kalmaya devam etmektedir.
+              <Database size={20} className="shrink-0 text-emerald-700" />
+              <span className="text-xs font-medium text-slate-800">
+                <strong className="text-emerald-950 font-bold">Production Stok Verisi Bağlantısı Aktif:</strong> Stok ekranı doğrudan Supabase veritabanına bağlıdır. Müşteri, SMS, Baskı ve Sadakat modülleri prototip aşamasındadır.
               </span>
             </div>
             <button
               onClick={() => fetchRealProducts()}
-              className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white border border-emerald-600 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-sm"
             >
               <RefreshCw size={14} className={isLoadingProducts ? 'animate-spin' : ''} /> Yenile
             </button>
@@ -543,18 +545,18 @@ export default function HurcellOperationsDashboard() {
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'stock' && (
         <div className="space-y-6">
-          {/* Production Data Source Banner */}
-          <div className="bg-blue-600/10 border border-blue-500/30 rounded-2xl p-4 flex items-center justify-between gap-4">
+          {/* High-Contrast Light Blue Banner */}
+          <div className="bg-blue-50 border border-blue-300 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm text-blue-950">
             <div className="flex items-center gap-3">
-              <Database className="text-blue-400 shrink-0" size={20} />
+              <Database className="text-blue-700 shrink-0" size={20} />
               <div>
-                <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                <h4 className="text-xs font-extrabold text-blue-950 flex items-center gap-2">
                   Production Stok Verisi Katmanı
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-100 text-blue-900 border border-blue-300">
                     Live Server-Side API
                   </span>
                 </h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs font-medium text-slate-800 mt-0.5">
                   Bu tablodaki ürünler ve stok miktarları doğrudan `public.products` veritabanından çekilmektedir.
                 </p>
               </div>
@@ -562,7 +564,7 @@ export default function HurcellOperationsDashboard() {
             <button
               onClick={() => fetchRealProducts()}
               disabled={isLoadingProducts}
-              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-2 shadow-sm border border-blue-600 transition-all cursor-pointer disabled:opacity-50"
             >
               <RefreshCw size={14} className={isLoadingProducts ? 'animate-spin' : ''} /> Refetch
             </button>
@@ -575,10 +577,10 @@ export default function HurcellOperationsDashboard() {
                 <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Ürün adı, SKU, barkod veya raf ara..."
+                  placeholder="Ürün adı, SKU veya raf ara..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-2xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -604,10 +606,10 @@ export default function HurcellOperationsDashboard() {
                     setStockCategoryFilter(cat);
                     setCurrentPage(1);
                   }}
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-medium transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all cursor-pointer ${
                     stockCategoryFilter === cat
-                      ? 'bg-blue-600 text-white font-semibold'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
                   }`}
                 >
                   {cat}
@@ -652,28 +654,33 @@ export default function HurcellOperationsDashboard() {
             </div>
           </div>
 
-          {/* Loading & Error States */}
-          {productsError && (
-            <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl flex items-center justify-between text-rose-300 text-xs">
-              <div className="flex items-center gap-2">
-                <XCircle size={18} className="text-rose-400 shrink-0" />
-                <span>{productsError}</span>
-              </div>
-              <button
-                onClick={() => fetchRealProducts()}
-                className="px-3 py-1 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-white font-semibold cursor-pointer"
-              >
-                Tekrar Dene
-              </button>
-            </div>
-          )}
-
-          {/* Products Data Table */}
+          {/* Products Data Container — Strict State Machine Order: loading -> error -> empty -> data */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-lg">
             {isLoadingProducts ? (
               <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
                 <Loader2 size={32} className="animate-spin text-blue-400" />
                 <span className="text-xs font-semibold">Production veritabanından stok verileri yükleniyor...</span>
+              </div>
+            ) : productsError ? (
+              <div className="p-6 bg-red-50 border border-red-400 m-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-red-900 shadow-md">
+                <div className="flex items-center gap-3">
+                  <XCircle size={24} className="text-red-700 shrink-0" />
+                  <div>
+                    <div className="text-sm font-semibold text-red-900">{productsError}</div>
+                    {errorRequestId && (
+                      <div className="text-xs font-mono text-red-800 mt-0.5">Request ID: {errorRequestId}</div>
+                    )}
+                    <p className="text-xs font-medium text-red-800 mt-1">
+                      Lütfen ağ bağlantınızı kontrol edin veya &apos;Tekrar Dene&apos; butonuna basın.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => fetchRealProducts()}
+                  className="px-4 py-2 rounded-xl bg-red-700 hover:bg-red-800 text-white text-xs font-bold shrink-0 transition-all cursor-pointer shadow-sm"
+                >
+                  Tekrar Dene
+                </button>
               </div>
             ) : realProducts.length === 0 ? (
               <div className="p-12 text-center text-slate-400 space-y-2">

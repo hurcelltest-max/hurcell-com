@@ -300,10 +300,10 @@ export default function HurcellOperationsDashboard() {
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'overview'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <LayoutDashboard size={16} /> Genel Bakış
@@ -311,10 +311,10 @@ export default function HurcellOperationsDashboard() {
 
         <button
           onClick={() => setActiveTab('stock')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'stock'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Package size={16} /> Stok (Gerçek Veri)
@@ -322,10 +322,10 @@ export default function HurcellOperationsDashboard() {
 
         <button
           onClick={() => setActiveTab('products')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'products'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Layers size={16} /> Ürünler & Form
@@ -333,10 +333,10 @@ export default function HurcellOperationsDashboard() {
 
         <button
           onClick={() => setActiveTab('customers')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'customers'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Users size={16} /> Müşteriler (Prototip)
@@ -344,10 +344,10 @@ export default function HurcellOperationsDashboard() {
 
         <button
           onClick={() => setActiveTab('sms')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'sms'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <MessageSquare size={16} /> SMS (Prototip)
@@ -355,10 +355,10 @@ export default function HurcellOperationsDashboard() {
 
         <button
           onClick={() => setActiveTab('approvals')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'approvals'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <ShieldCheck size={16} /> Onaylar ({pendingApprovalsCount})
@@ -366,10 +366,10 @@ export default function HurcellOperationsDashboard() {
 
         <button
           onClick={() => setActiveTab('print')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'print'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Printer size={16} /> Baskı İşleri
@@ -377,10 +377,10 @@ export default function HurcellOperationsDashboard() {
 
         <button
           onClick={() => setActiveTab('loyalty')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'loyalty'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Award size={16} /> Sadakat
@@ -388,10 +388,10 @@ export default function HurcellOperationsDashboard() {
 
         <button
           onClick={() => setActiveTab('orders')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'orders'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <ShoppingCart size={16} /> Siparişler
@@ -399,10 +399,10 @@ export default function HurcellOperationsDashboard() {
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'settings'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-              : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
+              : 'bg-slate-900 border border-slate-700/70 text-slate-200 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Settings size={16} /> Ayarlar

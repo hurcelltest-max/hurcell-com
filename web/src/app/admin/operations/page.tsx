@@ -29,6 +29,13 @@ import {
   Loader2,
 } from 'lucide-react';
 import {
+  parseMovementQuantity,
+  toQuantityDelta,
+  calculatePreviewStock,
+  buildStockMovementPayload,
+  validateDualConsistency,
+} from '@/lib/operations/stock-movement-input';
+import {
   MOCK_ACCESSORY_CATEGORIES,
   MOCK_CUSTOMERS,
   MOCK_APPROVALS,
@@ -173,48 +180,57 @@ export default function HurcellOperationsDashboard() {
   const handleExecuteStockMovement = async () => {
     if (!selectedProductForMovement) return;
 
-    const qty = Math.abs(movementQty);
-    if (isNaN(qty) || qty === 0) {
-      setMovementSubmitError('Lütfen sıfırdan büyük bir miktar girin.');
-      return;
-    }
-
-    // Determine quantity delta sign based on movement type
-    let delta = qty;
-    if (['SALE', 'DAMAGE', 'INTERNAL_USE', 'PRINT_MATERIAL_USE'].includes(movementType)) {
-      delta = -qty;
-    }
-
-    const projectedStock = selectedProductForMovement.stock + delta;
-    if (projectedStock < 0) {
-      setMovementSubmitError(`Yetersiz stok! Mevcut stok (${selectedProductForMovement.stock}) düşülecek miktardan (${qty}) azdır.`);
-      return;
-    }
-
-    setIsSubmittingMovement(true);
-    setMovementSubmitError(null);
-
     try {
+      const parsedQty = parseMovementQuantity(movementQty);
+      const delta = toQuantityDelta(movementType, parsedQty);
+      const projectedStock = calculatePreviewStock(selectedProductForMovement.stock, delta);
+
+      if (projectedStock < 0) {
+        setMovementSubmitError(`Yetersiz stok! Mevcut stok (${selectedProductForMovement.stock}) düşülecek miktardan (${parsedQty}) azdır.`);
+        return;
+      }
+
+      const targetProductId = selectedProductForMovement.id;
+
+      const payload = buildStockMovementPayload({
+        productId: targetProductId,
+        movementType,
+        quantity: parsedQty,
+        idempotencyKey: formIdempotencyKey,
+        notes: movementNotes,
+      });
+
+      setIsSubmittingMovement(true);
+      setMovementSubmitError(null);
+
       const res = await fetch('/api/admin/operations/stock-movements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          product_id: selectedProductForMovement.id,
-          movement_type: movementType,
-          quantity_delta: delta,
-          reference_type: 'MANUAL_OPERATIONS',
-          reference_id: null,
-          idempotency_key: formIdempotencyKey,
-          notes: movementNotes.trim() || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
 
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Stok hareketi gerçekleştirilemedi.');
+      }
+
+      // Operational Dual Consistency Guard: Check A & Check B
+      const dualCheck = validateDualConsistency(payload.quantity_delta, {
+        stock_before: json.stock_before,
+        stock_after: json.stock_after,
+        quantity_delta: json.quantity_delta,
+      });
+
+      if (!dualCheck.isConsistent) {
+        showToast(
+          `UYARI: Sunucu stok doğrulaması başarısız! ${dualCheck.failureReason || 'Veriler yenilendi.'}`,
+          'error'
+        );
+        fetchRealProducts();
+        return;
       }
 
       // Success feedback: Use ONLY server returned stock_after value
@@ -224,9 +240,9 @@ export default function HurcellOperationsDashboard() {
         'success'
       );
 
-      // Update local state exclusively with server response
+      // Update local state exclusively with server response using immutable targetProductId
       setRealProducts((prev) =>
-        prev.map((p) => (p.id === selectedProductForMovement.id ? { ...p, stock: updatedStock } : p))
+        prev.map((p) => (p.id === targetProductId ? { ...p, stock: updatedStock } : p))
       );
 
       setSelectedProductForMovement(null);

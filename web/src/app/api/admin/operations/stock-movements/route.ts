@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { validateApplyStockMovementRpcResult } from '@/lib/operations/stock-movement-input';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -108,15 +109,6 @@ interface StockMovementRow {
   actor_email?: string | null;
   created_at: string;
   products?: { name?: string | null } | null;
-}
-
-interface RpcResultRow {
-  movement_id: string;
-  product_id: string;
-  stock_before: number | string;
-  stock_after: number | string;
-  quantity_delta: number | string;
-  idempotent_replay: boolean;
 }
 
 // ============================================================================
@@ -371,7 +363,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 6. Strict Structural RPC Output Validation
+    // 6. Strict Structural & Contract RPC Output Validation
     if (!data || !Array.isArray(data) || data.length !== 1) {
       console.error('[STOCK_MOVEMENT_RPC_STRUCT_ERROR] Unexpected RPC output array length:', data?.length);
       return NextResponse.json(
@@ -380,41 +372,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const resultRow = (data as unknown as RpcResultRow[])[0];
-
-    // Structural checks on RPC response properties
-    const resMovementId = String(resultRow.movement_id || '');
-    const resProductId = String(resultRow.product_id || '');
-    const resStockBefore = typeof resultRow.stock_before === 'number' ? resultRow.stock_before : parseInt(String(resultRow.stock_before), 10);
-    const resStockAfter = typeof resultRow.stock_after === 'number' ? resultRow.stock_after : parseInt(String(resultRow.stock_after), 10);
-    const resQuantityDelta = typeof resultRow.quantity_delta === 'number' ? resultRow.quantity_delta : parseInt(String(resultRow.quantity_delta), 10);
-    const resIdempotentReplay = Boolean(resultRow.idempotent_replay);
-
-    if (
-      !UUID_REGEX.test(resMovementId) ||
-      resProductId.toLowerCase() !== cleanProductId.toLowerCase() ||
-      isNaN(resStockBefore) ||
-      isNaN(resStockAfter) ||
-      resQuantityDelta !== delta
-    ) {
-      console.error('[STOCK_MOVEMENT_RPC_VAL_MISMATCH]', { resMovementId, resProductId, resQuantityDelta, delta });
+    const validationResult = validateApplyStockMovementRpcResult(data[0], cleanProductId, delta);
+    if (!validationResult.isValid || !validationResult.data) {
+      console.error('[STOCK_MOVEMENT_RPC_VAL_MISMATCH]', validationResult.error);
       return NextResponse.json(
-        { success: false, error: 'Stok hareketi yanıt verileri doğrulanamadı.' },
+        { success: false, error: validationResult.error || 'Stok hareketi yanıt verileri doğrulanamadı.' },
         { status: 500, headers: NO_CACHE_HEADERS }
       );
     }
 
+    const rpcRecord = validationResult.data;
+    const deploymentSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'UNKNOWN';
+
     return NextResponse.json(
       {
         success: true,
-        movement_id: resMovementId,
-        product_id: resProductId,
-        stock_before: resStockBefore,
-        stock_after: resStockAfter,
-        quantity_delta: resQuantityDelta,
-        idempotent_replay: resIdempotentReplay,
+        movement_id: rpcRecord.movement_id,
+        product_id: rpcRecord.product_id,
+        stock_before: rpcRecord.stock_before,
+        stock_after: rpcRecord.stock_after,
+        quantity_delta: rpcRecord.quantity_delta,
+        idempotent_replay: rpcRecord.idempotent_replay,
       },
-      { headers: NO_CACHE_HEADERS }
+      {
+        headers: {
+          ...NO_CACHE_HEADERS,
+          'X-Deployment-SHA': deploymentSha,
+        },
+      }
     );
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'Bilinmeyen hata';

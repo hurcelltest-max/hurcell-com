@@ -292,7 +292,7 @@ export default function CariKartPage(props: { params: Promise<{ card_token: stri
     setReviewLoading(true);
     setReviewError('');
     try {
-      const payloadLimit = decision === 'reject' || decision === '' ? '0' : limit;
+      const payloadLimit = decision === 'reject' ? '0' : limit;
       
       const res = await fetch('/api/admin/cari/review', {
         method: 'POST',

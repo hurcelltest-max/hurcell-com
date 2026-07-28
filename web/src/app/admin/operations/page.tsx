@@ -104,6 +104,10 @@ export default function HurcellOperationsDashboard() {
         }),
       });
 
+      if (res.status === 404) {
+        throw new Error('WhatsApp simülatörü bu ortamda devre dışı.');
+      }
+
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'WhatsApp simülasyonu başarısız oldu.');

@@ -59,6 +59,7 @@ export type FinanceCustomerRow = {
   phone: string
   email: string | null
   status?: string
+  customer_card_code?: string | null
 }
 
 export type FinanceDashboardMetrics = {

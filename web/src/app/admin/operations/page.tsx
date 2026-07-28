@@ -31,6 +31,7 @@ import {
   UserCheck,
   Clock,
   Zap,
+  CreditCard,
 } from 'lucide-react';
 import {
   parseMovementQuantity,
@@ -62,6 +63,7 @@ export default function HurcellOperationsDashboard() {
     | 'print'
     | 'loyalty'
     | 'orders'
+    | 'revolving_credit'
     | 'settings'
   >('overview');
 
@@ -475,6 +477,20 @@ export default function HurcellOperationsDashboard() {
           <ShoppingCart size={16} /> Siparişler
         </button>
 
+        <button
+          onClick={() => setActiveTab('revolving_credit')}
+          className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border ${
+            activeTab === 'revolving_credit'
+              ? 'bg-purple-600/30 text-purple-300 border-purple-500/50 shadow-md shadow-purple-900/20'
+              : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:bg-slate-800/80 hover:text-slate-200'
+          }`}
+        >
+          <CreditCard size={14} className={activeTab === 'revolving_credit' ? 'text-purple-400 animate-pulse' : 'text-slate-500'} />
+          Döner Kredi & Borç Ledger (Demo)
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            O7 DEMO
+          </span>
+        </button>
         <button
           onClick={() => setActiveTab('settings')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
@@ -1235,6 +1251,93 @@ export default function HurcellOperationsDashboard() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+
+      {/* 3. DÖNER KREDİ & BORÇ LEDGER DASHBOARD (PAKET O7 DEMO) */}
+      {activeTab === 'revolving_credit' && (
+        <div className="space-y-6">
+          <div className="bg-purple-950/40 border border-purple-800/50 rounded-2xl p-4 flex items-center justify-between gap-4 text-purple-100 shadow-sm">
+            <div className="flex items-center gap-3">
+              <CreditCard className="text-purple-400 shrink-0" size={22} />
+              <div>
+                <h4 className="text-xs font-extrabold text-purple-200 flex items-center gap-2">
+                  Paket O7 — Döner Kredi Motoru & Borç Takip Ledger (Demo / Simülasyon)
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-900/60 text-purple-300 border border-purple-700/50">
+                    LOKAL MOCK DEMO
+                  </span>
+                </h4>
+                <p className="text-xs font-medium text-purple-300/80 mt-0.5">
+                  Demo / Simülasyon — Gerçek müşteri limiti veya bakiyesi değildir. Veritabanına yazılmaz, finansal kayıt veya RPC işlemi oluşturmaz.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+              <div className="text-xs text-slate-400 font-semibold">Örnek Kredi Limiti</div>
+              <div className="text-lg font-bold font-mono text-white">10.000,00 TL</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+              <div className="text-xs text-slate-400 font-semibold">Örnek Borç Bakiye</div>
+              <div className="text-lg font-bold font-mono text-amber-400">3.500,00 TL</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+              <div className="text-xs text-slate-400 font-semibold">Örnek Kullanılabilir Limit</div>
+              <div className="text-lg font-bold font-mono text-emerald-400">6.500,00 TL</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+              <div className="text-xs text-slate-400 font-semibold">Hesap Durumu</div>
+              <div className="text-lg font-bold font-mono text-blue-400">ACTIVE</div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="font-bold text-white text-base">Örnek Döner Kredi Hareket Ledger (Mock Engine Audit)</h3>
+                <p className="text-xs text-slate-400">Tüm hareketler <code className="text-purple-300 font-mono">quantity_delta</code> ve idempotency matematiği ile simüle edilir.</p>
+              </div>
+              <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                24 TEST PASSED
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-800/80 text-slate-400 font-mono text-[11px] uppercase border-b border-slate-800">
+                  <tr>
+                    <th className="px-4 py-3">İşlem Tipi</th>
+                    <th className="px-4 py-3">Tutar</th>
+                    <th className="px-4 py-3 font-mono">Önceki Bakiye</th>
+                    <th className="px-4 py-3 font-mono">Sonraki Bakiye</th>
+                    <th className="px-4 py-3 font-mono">Kullanılabilir Limit</th>
+                    <th className="px-4 py-3">Referans</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  <tr className="hover:bg-slate-800/40 font-mono">
+                    <td className="px-4 py-3 font-bold text-amber-400">SALE_DEBIT</td>
+                    <td className="px-4 py-3 text-white font-bold">+5.000,00 TL</td>
+                    <td className="px-4 py-3 text-slate-400">0,00 TL</td>
+                    <td className="px-4 py-3 text-amber-400">5.000,00 TL</td>
+                    <td className="px-4 py-3 text-emerald-400">5.000,00 TL</td>
+                    <td className="px-4 py-3 text-slate-400">ORD-2026-001</td>
+                  </tr>
+                  <tr className="hover:bg-slate-800/40 font-mono">
+                    <td className="px-4 py-3 font-bold text-emerald-400">PAYMENT_CREDIT</td>
+                    <td className="px-4 py-3 text-emerald-400 font-bold">-1.500,00 TL</td>
+                    <td className="px-4 py-3 text-slate-400">5.000,00 TL</td>
+                    <td className="px-4 py-3 text-amber-400">3.500,00 TL</td>
+                    <td className="px-4 py-3 text-emerald-400">6.500,00 TL</td>
+                    <td className="px-4 py-3 text-slate-400">PAY-2026-089</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

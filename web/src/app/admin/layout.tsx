@@ -33,6 +33,9 @@ export default function AdminLayout({
           <Link href="/admin/operations" className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors">
             <Layers size={20} className="text-emerald-600 dark:text-emerald-400" /> HurCELL Operasyon
           </Link>
+          <Link href="/admin/kasa" className="flex items-center gap-3 p-3 rounded-lg bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20 hover:bg-blue-500/20 transition-colors">
+            <ShoppingBag size={20} className="text-blue-400" /> Kasa Föyü & Satış
+          </Link>
           <Link href="/admin/users" className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
             <Users size={20} /> Kullanıcılar
           </Link>

@@ -5,6 +5,7 @@ import { verifyBasicAuthHeader } from './lib/admin/auth'
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
 
+  // 1. MEVCUT ADMIN BASIC AUTH KORUMASI (DOKUNULMADI & KORUNDU)
   if (
     pathname.startsWith('/admin') ||
     pathname.startsWith('/api/admin') ||
@@ -39,6 +40,19 @@ export function middleware(req: NextRequest) {
     }
   }
 
+  // 2. KASA SAYFALARI İÇİN SUNUCU TARAFINDA OTURUM VE YÖNLENDİRME KONTROLÜ
+  if (
+    pathname.startsWith('/kasa') &&
+    !pathname.startsWith('/kasa/giris')
+  ) {
+    const kasaSessionCookie = req.cookies.get('kasa_session')?.value
+
+    if (!kasaSessionCookie) {
+      const loginUrl = new URL('/kasa/giris', req.url)
+      return NextResponse.redirect(loginUrl)
+    }
+  }
+
   return NextResponse.next()
 }
 
@@ -49,6 +63,8 @@ export const config = {
     '/api/sales/:path*',
     '/api/dhl/:path*',
     '/cihaz-kabul-protokolu/:path*',
-    '/cihaz-kabul-protokolu'
+    '/cihaz-kabul-protokolu',
+    '/kasa/:path*',
+    '/kasa'
   ],
 }

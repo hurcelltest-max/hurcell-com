@@ -608,6 +608,7 @@ export async function createSaleTransaction(
   }
 ): Promise<KasaSale> {
   const supabase = getSupabaseAdmin();
+  const day = await getOrCreateTodayDay(actorUserId);
   const creditPaidKurus = input.credit_paid_kurus || 0;
 
   if (creditPaidKurus > 0) {
@@ -637,75 +638,34 @@ export async function createSaleTransaction(
 
   const { data, error } = await supabase.rpc('fn_kasa_create_sale', {
     p_actor_user_id: actorUserId,
+    p_kasa_day_id: day.id,
     p_category_id: input.category_id,
     p_product_name: input.product_name,
-    p_brand: input.brand || null,
-    p_model: input.model || null,
-    p_product_code: input.product_code || null,
     p_quantity: input.quantity,
     p_unit_price_kurus: input.unit_price_kurus,
-    p_cash_paid_kurus: input.cash_paid_kurus,
-    p_card_paid_kurus: input.card_paid_kurus,
-    p_description: input.description || null,
-    p_customer_name: input.customer_name || null,
-    p_customer_phone: input.customer_phone || null,
-    p_serial_imei: input.serial_imei || null,
-    p_cost_price_kurus: input.cost_price_kurus || null,
-    p_service_cost_kurus: input.service_cost_kurus || null,
-    p_technical_service_details: input.technical_service_details ? (input.technical_service_details as any) : null,
-    p_idempotency_key: input.idempotency_key || null,
+    p_cost_price_kurus: input.cost_price_kurus || 0,
+    p_cash_paid_kurus: input.cash_paid_kurus || 0,
+    p_card_paid_kurus: input.card_paid_kurus || 0,
     p_usd_paid_cents: input.usd_paid_cents || 0,
     p_usd_rate: input.usd_rate || null,
     p_usd_tl_equivalent_kurus: input.usd_tl_equivalent_kurus || 0,
     p_eur_paid_cents: input.eur_paid_cents || 0,
     p_eur_rate: input.eur_rate || null,
     p_eur_tl_equivalent_kurus: input.eur_tl_equivalent_kurus || 0,
+    p_credit_paid_kurus: creditPaidKurus,
+    p_credit_customer_id: input.credit_customer_id || null,
+    p_brand: input.brand || null,
+    p_model: input.model || null,
+    p_product_code: input.product_code || null,
+    p_description: input.description || null,
+    p_idempotency_key: input.idempotency_key || null,
   });
 
   if (error || !data) {
     throw new Error(error?.message || 'Satış kaydı oluşturulamadı.');
   }
 
-  const sale = data as KasaSale;
-
-  // EĞER CARİ ÖDEME VARSA MÜŞTERİ CARİ HESABINA BORÇ YAZ
-  if (creditPaidKurus > 0 && input.credit_customer_id) {
-    const { data: account } = await supabase.from('credit_accounts').select('id, current_balance').eq('credit_customer_id', input.credit_customer_id).single();
-    const newBalance = Number(account?.current_balance || 0) + (creditPaidKurus / 100.0);
-    const uncollectedCost = input.cost_price_kurus ? Math.round((creditPaidKurus / sale.total_price_kurus) * (input.cost_price_kurus * input.quantity)) : 0;
-
-    await supabase.from('kasa_sales').update({
-      credit_customer_id: input.credit_customer_id,
-      credit_account_id: account?.id,
-      credit_paid_kurus: creditPaidKurus,
-      uncollected_credit_kurus: creditPaidKurus,
-      uncollected_cost_kurus: uncollectedCost,
-    }).eq('id', sale.id);
-
-    await supabase.from('credit_accounts').update({
-      current_balance: newBalance,
-      updated_at: new Date().toISOString(),
-    }).eq('id', account?.id);
-
-    const { data: userObj } = await supabase.from('kasa_users').select('username').eq('id', actorUserId).single();
-    const transCode = `PUR-KASA-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100000 + Math.random() * 900000)}`;
-
-    await supabase.from('credit_transactions').insert({
-      transaction_code: transCode,
-      credit_customer_id: input.credit_customer_id,
-      credit_account_id: account?.id,
-      transaction_type: 'purchase',
-      direction: 'debit',
-      amount: creditPaidKurus / 100.0,
-      description: `Kasa İçi Veresiye Satış: ${input.product_name} (${sale.receipt_no})`,
-      source_type: 'store_sale',
-      source_reference: sale.id,
-      admin_username: userObj?.username || 'personel',
-      balance_after: newBalance,
-    });
-  }
-
-  return sale;
+  return data as KasaSale;
 }
 
 export async function collectCreditPaymentTransaction(

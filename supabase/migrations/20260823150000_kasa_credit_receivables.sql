@@ -1,5 +1,5 @@
 -- Migration: 20260823150000_kasa_credit_receivables.sql
--- Description: HurCELL Kasa Föyü Cari / Veresiye Satış, Tahsilat Altyapısı, Eski Borç Uyumlu (Option A) FIFO Dağıtımı ve 7 Günlük Gecikme Takibi
+-- Description: HurCELL Kasa Föyü Cari / Veresiye Satış, Tahsilat Altyapısı, Atomik RPC, Option A FIFO Dağıtımı ve 7 Günlük Gecikme Takibi
 
 BEGIN;
 
@@ -67,7 +67,194 @@ ALTER TABLE public.kasa_credit_payment_allocations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.kasa_credit_payments FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.kasa_credit_payment_allocations FROM PUBLIC, anon, authenticated;
 
--- 5. SECURE SECURITY DEFINER RPC: CARİ TAHSİLAT ALMA, ESKİ BORÇ (OPTION A) VE FIFO DAĞITIMI
+-- 5. SECURE ATOMIC SECURITY DEFINER RPC: KASA SATIŞ OLUŞTURMA (CARİ ENTEGRASYONLU)
+DROP FUNCTION IF EXISTS public.fn_kasa_create_sale(UUID, UUID, UUID, TEXT, INT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT);
+
+CREATE OR REPLACE FUNCTION public.fn_kasa_create_sale(
+    p_actor_user_id UUID,
+    p_kasa_day_id UUID,
+    p_category_id UUID,
+    p_product_name TEXT,
+    p_quantity INT,
+    p_unit_price_kurus BIGINT,
+    p_cost_price_kurus BIGINT DEFAULT 0,
+    p_cash_paid_kurus BIGINT DEFAULT 0,
+    p_card_paid_kurus BIGINT DEFAULT 0,
+    p_usd_paid_cents BIGINT DEFAULT 0,
+    p_usd_rate NUMERIC(12, 4) DEFAULT NULL,
+    p_usd_tl_equivalent_kurus BIGINT DEFAULT 0,
+    p_eur_paid_cents BIGINT DEFAULT 0,
+    p_eur_rate NUMERIC(12, 4) DEFAULT NULL,
+    p_eur_tl_equivalent_kurus BIGINT DEFAULT 0,
+    p_credit_paid_kurus BIGINT DEFAULT 0,
+    p_credit_customer_id UUID DEFAULT NULL,
+    p_brand TEXT DEFAULT NULL,
+    p_model TEXT DEFAULT NULL,
+    p_product_code TEXT DEFAULT NULL,
+    p_description TEXT DEFAULT NULL,
+    p_idempotency_key TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_actor public.kasa_users%ROWTYPE;
+    v_day public.kasa_days%ROWTYPE;
+    v_category public.kasa_categories%ROWTYPE;
+    v_sale public.kasa_sales%ROWTYPE;
+    v_existing public.kasa_sales%ROWTYPE;
+    v_customer public.credit_customers%ROWTYPE;
+    v_account public.credit_accounts%ROWTYPE;
+    v_total_price BIGINT;
+    v_uncollected_cost BIGINT := 0;
+    v_trans_code TEXT;
+    v_new_balance NUMERIC;
+    v_source_type TEXT := 'store_sale';
+    v_receipt_no TEXT;
+BEGIN
+    SELECT * INTO v_actor FROM public.kasa_users WHERE id = p_actor_user_id;
+    IF v_actor.id IS NULL OR NOT v_actor.is_active THEN
+        RAISE EXCEPTION 'YETKİSİZ: Aktif kullanıcı bulunamadı.';
+    END IF;
+
+    SELECT * INTO v_day FROM public.kasa_days WHERE id = p_kasa_day_id FOR UPDATE;
+    IF v_day.id IS NULL OR v_day.status <> 'open' THEN
+        RAISE EXCEPTION 'GEÇERSİZ_İŞLEM: Kasa günü bulunamadı veya kapalı.';
+    END IF;
+
+    SELECT * INTO v_category FROM public.kasa_categories WHERE id = p_category_id;
+    IF v_category.id IS NULL THEN
+        RAISE EXCEPTION 'GEÇERSİZ_KATEGORİ: Kategori bulunamadı.';
+    END IF;
+
+    IF v_category.name = 'Teknik Servis' THEN
+        v_source_type := 'technical_service_fee';
+    ELSE
+        v_source_type := 'store_sale';
+    END IF;
+
+    v_total_price := p_quantity * p_unit_price_kurus;
+
+    IF (p_cash_paid_kurus + p_card_paid_kurus + p_usd_tl_equivalent_kurus + p_eur_tl_equivalent_kurus + p_credit_paid_kurus) <> v_total_price THEN
+        RAISE EXCEPTION 'GEÇERSİZ_TUTAR: Ödeme toplamı satılan ürün toplam fiyatına eşit olmalıdır.';
+    END IF;
+
+    -- CARİ VERESİYE SATIŞ KONTROLLERİ VE BAKİYE YAZMA
+    IF p_credit_paid_kurus > 0 THEN
+        IF p_credit_customer_id IS NULL THEN
+            RAISE EXCEPTION 'GEÇERSİZ_MÜŞTERİ: Cari veresiye satış için müşteri seçilmelidir.';
+        END IF;
+
+        SELECT * INTO v_customer FROM public.credit_customers WHERE id = p_credit_customer_id;
+        IF v_customer.id IS NULL OR v_customer.status <> 'active' THEN
+            RAISE EXCEPTION 'GEÇERSİZ_MÜŞTERİ: Seçilen cari müşteri bulunamadı veya hesabı aktif değil.';
+        END IF;
+
+        SELECT * INTO v_account FROM public.credit_accounts WHERE credit_customer_id = p_credit_customer_id FOR UPDATE;
+        IF v_account.id IS NULL OR v_account.status <> 'active' OR v_account.credit_limit <= 0 THEN
+            RAISE EXCEPTION 'GEÇERSİZ_HESAP: Müşterinin onaylı aktif cari hesabı veya kullanılabilir limiti bulunmamaktadır.';
+        END IF;
+
+        IF p_credit_paid_kurus > ROUND((v_account.credit_limit - v_account.current_balance) * 100) THEN
+            RAISE EXCEPTION 'YETERSİZ_LİMİT: Müşterinin kullanılabilir cari limiti (%) veresiye tutarından (% TL) küçüktür.', (v_account.credit_limit - v_account.current_balance), (p_credit_paid_kurus / 100.0);
+        END IF;
+
+        IF p_cost_price_kurus > 0 THEN
+            v_uncollected_cost := ROUND((p_credit_paid_kurus::NUMERIC / v_total_price::NUMERIC) * (p_cost_price_kurus * p_quantity));
+        END IF;
+    END IF;
+
+    IF p_idempotency_key IS NOT NULL AND p_idempotency_key <> '' THEN
+        SELECT * INTO v_existing FROM public.kasa_sales WHERE idempotency_key = p_idempotency_key;
+        IF v_existing.id IS NOT NULL THEN
+            RETURN to_jsonb(v_existing);
+        END IF;
+    END IF;
+
+    v_receipt_no := 'FS-' || to_char(now(), 'YYYYMMDD') || '-' || lpad(nextval('public.kasa_receipt_seq')::text, 5, '0');
+
+    -- 1. Satış Kaydı Oluştur
+    INSERT INTO public.kasa_sales (
+        kasa_day_id, category_id, product_name, brand, model, product_code, quantity,
+        unit_price_kurus, cost_price_kurus, total_price_kurus, cash_paid_kurus, card_paid_kurus,
+        usd_paid_cents, usd_rate, usd_tl_equivalent_kurus, eur_paid_cents, eur_rate, eur_tl_equivalent_kurus,
+        credit_paid_kurus, uncollected_credit_kurus, uncollected_cost_kurus, credit_customer_id, credit_account_id,
+        receipt_no, description, created_by_user_id, idempotency_key
+    ) VALUES (
+        p_kasa_day_id, p_category_id, p_product_name, p_brand, p_model, p_product_code, p_quantity,
+        p_unit_price_kurus, p_cost_price_kurus, v_total_price, p_cash_paid_kurus, p_card_paid_kurus,
+        p_usd_paid_cents, p_usd_rate, p_usd_tl_equivalent_kurus, p_eur_paid_cents, p_eur_rate, p_eur_tl_equivalent_kurus,
+        p_credit_paid_kurus, p_credit_paid_kurus, v_uncollected_cost, p_credit_customer_id, v_account.id,
+        v_receipt_no, p_description, p_actor_user_id, p_idempotency_key
+    ) RETURNING * INTO v_sale;
+
+    -- 2. Kasa Hareket Kaydı
+    INSERT INTO public.kasa_movements (
+        kasa_day_id, movement_type, sale_id, amount_kurus, cash_portion_kurus, card_portion_kurus, description, created_by_user_id
+    ) VALUES (
+        p_kasa_day_id, 'satis', v_sale.id, v_total_price, p_cash_paid_kurus, p_card_paid_kurus,
+        'Satış (' || v_receipt_no || '): ' || p_product_name, p_actor_user_id
+    );
+
+    -- 3. Dövizle Ödeme Yapılmışsa Döviz Kasasını Güncelle
+    IF p_usd_paid_cents > 0 THEN
+        UPDATE public.kasa_days SET
+            usd_balance_cents = usd_balance_cents + p_usd_paid_cents,
+            usd_cost_pool_kurus = usd_cost_pool_kurus + p_usd_tl_equivalent_kurus
+        WHERE id = p_kasa_day_id;
+
+        INSERT INTO public.kasa_fx_transactions (
+            kasa_day_id, transaction_type, currency_code, foreign_amount_cents, exchange_rate, tl_equivalent_kurus, sale_id, created_by_user_id
+        ) VALUES (
+            p_kasa_day_id, 'fx_sale_payment', 'USD', p_usd_paid_cents, p_usd_rate, p_usd_tl_equivalent_kurus, v_sale.id, p_actor_user_id
+        );
+    END IF;
+
+    IF p_eur_paid_cents > 0 THEN
+        UPDATE public.kasa_days SET
+            eur_balance_cents = eur_balance_cents + p_eur_paid_cents,
+            eur_cost_pool_kurus = eur_cost_pool_kurus + p_eur_tl_equivalent_kurus
+        WHERE id = p_kasa_day_id;
+
+        INSERT INTO public.kasa_fx_transactions (
+            kasa_day_id, transaction_type, currency_code, foreign_amount_cents, exchange_rate, tl_equivalent_kurus, sale_id, created_by_user_id
+        ) VALUES (
+            p_kasa_day_id, 'fx_sale_payment', 'EUR', p_eur_paid_cents, p_eur_rate, p_eur_tl_equivalent_kurus, v_sale.id, p_actor_user_id
+        );
+    END IF;
+
+    -- 4. CARİ ÖDEME VARSA MÜŞTERİ BAKİYESİNİ GÜNCELLE VE LEDGER'A YAZ (ATOMİK PL/PGSQL)
+    IF p_credit_paid_kurus > 0 THEN
+        v_new_balance := v_account.current_balance + (p_credit_paid_kurus / 100.0);
+        UPDATE public.credit_accounts SET current_balance = v_new_balance, updated_at = now() WHERE id = v_account.id;
+
+        v_trans_code := 'PUR-KASA-' || to_char(now(), 'YYYYMMDD') || '-' || lpad(nextval('public.credit_transaction_code_seq')::text, 6, '0');
+
+        INSERT INTO public.credit_transactions (
+            transaction_code, credit_customer_id, credit_account_id, transaction_type, direction,
+            amount, description, source_type, source_reference, admin_username, balance_after
+        ) VALUES (
+            v_trans_code, p_credit_customer_id, v_account.id, 'purchase', 'debit',
+            (p_credit_paid_kurus / 100.0), 'Kasa İçi Veresiye Satış: ' || p_product_name || ' (' || v_receipt_no || ')',
+            v_source_type, v_sale.id::text, v_actor.username, v_new_balance
+        );
+    END IF;
+
+    INSERT INTO public.kasa_audit_logs (user_id, action, entity_type, entity_id, details)
+    VALUES (p_actor_user_id, 'satis_yapildi', 'kasa_sales', v_sale.id, jsonb_build_object('receipt_no', v_receipt_no, 'total_price_kurus', v_total_price, 'credit_paid_kurus', p_credit_paid_kurus));
+
+    RETURN to_jsonb(v_sale);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.fn_kasa_create_sale(UUID, UUID, UUID, TEXT, INT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_kasa_create_sale(UUID, UUID, UUID, TEXT, INT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT) TO service_role;
+
+-- 6. SECURE ATOMIC SECURITY DEFINER RPC: CARİ TAHSİLAT ALMA (FAZLA TAHSİLAT ENGELİ VE OPTİON A FIFO DAĞITIMI)
+DROP FUNCTION IF EXISTS public.fn_kasa_collect_credit_payment(UUID, UUID, UUID, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.fn_kasa_collect_credit_payment(
     p_actor_user_id UUID,
     p_kasa_day_id UUID,
@@ -122,6 +309,7 @@ BEGIN
         RAISE EXCEPTION 'GEÇERSİZ_MÜŞTERİ: Cari müşteri bulunamadı veya hesabı aktif değil.';
     END IF;
 
+    -- HESAP ROW-LOCK İLE KİLİTLENİR VE FAZLA TAHSİLAT KESİNLİKLE ENGELLENİR
     SELECT * INTO v_account FROM public.credit_accounts WHERE credit_customer_id = p_credit_customer_id FOR UPDATE;
     IF v_account.id IS NULL OR v_account.status <> 'active' THEN
         RAISE EXCEPTION 'GEÇERSİZ_HESAP: Müşterinin aktif cari hesabı bulunmamaktadır.';
@@ -131,14 +319,17 @@ BEGIN
         RAISE EXCEPTION 'GEÇERSİZ_PARAMETRE: Tahsilat tutarı 0 veya negatif olamaz.';
     END IF;
 
-    -- Müşterinin toplam cari borcunu aşan tahsilat engellenir
-    IF (p_amount_kurus / 100.0) > (v_account.current_balance + 0.01) THEN
-        RAISE EXCEPTION 'LİMİT_AŞIMI: Tahsilat tutarı müşterinin mevcut açık cari borcundan (%) büyüktür.', v_account.current_balance;
+    -- FAZLA TAHSİLAT ENGELİ: KURUŞ BAZINDA TAM KARŞILAŞTIRMA (TOLERANSSIZ)
+    IF p_amount_kurus > ROUND(v_account.current_balance * 100) THEN
+        RAISE EXCEPTION 'FAZLA_TAHSİLAT_ENGELİ: Tahsilat tutarı (% TL), müşterinin toplam açık cari borcundan (% TL) büyük olamaz.', (p_amount_kurus / 100.0), v_account.current_balance;
     END IF;
 
     IF p_idempotency_key IS NOT NULL AND p_idempotency_key <> '' THEN
         SELECT * INTO v_existing FROM public.kasa_credit_payments WHERE idempotency_key = p_idempotency_key;
         IF v_existing.id IS NOT NULL THEN
+            IF v_existing.credit_customer_id <> p_credit_customer_id OR v_existing.amount_kurus <> p_amount_kurus THEN
+                RAISE EXCEPTION 'GEÇERSİZ_İDEMPOTENCY: Aynı idempotency key ile farklı müşteri veya tutar gönderilemez.';
+            END IF;
             RETURN to_jsonb(v_existing);
         END IF;
     END IF;
@@ -262,7 +453,7 @@ BEGIN
         amount, description, source_type, source_reference, payment_method, admin_username, balance_after
     ) VALUES (
         v_trans_code, p_credit_customer_id, v_account.id, 'payment', 'credit',
-        (p_amount_kurus / 100.0), COALESCE(p_description, 'Kasa İçi Cari Tahsilat'), 'store_sale', v_payment.id::text,
+        (p_amount_kurus / 100.0), COALESCE(p_description, 'Kasa İçi Cari Tahsilat'), 'payment', v_payment.id::text,
         CASE WHEN p_payment_method = 'cash' THEN 'cash' WHEN p_payment_method = 'card' THEN 'card' ELSE 'other' END,
         v_actor.username, v_new_balance
     );
@@ -276,8 +467,11 @@ $$;
 
 -- REVOKE ALL FROM PUBLIC FOR NEW RPC
 REVOKE ALL ON FUNCTION public.fn_kasa_collect_credit_payment(UUID, UUID, UUID, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_kasa_collect_credit_payment(UUID, UUID, UUID, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, TEXT, TEXT) TO service_role;
 
--- CARİ SATIŞ İPTALİNİ GÜVENLE YÖNETEN GÜNCELLENMİŞ FN_KASA_CANCEL_SALE
+-- 7. SECURE ATOMIC SECURITY DEFINER RPC: CARİ SATIŞ İPTALİ VE REVERSAL KAYDI
+DROP FUNCTION IF EXISTS public.fn_kasa_cancel_sale(UUID, UUID, TEXT);
+
 CREATE OR REPLACE FUNCTION public.fn_kasa_cancel_sale(
     p_actor_user_id UUID,
     p_sale_id UUID,
@@ -308,7 +502,7 @@ BEGIN
 
     SELECT * INTO v_sale FROM public.kasa_sales WHERE id = p_sale_id FOR UPDATE;
     IF v_sale.id IS NULL OR v_sale.status <> 'completed' THEN
-        RAISE EXCEPTION 'GEÇERSİZ_İŞLEM: İptal edilecek tamamlanmış satış bulunamadı.';
+        RAISE EXCEPTION 'GEÇERSİZ_İŞLEM: İptal edilecek tamamlanmış satış bulunamadı veya zaten iptal edilmiş.';
     END IF;
 
     SELECT * INTO v_day FROM public.kasa_days WHERE id = v_sale.kasa_day_id FOR UPDATE;
@@ -316,7 +510,7 @@ BEGIN
         RAISE EXCEPTION 'GEÇERSİZ_İŞLEM: Satışın ait olduğu kasa günü açık değil.';
     END IF;
 
-    -- EĞER CARİ VERESİYE SATIŞ İSE MÜŞTERİNİN AÇIK BORCUNU DÜŞ
+    -- EĞER CARİ VERESİYE SATIŞ İSE YALNIZCA AÇIK (TAHSİL EDİLMEMİŞ) BORCU DÜŞ VE REVERSAL KAYDI EKLE
     IF v_sale.credit_customer_id IS NOT NULL AND v_sale.uncollected_credit_kurus > 0 THEN
         SELECT * INTO v_account FROM public.credit_accounts WHERE credit_customer_id = v_sale.credit_customer_id FOR UPDATE;
         IF v_account.id IS NOT NULL THEN
@@ -333,7 +527,7 @@ BEGIN
             ) VALUES (
                 v_trans_code, v_sale.credit_customer_id, v_account.id, 'reversal', 'credit',
                 (v_uncollected_credit / 100.0), 'Kasa Satış İptali: ' || v_sale.receipt_no || ' (Gerekçe: ' || p_justification || ')',
-                'store_sale', v_sale.id::text, v_actor.username, v_new_balance
+                'reversal', v_sale.id::text, v_actor.username, v_new_balance
             );
         END IF;
     END IF;
@@ -360,5 +554,8 @@ BEGIN
     RETURN to_jsonb(v_sale);
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.fn_kasa_cancel_sale(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_kasa_cancel_sale(UUID, UUID, TEXT) TO service_role;
 
 COMMIT;

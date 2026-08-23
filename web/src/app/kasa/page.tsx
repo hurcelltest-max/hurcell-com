@@ -27,6 +27,7 @@ interface CategorySummary {
   count: number;
   cash_total_kurus: number;
   card_total_kurus: number;
+  bank_transfer_total_kurus?: number;
   grand_total_kurus: number;
 }
 
@@ -35,6 +36,7 @@ interface Metrics {
   total_quantity: number;
   cash_collection_kurus: number;
   card_collection_kurus: number;
+  bank_transfer_collection_kurus: number;
   gross_sales_kurus: number;
   expenses_total_kurus: number;
   returns_total_kurus: number;
@@ -122,6 +124,7 @@ export default function KasaMainDashboardPage() {
   const grandCount = categories.reduce((sum, c) => sum + c.count, 0);
   const grandCash = categories.reduce((sum, c) => sum + c.cash_total_kurus, 0);
   const grandCard = categories.reduce((sum, c) => sum + c.card_total_kurus, 0);
+  const grandBankTransfer = categories.reduce((sum, c) => sum + (c.bank_transfer_total_kurus || 0), 0);
   const grandTotal = categories.reduce((sum, c) => sum + c.grand_total_kurus, 0);
 
   return (
@@ -244,6 +247,16 @@ export default function KasaMainDashboardPage() {
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
             <span className="text-xs font-semibold text-purple-600 uppercase tracking-wider block flex items-center gap-1">
+              <Banknote size={14} /> Havale / EFT Tahsilatı
+            </span>
+            <div className="text-xl font-bold text-purple-700">
+              {formatTL(metrics?.bank_transfer_collection_kurus || 0)}
+            </div>
+            <p className="text-[11px] text-slate-400">Banka transferi (Nakit kasaya girmez)</p>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+            <span className="text-xs font-semibold text-purple-600 uppercase tracking-wider block flex items-center gap-1">
               <Wrench size={14} /> Teknik Servis Geliri
             </span>
             <div className="text-xl font-bold text-purple-700">
@@ -346,7 +359,8 @@ export default function KasaMainDashboardPage() {
                   <th className="py-3.5 px-6">Gelir / Satış Kategorisi</th>
                   <th className="py-3.5 px-4 text-center">Miktar / Adet</th>
                   <th className="py-3.5 px-6 text-right text-emerald-700">Nakit Tutarı</th>
-                  <th className="py-3.5 px-6 text-right text-blue-700">Kredi Kartı Tutarı</th>
+                  <th className="py-3.5 px-6 text-right text-blue-700">Kredi Kartı</th>
+                  <th className="py-3.5 px-6 text-right text-purple-700">Havale / EFT</th>
                   <th className="py-3.5 px-6 text-right font-bold text-slate-800">Toplam Tutar</th>
                 </tr>
               </thead>
@@ -357,6 +371,7 @@ export default function KasaMainDashboardPage() {
                     <td className="py-3.5 px-4 text-center text-slate-600 font-semibold">{cat.count} adet</td>
                     <td className="py-3.5 px-6 text-right text-emerald-600">{formatTL(cat.cash_total_kurus)}</td>
                     <td className="py-3.5 px-6 text-right text-blue-600">{formatTL(cat.card_total_kurus)}</td>
+                    <td className="py-3.5 px-6 text-right text-purple-600">{formatTL(cat.bank_transfer_total_kurus || 0)}</td>
                     <td className="py-3.5 px-6 text-right font-bold text-slate-900">
                       {formatTL(cat.grand_total_kurus)}
                     </td>
@@ -369,6 +384,7 @@ export default function KasaMainDashboardPage() {
                   <td className="py-4 px-4 text-center text-amber-400">{grandCount} adet</td>
                   <td className="py-4 px-6 text-right text-emerald-400">{formatTL(grandCash)}</td>
                   <td className="py-4 px-6 text-right text-blue-400">{formatTL(grandCard)}</td>
+                  <td className="py-4 px-6 text-right text-purple-300">{formatTL(grandBankTransfer)}</td>
                   <td className="py-4 px-6 text-right text-white font-extrabold text-lg">
                     {formatTL(grandTotal)}
                   </td>

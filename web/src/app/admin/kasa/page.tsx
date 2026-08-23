@@ -18,6 +18,7 @@ import {
   CreditCard,
   UserCheck,
 } from 'lucide-react';
+import { KasaDashboardMetrics } from '@/lib/kasa/types';
 
 interface ExpenseCategory {
   id: string;
@@ -25,8 +26,17 @@ interface ExpenseCategory {
   is_salary_category: boolean;
 }
 
+function formatTL(kurus: number): string {
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+    maximumFractionDigits: 2,
+  }).format(kurus / 100);
+}
+
 export default function AdminKasaOverviewPage() {
   const [hasManager, setHasManager] = useState<boolean | null>(null);
+  const [metrics, setMetrics] = useState<KasaDashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Bootstrap Form State
@@ -84,10 +94,10 @@ export default function AdminKasaOverviewPage() {
         }
       }
 
-      const ratesRes = await fetch('/api/kasa/rates');
-      if (ratesRes.ok) {
-        const rData = await ratesRes.json();
-        if (rData.rates?.usdRate) setActualRate(rData.rates.usdRate.toString());
+      const dashRes = await fetch('/api/kasa/dashboard');
+      if (dashRes.ok) {
+        const dashData = await dashRes.json();
+        setMetrics(dashData.metrics || null);
       }
     } catch {
       setHasManager(true);
@@ -376,6 +386,64 @@ export default function AdminKasaOverviewPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* BUGÜNKÜ KASA VE TAHSİLAT ÖZETİ */}
+      {metrics && (
+        <div className="space-y-3">
+          <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Bugünkü Kasa Tahsilat ve Ciro Özeti</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block flex items-center gap-1">
+                <Banknote size={14} /> Nakit Tahsilat
+              </span>
+              <div className="text-lg font-black text-emerald-800">{formatTL(metrics.cash_collection_kurus)}</div>
+              <p className="text-[10px] text-slate-400">Nakit satış ve cari tahsilat</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block flex items-center gap-1">
+                <CreditCard size={14} /> Kredi Kartı
+              </span>
+              <div className="text-lg font-black text-blue-800">{formatTL(metrics.card_collection_kurus)}</div>
+              <p className="text-[10px] text-slate-400">POS cihazı tahsilatları</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-purple-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-extrabold text-purple-900 uppercase tracking-wider block flex items-center gap-1">
+                <Banknote size={14} className="text-purple-700" /> Havale / EFT
+              </span>
+              <div className="text-lg font-black text-purple-900">{formatTL(metrics.bank_transfer_collection_kurus || 0)}</div>
+              <p className="text-[10px] text-purple-700/80 font-medium">Banka transfer tahsilatları</p>
+            </div>
+
+            <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-sm space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider block text-slate-400">
+                Fiziki Nakit Kasa
+              </span>
+              <div className="text-lg font-black text-emerald-400">{formatTL(metrics.expected_cash_kurus)}</div>
+              <p className="text-[10px] text-slate-400">Kasada bulunan fiziki TL</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                Gerçekleşen Kâr
+              </span>
+              <div className={`text-lg font-black ${metrics.realized_net_profit_kurus >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {formatTL(metrics.realized_net_profit_kurus)}
+              </div>
+              <p className="text-[10px] text-slate-400">Tahsil edilmiş net kâr</p>
+            </div>
+
+            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider block">
+                Açık Cari Risk
+              </span>
+              <div className="text-lg font-black text-amber-950">-{formatTL(metrics.open_credit_total_kurus || 0)}</div>
+              <p className="text-[10px] text-amber-800 font-semibold">Tahsil edilmeyen veresiyeler</p>
+            </div>
+          </div>
         </div>
       )}
 

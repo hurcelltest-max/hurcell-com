@@ -32,6 +32,7 @@ export interface KasaPeriodReportMetrics {
   gross_sales_kurus: number;
   cash_collection_kurus: number;
   card_collection_kurus: number;
+  bank_transfer_collection_kurus: number;
   credit_sales_total_kurus: number;
   credit_collections_total_kurus: number;
   returns_total_kurus: number;
@@ -363,7 +364,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
   const { data: sales } = await supabase
     .from('kasa_sales')
     .select(`
-      id, quantity, cash_paid_kurus, card_paid_kurus, total_price_kurus, cost_price_kurus, service_cost_kurus,
+      id, quantity, cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus, total_price_kurus, cost_price_kurus, service_cost_kurus,
       credit_paid_kurus, uncollected_credit_kurus, uncollected_cost_kurus, created_at,
       usd_paid_cents, eur_paid_cents,
       category:kasa_categories(name)
@@ -373,7 +374,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
 
   const { data: creditPayments } = await supabase
     .from('kasa_credit_payments')
-    .select('amount_kurus, cash_paid_kurus, card_paid_kurus')
+    .select('amount_kurus, cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus')
     .eq('kasa_day_id', dayId);
 
   const { data: allOpenSales } = await supabase
@@ -411,6 +412,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
   let totalQuantity = 0;
   let cashCollection = 0;
   let cardCollection = 0;
+  let bankTransferCollection = 0;
   let creditSalesTotal = 0;
   let grossSales = 0;
   let totalProductCost = 0;
@@ -423,6 +425,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
     totalQuantity += s.quantity;
     cashCollection += Number(s.cash_paid_kurus || 0);
     cardCollection += Number(s.card_paid_kurus || 0);
+    bankTransferCollection += Number(s.bank_transfer_paid_kurus || 0);
     creditSalesTotal += Number(s.credit_paid_kurus || 0);
     grossSales += Number(s.total_price_kurus || 0);
 
@@ -448,6 +451,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
     creditCollectionsTotal += Number(cp.amount_kurus || 0);
     cashCollection += Number(cp.cash_paid_kurus || 0);
     cardCollection += Number(cp.card_paid_kurus || 0);
+    bankTransferCollection += Number(cp.bank_transfer_paid_kurus || 0);
   }
 
   let openCreditTotal = 0;
@@ -538,6 +542,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
     total_quantity: totalQuantity,
     cash_collection_kurus: cashCollection,
     card_collection_kurus: cardCollection,
+    bank_transfer_collection_kurus: bankTransferCollection,
     credit_sales_total_kurus: creditSalesTotal,
     credit_collections_total_kurus: creditCollectionsTotal,
     gross_sales_kurus: grossSales,
@@ -589,6 +594,8 @@ export async function createSaleTransaction(
     unit_price_kurus: number;
     cash_paid_kurus: number;
     card_paid_kurus: number;
+    bank_transfer_paid_kurus?: number;
+    bank_transfer_reference?: string;
     credit_paid_kurus?: number;
     credit_customer_id?: string;
     usd_paid_cents?: number;
@@ -659,6 +666,8 @@ export async function createSaleTransaction(
     p_product_code: input.product_code || null,
     p_description: input.description || null,
     p_idempotency_key: input.idempotency_key || null,
+    p_bank_transfer_paid_kurus: input.bank_transfer_paid_kurus || 0,
+    p_bank_transfer_reference: input.bank_transfer_reference || null,
   });
 
   if (error || !data) {
@@ -674,9 +683,11 @@ export async function collectCreditPaymentTransaction(
     day_id: string;
     credit_customer_id: string;
     amount_tl: number;
-    payment_method: 'cash' | 'card' | 'usd' | 'eur';
+    payment_method: 'cash' | 'card' | 'bank_transfer' | 'usd' | 'eur';
     cash_paid_tl?: number;
     card_paid_tl?: number;
+    bank_transfer_paid_tl?: number;
+    bank_transfer_reference?: string;
     usd_paid?: number;
     usd_rate?: number;
     eur_paid?: number;
@@ -689,6 +700,7 @@ export async function collectCreditPaymentTransaction(
   const amountKurus = Math.round(input.amount_tl * 100);
   const cashPaidKurus = input.cash_paid_tl ? Math.round(input.cash_paid_tl * 100) : (input.payment_method === 'cash' ? amountKurus : 0);
   const cardPaidKurus = input.card_paid_tl ? Math.round(input.card_paid_tl * 100) : (input.payment_method === 'card' ? amountKurus : 0);
+  const bankTransferPaidKurus = input.bank_transfer_paid_tl ? Math.round(input.bank_transfer_paid_tl * 100) : (input.payment_method === 'bank_transfer' ? amountKurus : 0);
 
   const usdPaidCents = input.usd_paid ? Math.round(input.usd_paid * 100) : 0;
   const usdTLEquivalentKurus = usdPaidCents > 0 && input.usd_rate ? Math.round((usdPaidCents / 100.0) * input.usd_rate * 100) : 0;
@@ -712,6 +724,8 @@ export async function collectCreditPaymentTransaction(
     p_eur_tl_equivalent_kurus: eurTLEquivalentKurus,
     p_description: input.description || null,
     p_idempotency_key: input.idempotency_key || null,
+    p_bank_transfer_paid_kurus: bankTransferPaidKurus,
+    p_bank_transfer_reference: input.bank_transfer_reference || null,
   });
 
   if (error || !data) {
@@ -727,31 +741,33 @@ export async function getDailyCategorySummary(dayId: string): Promise<KasaCatego
 
   const { data: sales } = await supabase
     .from('kasa_sales')
-    .select('category_id, quantity, cash_paid_kurus, card_paid_kurus, credit_paid_kurus, total_price_kurus')
+    .select('category_id, quantity, cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus, credit_paid_kurus, total_price_kurus')
     .eq('kasa_day_id', dayId)
     .eq('status', 'completed');
 
-  const catMap = new Map<string, { count: number; cash: number; card: number; credit: number; grand: number }>();
+  const catMap = new Map<string, { count: number; cash: number; card: number; bankTransfer: number; credit: number; grand: number }>();
 
   for (const s of sales || []) {
-    const cur = catMap.get(s.category_id) || { count: 0, cash: 0, card: 0, credit: 0, grand: 0 };
+    const cur = catMap.get(s.category_id) || { count: 0, cash: 0, card: 0, bankTransfer: 0, credit: 0, grand: 0 };
     catMap.set(s.category_id, {
       count: cur.count + s.quantity,
       cash: cur.cash + Number(s.cash_paid_kurus || 0),
       card: cur.card + Number(s.card_paid_kurus || 0),
+      bankTransfer: cur.bankTransfer + Number(s.bank_transfer_paid_kurus || 0),
       credit: cur.credit + Number(s.credit_paid_kurus || 0),
       grand: cur.grand + Number(s.total_price_kurus || 0),
     });
   }
 
   return categories.map((cat) => {
-    const st = catMap.get(cat.id) || { count: 0, cash: 0, card: 0, credit: 0, grand: 0 };
+    const st = catMap.get(cat.id) || { count: 0, cash: 0, card: 0, bankTransfer: 0, credit: 0, grand: 0 };
     return {
       category_id: cat.id,
       category_name: cat.name,
       count: st.count,
       cash_total_kurus: st.cash,
       card_total_kurus: st.card,
+      bank_transfer_total_kurus: st.bankTransfer,
       credit_total_kurus: st.credit,
       grand_total_kurus: st.grand,
     };
@@ -1060,7 +1076,7 @@ export async function getPeriodReportMetrics(
     .from('kasa_sales')
     .select(`
       id, quantity, unit_price_kurus, total_price_kurus, cost_price_kurus, service_cost_kurus,
-      cash_paid_kurus, card_paid_kurus, credit_paid_kurus, uncollected_credit_kurus, uncollected_cost_kurus,
+      cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus, credit_paid_kurus, uncollected_credit_kurus, uncollected_cost_kurus,
       usd_paid_cents, eur_paid_cents, category_id, status, created_at,
       category:kasa_categories(name)
     `)
@@ -1070,7 +1086,7 @@ export async function getPeriodReportMetrics(
 
   const { data: creditPayments } = await supabase
     .from('kasa_credit_payments')
-    .select('amount_kurus, cash_paid_kurus, card_paid_kurus')
+    .select('amount_kurus, cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus')
     .gte('created_at', startISO)
     .lte('created_at', endISO);
 
@@ -1107,6 +1123,7 @@ export async function getPeriodReportMetrics(
   let grossSalesKurus = 0;
   let cashCollectionKurus = 0;
   let cardCollectionKurus = 0;
+  let bankTransferCollectionKurus = 0;
   let creditSalesTotalKurus = 0;
   let totalProductCostKurus = 0;
   let uncollectedProductCostKurus = 0;
@@ -1118,12 +1135,13 @@ export async function getPeriodReportMetrics(
   let eurSalesCount = 0;
   let eurTotalCents = 0;
 
-  const salesCatMap = new Map<string, { count: number; cash: number; card: number; grand: number }>();
+  const salesCatMap = new Map<string, { count: number; cash: number; card: number; bankTransfer: number; grand: number }>();
 
   for (const s of sales || []) {
     grossSalesKurus += Number(s.total_price_kurus || 0);
     cashCollectionKurus += Number(s.cash_paid_kurus || 0);
     cardCollectionKurus += Number(s.card_paid_kurus || 0);
+    bankTransferCollectionKurus += Number(s.bank_transfer_paid_kurus || 0);
     creditSalesTotalKurus += Number(s.credit_paid_kurus || 0);
 
     if (s.usd_paid_cents > 0) {
@@ -1138,11 +1156,12 @@ export async function getPeriodReportMetrics(
     const catName = (s.category as any)?.name;
     const catId = s.category_id;
 
-    const cur = salesCatMap.get(catId) || { count: 0, cash: 0, card: 0, grand: 0 };
+    const cur = salesCatMap.get(catId) || { count: 0, cash: 0, card: 0, bankTransfer: 0, grand: 0 };
     salesCatMap.set(catId, {
       count: cur.count + s.quantity,
       cash: cur.cash + Number(s.cash_paid_kurus || 0),
       card: cur.card + Number(s.card_paid_kurus || 0),
+      bankTransfer: cur.bankTransfer + Number(s.bank_transfer_paid_kurus || 0),
       grand: cur.grand + Number(s.total_price_kurus || 0),
     });
 
@@ -1166,6 +1185,7 @@ export async function getPeriodReportMetrics(
     creditCollectionsTotalKurus += Number(cp.amount_kurus || 0);
     cashCollectionKurus += Number(cp.cash_paid_kurus || 0);
     cardCollectionKurus += Number(cp.card_paid_kurus || 0);
+    bankTransferCollectionKurus += Number(cp.bank_transfer_paid_kurus || 0);
   }
 
   let openCreditTotalKurus = 0;
@@ -1181,13 +1201,14 @@ export async function getPeriodReportMetrics(
   }
 
   const categorySummaries: KasaCategorySummary[] = categories.map((cat) => {
-    const st = salesCatMap.get(cat.id) || { count: 0, cash: 0, card: 0, grand: 0 };
+    const st = salesCatMap.get(cat.id) || { count: 0, cash: 0, card: 0, bankTransfer: 0, grand: 0 };
     return {
       category_id: cat.id,
       category_name: cat.name,
       count: st.count,
       cash_total_kurus: st.cash,
       card_total_kurus: st.card,
+      bank_transfer_total_kurus: st.bankTransfer,
       grand_total_kurus: st.grand,
     };
   });
@@ -1253,6 +1274,7 @@ export async function getPeriodReportMetrics(
     gross_sales_kurus: grossSalesKurus,
     cash_collection_kurus: cashCollectionKurus,
     card_collection_kurus: cardCollectionKurus,
+    bank_transfer_collection_kurus: bankTransferCollectionKurus,
     credit_sales_total_kurus: creditSalesTotalKurus,
     credit_collections_total_kurus: creditCollectionsTotalKurus,
     returns_total_kurus: 0,

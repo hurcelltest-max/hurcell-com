@@ -209,7 +209,7 @@ export default function AdminKasaRaporlarPage() {
           {/* DETAYLI HAREKET TABLOSU */}
           <div className="space-y-3">
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Dönemsel Satış ve Cari Özeti</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-500 font-semibold">Brüt Satış Cirosu</span>
                 <div className="font-extrabold text-slate-900 text-sm">{formatTL(report.gross_sales_kurus)}</div>
@@ -221,6 +221,10 @@ export default function AdminKasaRaporlarPage() {
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-500 font-semibold">Kredi Kartı Tahsilat</span>
                 <div className="font-extrabold text-blue-700 text-sm">{formatTL(report.card_collection_kurus)}</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-500 font-semibold">Havale / EFT Tahsilat</span>
+                <div className="font-extrabold text-purple-700 text-sm">{formatTL(report.bank_transfer_collection_kurus || 0)}</div>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-500 font-semibold">Açılan Cari Satış</span>
@@ -240,6 +244,7 @@ export default function AdminKasaRaporlarPage() {
                     <th className="p-2.5 text-center">Adet</th>
                     <th className="p-2.5 text-right">Nakit</th>
                     <th className="p-2.5 text-right">Kredi Kartı</th>
+                    <th className="p-2.5 text-right">Havale / EFT</th>
                     <th className="p-2.5 text-right">Toplam Ciro</th>
                   </tr>
                 </thead>
@@ -250,6 +255,7 @@ export default function AdminKasaRaporlarPage() {
                       <td className="p-2.5 text-center">{cat.count}</td>
                       <td className="p-2.5 text-right text-emerald-700 font-semibold">{formatTL(cat.cash_total_kurus)}</td>
                       <td className="p-2.5 text-right text-blue-700 font-semibold">{formatTL(cat.card_total_kurus)}</td>
+                      <td className="p-2.5 text-right text-purple-700 font-semibold">{formatTL(cat.bank_transfer_total_kurus || 0)}</td>
                       <td className="p-2.5 text-right font-black text-slate-900">{formatTL(cat.grand_total_kurus)}</td>
                     </tr>
                   ))}

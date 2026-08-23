@@ -39,7 +39,8 @@ function AdminKasaCariContent() {
   // Tahsilat Modal State
   const [selectedCustomer, setSelectedCustomer] = useState<KasaCreditCustomer | null>(null);
   const [amountTL, setAmountTL] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'usd' | 'eur'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'usd' | 'eur'>('cash');
+  const [bankTransferReference, setBankTransferReference] = useState('');
   const [usdPaid, setUsdPaid] = useState('');
   const [eurPaid, setEurPaid] = useState('');
   const [description, setDescription] = useState('');
@@ -78,6 +79,7 @@ function AdminKasaCariContent() {
     setSelectedCustomer(customer);
     setAmountTL(customer.current_balance_tl.toString());
     setPaymentMethod('cash');
+    setBankTransferReference('');
     setUsdPaid('');
     setEurPaid('');
     setDescription('');
@@ -106,6 +108,7 @@ function AdminKasaCariContent() {
           credit_customer_id: selectedCustomer.id,
           amount_tl: amtNum,
           payment_method: paymentMethod,
+          bank_transfer_reference: paymentMethod === 'bank_transfer' && bankTransferReference.trim() ? bankTransferReference.trim() : undefined,
           usd_paid: paymentMethod === 'usd' ? Number(usdPaid) : undefined,
           usd_rate: paymentMethod === 'usd' ? fxRates?.usdRate : undefined,
           eur_paid: paymentMethod === 'eur' ? Number(eurPaid) : undefined,
@@ -358,7 +361,7 @@ function AdminKasaCariContent() {
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Ödeme Yöntemi *</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('cash')}
@@ -372,6 +375,13 @@ function AdminKasaCariContent() {
                     className={`py-2 font-bold rounded-xl text-xs border ${paymentMethod === 'card' ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200'}`}
                   >
                     💳 Kredi Kartı
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('bank_transfer')}
+                    className={`py-2 font-bold rounded-xl text-xs border ${paymentMethod === 'bank_transfer' ? 'bg-purple-600 text-white border-purple-600' : 'bg-slate-50 text-slate-700 border-slate-200'}`}
+                  >
+                    🏦 Havale / EFT
                   </button>
                   <button
                     type="button"
@@ -389,6 +399,20 @@ function AdminKasaCariContent() {
                   </button>
                 </div>
               </div>
+
+              {paymentMethod === 'bank_transfer' && (
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Havale / EFT Referansı (Opsiyonel)</label>
+                  <input
+                    type="text"
+                    maxLength={200}
+                    placeholder="Örn: Dekont No: 98765 / Ziraat Bankası"
+                    value={bankTransferReference}
+                    onChange={(e) => setBankTransferReference(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+                  />
+                </div>
+              )}
 
               {paymentMethod === 'usd' && (
                 <div>

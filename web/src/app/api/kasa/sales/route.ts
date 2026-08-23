@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import { requireKasaAuth } from '@/lib/kasa/auth';
 import { createSaleTransaction, listDailySales, getOrCreateTodayDay } from '@/lib/kasa/service';
 
+function sanitizeReference(ref: unknown): string | undefined {
+  if (!ref) return undefined;
+  let str = String(ref).trim().slice(0, 200);
+  if (str.length === 0) return undefined;
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  return str;
+}
+
 export async function GET(req: Request) {
   try {
     const auth = await requireKasaAuth();
@@ -37,6 +47,8 @@ export async function POST(req: Request) {
       unit_price_tl,
       cash_paid_tl,
       card_paid_tl,
+      bank_transfer_paid_tl,
+      bank_transfer_reference,
       usd_paid,
       usd_rate,
       eur_paid,
@@ -63,6 +75,7 @@ export async function POST(req: Request) {
     const unitPriceKurus = Math.round(Number(unit_price_tl) * 100);
     const cashPaidKurus = cash_paid_tl ? Math.round(Number(cash_paid_tl) * 100) : 0;
     const cardPaidKurus = card_paid_tl ? Math.round(Number(card_paid_tl) * 100) : 0;
+    const bankTransferPaidKurus = bank_transfer_paid_tl ? Math.round(Number(bank_transfer_paid_tl) * 100) : 0;
     const creditPaidKurus = credit_paid_tl ? Math.round(Number(credit_paid_tl) * 100) : 0;
 
     const usdPaidCents = usd_paid ? Math.round(Number(usd_paid) * 100) : 0;
@@ -86,6 +99,8 @@ export async function POST(req: Request) {
       unit_price_kurus: unitPriceKurus,
       cash_paid_kurus: cashPaidKurus,
       card_paid_kurus: cardPaidKurus,
+      bank_transfer_paid_kurus: bankTransferPaidKurus,
+      bank_transfer_reference: sanitizeReference(bank_transfer_reference),
       credit_paid_kurus: creditPaidKurus,
       credit_customer_id: credit_customer_id ? String(credit_customer_id) : undefined,
       usd_paid_cents: usdPaidCents,

@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import { requireKasaAuth } from '@/lib/kasa/auth';
 import { collectCreditPaymentTransaction, getOrCreateTodayDay } from '@/lib/kasa/service';
 
+function sanitizeReference(ref: unknown): string | undefined {
+  if (!ref) return undefined;
+  let str = String(ref).trim().slice(0, 200);
+  if (str.length === 0) return undefined;
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  return str;
+}
+
 export async function POST(req: Request) {
   try {
     const auth = await requireKasaAuth();
@@ -11,6 +21,7 @@ export async function POST(req: Request) {
       credit_customer_id,
       amount_tl,
       payment_method,
+      bank_transfer_reference,
       usd_paid,
       usd_rate,
       eur_paid,
@@ -25,7 +36,7 @@ export async function POST(req: Request) {
     if (!amount_tl || Number(amount_tl) <= 0) {
       return NextResponse.json({ error: 'Geçerli bir tahsilat tutarı giriniz.' }, { status: 400 });
     }
-    if (!payment_method || !['cash', 'card', 'usd', 'eur'].includes(payment_method)) {
+    if (!payment_method || !['cash', 'card', 'bank_transfer', 'usd', 'eur'].includes(payment_method)) {
       return NextResponse.json({ error: 'Geçersiz ödeme yöntemi.' }, { status: 400 });
     }
 
@@ -36,6 +47,7 @@ export async function POST(req: Request) {
       credit_customer_id,
       amount_tl: Number(amount_tl),
       payment_method,
+      bank_transfer_reference: sanitizeReference(bank_transfer_reference),
       usd_paid: usd_paid ? Number(usd_paid) : undefined,
       usd_rate: usd_rate ? Number(usd_rate) : undefined,
       eur_paid: eur_paid ? Number(eur_paid) : undefined,

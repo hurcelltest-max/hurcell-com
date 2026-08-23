@@ -87,6 +87,8 @@ export interface KasaSale {
   service_cost_kurus?: number;
   cash_paid_kurus: number;
   card_paid_kurus: number;
+  bank_transfer_paid_kurus: number;
+  bank_transfer_reference?: string;
   usd_paid_cents: number;
   usd_rate?: number;
   usd_tl_equivalent_kurus: number;
@@ -181,9 +183,11 @@ export interface KasaCreditPayment {
   credit_customer_name?: string;
   credit_account_id: string;
   amount_kurus: number;
-  payment_method: 'cash' | 'card' | 'usd' | 'eur';
+  payment_method: 'cash' | 'card' | 'bank_transfer' | 'usd' | 'eur';
   cash_paid_kurus: number;
   card_paid_kurus: number;
+  bank_transfer_paid_kurus: number;
+  bank_transfer_reference?: string;
   usd_paid_cents: number;
   usd_rate?: number;
   usd_tl_equivalent_kurus: number;
@@ -229,6 +233,7 @@ export interface KasaCategorySummary {
   count: number;
   cash_total_kurus: number;
   card_total_kurus: number;
+  bank_transfer_total_kurus?: number;
   credit_total_kurus?: number;
   grand_total_kurus: number;
 }
@@ -238,6 +243,7 @@ export interface KasaDashboardMetrics {
   total_quantity: number;
   cash_collection_kurus: number;
   card_collection_kurus: number;
+  bank_transfer_collection_kurus: number;
   credit_sales_total_kurus: number;
   credit_collections_total_kurus: number;
   gross_sales_kurus: number;

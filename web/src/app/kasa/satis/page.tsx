@@ -41,9 +41,11 @@ export default function KasaSatisPage() {
   const [description, setDescription] = useState('');
   const [serialImei, setSerialImei] = useState('');
 
-  // Ödeme Seçenekleri State (Nakit, Kart, USD, EUR, Cari)
+  // Ödeme Seçenekleri State (Nakit, Kart, Havale/EFT, USD, EUR, Cari)
   const [cashPaidTL, setCashPaidTL] = useState('');
   const [cardPaidTL, setCardPaidTL] = useState('');
+  const [bankTransferPaidTL, setBankTransferPaidTL] = useState('');
+  const [bankTransferReference, setBankTransferReference] = useState('');
   const [usdPaid, setUsdPaid] = useState('');
   const [eurPaid, setEurPaid] = useState('');
   const [creditPaidTL, setCreditPaidTL] = useState('');
@@ -102,21 +104,25 @@ export default function KasaSatisPage() {
 
   const cashNum = Number(cashPaidTL) || 0;
   const cardNum = Number(cardPaidTL) || 0;
+  const bankTransferNum = Number(bankTransferPaidTL) || 0;
   const creditNum = Number(creditPaidTL) || 0;
 
-  const totalPaymentsEntered = cashNum + cardNum + usdTLEquivalent + eurTLEquivalent + creditNum;
+  const totalPaymentsEntered = cashNum + cardNum + bankTransferNum + usdTLEquivalent + eurTLEquivalent + creditNum;
   const paymentDiff = totalPriceNum - totalPaymentsEntered;
 
   // Hızlı Ödeme Yöntemi Seçimi
-  const handleQuickPaymentFill = (type: 'cash' | 'card' | 'usd' | 'eur' | 'credit') => {
+  const handleQuickPaymentFill = (type: 'cash' | 'card' | 'bank_transfer' | 'usd' | 'eur' | 'credit') => {
     setCashPaidTL('');
     setCardPaidTL('');
+    setBankTransferPaidTL('');
+    setBankTransferReference('');
     setUsdPaid('');
     setEurPaid('');
     setCreditPaidTL('');
 
     if (type === 'cash') setCashPaidTL(totalPriceNum.toString());
     if (type === 'card') setCardPaidTL(totalPriceNum.toString());
+    if (type === 'bank_transfer') setBankTransferPaidTL(totalPriceNum.toString());
     if (type === 'usd' && usdRate > 0) setUsdPaid((totalPriceNum / usdRate).toFixed(2));
     if (type === 'eur' && eurRate > 0) setEurPaid((totalPriceNum / eurRate).toFixed(2));
     if (type === 'credit') {
@@ -189,6 +195,8 @@ export default function KasaSatisPage() {
           cost_price_tl: costPriceTL ? Number(costPriceTL) : undefined,
           cash_paid_tl: cashNum,
           card_paid_tl: cardNum,
+          bank_transfer_paid_tl: bankTransferNum,
+          bank_transfer_reference: bankTransferReference.trim() || undefined,
           usd_paid: usdPaidNum > 0 ? usdPaidNum : undefined,
           eur_paid: eurPaidNum > 0 ? eurPaidNum : undefined,
           credit_paid_tl: creditNum > 0 ? creditNum : undefined,
@@ -219,6 +227,8 @@ export default function KasaSatisPage() {
       setSerialImei('');
       setCashPaidTL('');
       setCardPaidTL('');
+      setBankTransferPaidTL('');
+      setBankTransferReference('');
       setUsdPaid('');
       setEurPaid('');
       setCreditPaidTL('');
@@ -343,12 +353,15 @@ export default function KasaSatisPage() {
         <div className="space-y-4 pt-2">
           <div className="flex justify-between items-center border-b pb-2">
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">2. Ödeme Yöntemi Dağılımı</h2>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 flex-wrap">
               <button type="button" onClick={() => handleQuickPaymentFill('cash')} className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg hover:bg-emerald-200">
                 Tamamı Nakit
               </button>
               <button type="button" onClick={() => handleQuickPaymentFill('card')} className="px-2.5 py-1 bg-blue-100 text-blue-800 text-[11px] font-bold rounded-lg hover:bg-blue-200">
                 Tamamı Kart
+              </button>
+              <button type="button" onClick={() => handleQuickPaymentFill('bank_transfer')} className="px-2.5 py-1 bg-purple-100 text-purple-900 text-[11px] font-bold rounded-lg hover:bg-purple-200">
+                Tamamı Havale/EFT
               </button>
               <button type="button" onClick={() => handleQuickPaymentFill('credit')} className="px-2.5 py-1 bg-amber-100 text-amber-900 text-[11px] font-bold rounded-lg hover:bg-amber-200">
                 Tamamı Cari / Veresiye
@@ -356,7 +369,7 @@ export default function KasaSatisPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
               <label className="block text-xs font-bold uppercase text-slate-700">Nakit TL</label>
               <input
@@ -380,6 +393,19 @@ export default function KasaSatisPage() {
                 value={cardPaidTL}
                 onChange={(e) => setCardPaidTL(e.target.value)}
                 className="w-full p-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm"
+              />
+            </div>
+
+            <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl space-y-1">
+              <label className="block text-xs font-extrabold text-purple-950 uppercase">Havale / EFT TL</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={bankTransferPaidTL}
+                onChange={(e) => setBankTransferPaidTL(e.target.value)}
+                className="w-full p-2.5 bg-white border border-purple-300 rounded-lg font-bold text-sm text-purple-900"
               />
             </div>
 
@@ -414,6 +440,20 @@ export default function KasaSatisPage() {
               )}
             </div>
           </div>
+
+          {Number(bankTransferPaidTL) > 0 && (
+            <div className="p-3 bg-purple-50/50 border border-purple-200 rounded-xl space-y-1">
+              <label className="block text-xs font-bold uppercase text-purple-900">Havale / EFT Referansı (Opsiyonel)</label>
+              <input
+                type="text"
+                maxLength={200}
+                placeholder="Örn: Garanti Bankası - Dekont No: 12345 / Ahmet Yılmaz"
+                value={bankTransferReference}
+                onChange={(e) => setBankTransferReference(e.target.value)}
+                className="w-full p-2.5 bg-white border border-purple-200 rounded-lg text-xs font-medium"
+              />
+            </div>
+          )}
 
           {/* DÖVİZ SEÇENEKLERİ (USD & EUR) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

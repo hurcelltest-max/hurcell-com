@@ -253,53 +253,8 @@ BEGIN
 END;
 $$;
 
--- 4. BACKWARD COMPATIBILITY OVERLOAD: ESKİ CANLI SATIŞ ÇAĞRILARINI DESTEKLEYEN FN_KASA_CREATE_SALE (22 PARAMS)
-CREATE OR REPLACE FUNCTION public.fn_kasa_create_sale(
-    p_actor_user_id UUID,
-    p_kasa_day_id UUID,
-    p_category_id UUID,
-    p_product_name TEXT,
-    p_quantity INT,
-    p_unit_price_kurus BIGINT,
-    p_cost_price_kurus BIGINT,
-    p_cash_paid_kurus BIGINT,
-    p_card_paid_kurus BIGINT,
-    p_usd_paid_cents BIGINT,
-    p_usd_rate NUMERIC,
-    p_usd_tl_equivalent_kurus BIGINT,
-    p_eur_paid_cents BIGINT,
-    p_eur_rate NUMERIC,
-    p_eur_tl_equivalent_kurus BIGINT,
-    p_credit_paid_kurus BIGINT,
-    p_credit_customer_id UUID,
-    p_brand TEXT,
-    p_model TEXT,
-    p_product_code TEXT,
-    p_description TEXT,
-    p_idempotency_key TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-    RETURN public.fn_kasa_create_sale(
-        p_actor_user_id, p_kasa_day_id, p_category_id, p_product_name, p_quantity,
-        p_unit_price_kurus, p_cost_price_kurus, p_cash_paid_kurus, p_card_paid_kurus,
-        p_usd_paid_cents, p_usd_rate, p_usd_tl_equivalent_kurus, p_eur_paid_cents,
-        p_eur_rate, p_eur_tl_equivalent_kurus, p_credit_paid_kurus, p_credit_customer_id,
-        p_brand, p_model, p_product_code, p_description, p_idempotency_key,
-        0, NULL
-    );
-END;
-$$;
-
 REVOKE ALL ON FUNCTION public.fn_kasa_create_sale(UUID, UUID, UUID, TEXT, INT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_kasa_create_sale(UUID, UUID, UUID, TEXT, INT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, TEXT) TO service_role;
-
-REVOKE ALL ON FUNCTION public.fn_kasa_create_sale(UUID, UUID, UUID, TEXT, INT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_kasa_create_sale(UUID, UUID, UUID, TEXT, INT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT) TO service_role;
 
 -- 5. SECURE ATOMIC RPC: CARİ TAHSİLAT ALMA (HAVALE / EFT DESTEKLİ GÜNCEL SÜRÜM - 17 PARAMS)
 -- NOT: PostgREST PGRST203 belirsizlik hatasını önlemek için 17 parametreli yeni sürümde DEFAULT kullanılmaz.
@@ -555,44 +510,8 @@ BEGIN
 END;
 $$;
 
--- 6. BACKWARD COMPATIBILITY OVERLOAD: ESKİ CANLI TAHSİLAT ÇAĞRILARINI DESTEKLEYEN FN_KASA_COLLECT_CREDIT_PAYMENT (15 PARAMS)
-CREATE OR REPLACE FUNCTION public.fn_kasa_collect_credit_payment(
-    p_actor_user_id UUID,
-    p_kasa_day_id UUID,
-    p_credit_customer_id UUID,
-    p_amount_kurus BIGINT,
-    p_payment_method TEXT,
-    p_cash_paid_kurus BIGINT,
-    p_card_paid_kurus BIGINT,
-    p_usd_paid_cents BIGINT,
-    p_usd_rate NUMERIC,
-    p_usd_tl_equivalent_kurus BIGINT,
-    p_eur_paid_cents BIGINT,
-    p_eur_rate NUMERIC,
-    p_eur_tl_equivalent_kurus BIGINT,
-    p_description TEXT,
-    p_idempotency_key TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-    RETURN public.fn_kasa_collect_credit_payment(
-        p_actor_user_id, p_kasa_day_id, p_credit_customer_id, p_amount_kurus, p_payment_method,
-        p_cash_paid_kurus, p_card_paid_kurus, p_usd_paid_cents, p_usd_rate, p_usd_tl_equivalent_kurus,
-        p_eur_paid_cents, p_eur_rate, p_eur_tl_equivalent_kurus, p_description, p_idempotency_key,
-        CASE WHEN p_payment_method = 'bank_transfer' THEN p_amount_kurus ELSE 0 END, NULL
-    );
-END;
-$$;
-
 REVOKE ALL ON FUNCTION public.fn_kasa_collect_credit_payment(UUID, UUID, UUID, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, TEXT, TEXT, BIGINT, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_kasa_collect_credit_payment(UUID, UUID, UUID, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, TEXT, TEXT, BIGINT, TEXT) TO service_role;
-
-REVOKE ALL ON FUNCTION public.fn_kasa_collect_credit_payment(UUID, UUID, UUID, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_kasa_collect_credit_payment(UUID, UUID, UUID, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, TEXT, TEXT) TO service_role;
 
 -- 7. SECURE ATOMIC RPC: SATIŞ İPTALİ (HAVALE / EFT DESTEKLİ GÜNCEL SÜRÜM)
 DROP FUNCTION IF EXISTS public.fn_kasa_cancel_sale(UUID, UUID, TEXT);

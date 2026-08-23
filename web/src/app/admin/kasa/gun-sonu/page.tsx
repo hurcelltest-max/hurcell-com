@@ -10,20 +10,10 @@ import {
   ArrowLeft,
   Banknote,
   Coins,
+  CreditCard,
+  Clock,
 } from 'lucide-react';
-
-interface Metrics {
-  expected_cash_kurus: number;
-  opening_balance_kurus: number;
-  cash_collection_kurus: number;
-  card_collection_kurus: number;
-  expenses_total_kurus: number;
-  capital_injected_kurus: number;
-  owner_withdrawn_kurus: number;
-  bank_deposits_total_kurus: number;
-  usd_balance_cents: number;
-  eur_balance_cents: number;
-}
+import { KasaDashboardMetrics } from '@/lib/kasa/types';
 
 function formatTL(kurus: number): string {
   return new Intl.NumberFormat('tr-TR', {
@@ -39,7 +29,7 @@ function formatFX(cents: number, symbol: string): string {
 
 export default function AdminGunSonuPage() {
   const router = useRouter();
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [metrics, setMetrics] = useState<KasaDashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   // TL Sayım State
@@ -145,7 +135,7 @@ export default function AdminGunSonuPage() {
           <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
             <CalendarCheck className="text-emerald-600" size={26} /> Gün Sonu Kapanış İşlemi
           </h1>
-          <p className="text-xs text-slate-500">Fiziksel Nakit TL ve USD/EUR Döviz Sayımı ve Kasa Kapatma</p>
+          <p className="text-xs text-slate-500">Fiziksel Nakit TL, USD/EUR Döviz ve Gün Sonu Cari Veresiye Sayım Özeti</p>
         </div>
       </div>
 
@@ -158,6 +148,47 @@ export default function AdminGunSonuPage() {
       {success && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-extrabold rounded-2xl flex items-center gap-2">
           <CheckCircle size={20} className="text-emerald-600" /> {success}
+        </div>
+      )}
+
+      {/* GÜN SONU CARİ / VERESİYE HAREKET ÖZETİ */}
+      {metrics && (
+        <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl space-y-3">
+          <div className="flex items-center justify-between text-amber-950 font-bold text-sm border-b border-amber-200 pb-2">
+            <span className="flex items-center gap-2">
+              <CreditCard size={18} className="text-amber-700" /> Gün Sonu Cari / Veresiye Durum Özeti
+            </span>
+            <span className="text-xs bg-amber-200 px-2.5 py-0.5 rounded-lg text-amber-900 font-extrabold">
+              İhtiyatlı Risk Takibi
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="bg-white p-3 rounded-xl border border-amber-200">
+              <span className="text-[10px] uppercase font-bold text-slate-500">Bugünkü Cari Satış</span>
+              <div className="text-sm font-extrabold text-amber-900">{formatTL(metrics.credit_sales_total_kurus || 0)}</div>
+            </div>
+
+            <div className="bg-white p-3 rounded-xl border border-amber-200">
+              <span className="text-[10px] uppercase font-bold text-slate-500">Bugünkü Cari Tahsilat</span>
+              <div className="text-sm font-extrabold text-emerald-700">{formatTL(metrics.credit_collections_total_kurus || 0)}</div>
+            </div>
+
+            <div className="bg-white p-3 rounded-xl border border-amber-200">
+              <span className="text-[10px] uppercase font-bold text-slate-500">Açık Cari Toplamı</span>
+              <div className="text-sm font-black text-amber-950">{formatTL(metrics.open_credit_total_kurus || 0)}</div>
+            </div>
+
+            <div className={`p-3 rounded-xl border ${metrics.overdue_credit_total_kurus > 0 ? 'bg-red-100 border-red-300 text-red-950' : 'bg-white border-amber-200'}`}>
+              <span className="text-[10px] uppercase font-extrabold flex items-center gap-1">
+                <Clock size={12} /> 7+ Gün Geciken
+              </span>
+              <div className="text-sm font-black text-red-700">{formatTL(metrics.overdue_credit_total_kurus || 0)}</div>
+              {metrics.overdue_customer_count > 0 && (
+                <div className="text-[10px] font-bold text-red-800">{metrics.overdue_customer_count} Müşteride</div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -257,7 +288,7 @@ export default function AdminGunSonuPage() {
           <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Kapanış Notu (Opsiyonel)</label>
           <textarea
             rows={2}
-            placeholder="Nakit/döviz sayımı veya kasa farkı açıklaması..."
+            placeholder="Nakit/döviz/cari veresiye sayımı veya kasa farkı açıklaması..."
             value={closingNote}
             onChange={(e) => setClosingNote(e.target.value)}
             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"

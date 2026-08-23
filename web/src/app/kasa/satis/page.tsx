@@ -5,21 +5,28 @@ import { useRouter } from 'next/navigation';
 import {
   ShoppingBag,
   CheckCircle,
-  AlertCircle,
-  ArrowLeft,
-  Wrench,
-  Globe,
+  AlertTriangle,
   Coins,
+  CreditCard,
+  Banknote,
+  Search,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
+import { KasaCategory, KasaCreditCustomer, KasaFXRatesResponse } from '@/lib/kasa/types';
 
-interface Category {
-  id: string;
-  name: string;
+function formatTL(kurus: number): string {
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+    maximumFractionDigits: 2,
+  }).format(kurus / 100);
 }
 
-export default function FastPOSPage() {
+export default function KasaSatisPage() {
   const router = useRouter();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<KasaCategory[]>([]);
+  const [fxRates, setFxRates] = useState<KasaFXRatesResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Form State
@@ -27,384 +34,331 @@ export default function FastPOSPage() {
   const [productName, setProductName] = useState('');
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [productCode, setProductCode] = useState('');
+  const [quantity, setQuantity] = useState('1');
   const [unitPriceTL, setUnitPriceTL] = useState('');
   const [costPriceTL, setCostPriceTL] = useState('');
-  const [serviceCostTL, setServiceCostTL] = useState('');
+  const [description, setDescription] = useState('');
+  const [serialImei, setSerialImei] = useState('');
 
-  // Ödeme Türleri State (Nakit TL, Kart TL, USD Nakit, EUR Nakit)
+  // Ödeme Seçenekleri State (Nakit, Kart, USD, EUR, Cari)
   const [cashPaidTL, setCashPaidTL] = useState('');
   const [cardPaidTL, setCardPaidTL] = useState('');
   const [usdPaid, setUsdPaid] = useState('');
   const [eurPaid, setEurPaid] = useState('');
+  const [creditPaidTL, setCreditPaidTL] = useState('');
 
-  // Döviz Kurları (TCMB)
-  const [usdRate, setUsdRate] = useState<number>(40.00);
-  const [eurRate, setEurRate] = useState<number>(45.00);
-  const [fxSource, setFxSource] = useState<string>('TCMB Efektif Alış');
+  // Cari Müşteri Arama & Seçim State
+  const [creditCustomerSearch, setCreditCustomerSearch] = useState('');
+  const [creditCustomers, setCreditCustomers] = useState<KasaCreditCustomer[]>([]);
+  const [selectedCreditCustomer, setSelectedCreditCustomer] = useState<KasaCreditCustomer | null>(null);
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
 
-  // Müşteri & Cihaz Bilgileri
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [serialImei, setSerialImei] = useState('');
-  const [description, setDescription] = useState('');
-
-  // Teknik Servis Özel Alanları
-  const [deviceType, setDeviceType] = useState('');
-  const [serviceActionTaken, setServiceActionTaken] = useState('');
-
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    async function initData() {
+    async function loadInitialData() {
       try {
         setLoading(true);
-        const res = await fetch('/api/kasa/categories');
-        if (res.ok) {
-          const data = await res.json();
-          setCategories(data.categories || []);
-          if (data.categories?.length > 0) {
-            setCategoryId(data.categories[0].id);
-          }
+        const [catRes, rateRes] = await Promise.all([
+          fetch('/api/kasa/categories'),
+          fetch('/api/kasa/rates'),
+        ]);
+
+        if (catRes.ok) {
+          const cData = await catRes.json();
+          setCategories(cData.categories || []);
+          if (cData.categories?.length > 0) setCategoryId(cData.categories[0].id);
         }
 
-        const ratesRes = await fetch('/api/kasa/rates');
-        if (ratesRes.ok) {
-          const rData = await ratesRes.json();
-          if (rData.rates) {
-            setUsdRate(rData.rates.usdRate);
-            setEurRate(rData.rates.eurRate);
-            setFxSource(rData.rates.source);
-          }
+        if (rateRes.ok) {
+          const rData = await rateRes.json();
+          setFxRates(rData.rates);
         }
-      } catch {
-        // Fallback
+      } catch (err: any) {
+        setError('İlk veriler yüklenirken hata oluştu.');
       } finally {
         setLoading(false);
       }
     }
-    initData();
+    loadInitialData();
   }, []);
 
-  const selectedCategoryObj = categories.find((c) => c.id === categoryId);
-  const isTechnicalService = selectedCategoryObj?.name === 'Teknik Servis';
+  // Toplam Tutar Matematiksel Hesaplama
+  const qtyNum = Math.max(parseInt(quantity) || 1, 1);
+  const unitPriceNum = Number(unitPriceTL) || 0;
+  const totalPriceNum = qtyNum * unitPriceNum;
 
-  // Hesaplamalar
-  const totalTL = Math.round((Number(unitPriceTL) || 0) * (Number(quantity) || 1) * 100) / 100;
+  const usdRate = fxRates?.usdRate || 0;
+  const eurRate = fxRates?.eurRate || 0;
+
+  const usdPaidNum = Number(usdPaid) || 0;
+  const eurPaidNum = Number(eurPaid) || 0;
+  const usdTLEquivalent = usdPaidNum * usdRate;
+  const eurTLEquivalent = eurPaidNum * eurRate;
+
   const cashNum = Number(cashPaidTL) || 0;
   const cardNum = Number(cardPaidTL) || 0;
-  const usdNum = Number(usdPaid) || 0;
-  const eurNum = Number(eurPaid) || 0;
+  const creditNum = Number(creditPaidTL) || 0;
 
-  const usdTLEquivalent = Math.round(usdNum * usdRate * 100) / 100;
-  const eurTLEquivalent = Math.round(eurNum * eurRate * 100) / 100;
+  const totalPaymentsEntered = cashNum + cardNum + usdTLEquivalent + eurTLEquivalent + creditNum;
+  const paymentDiff = totalPriceNum - totalPaymentsEntered;
 
-  const paidTotalTL = Math.round((cashNum + cardNum + usdTLEquivalent + eurTLEquivalent) * 100) / 100;
-  const isPaymentMathValid = Math.abs(paidTotalTL - totalTL) < 0.01;
+  // Hızlı Ödeme Yöntemi Seçimi
+  const handleQuickPaymentFill = (type: 'cash' | 'card' | 'usd' | 'eur' | 'credit') => {
+    setCashPaidTL('');
+    setCardPaidTL('');
+    setUsdPaid('');
+    setEurPaid('');
+    setCreditPaidTL('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    if (type === 'cash') setCashPaidTL(totalPriceNum.toString());
+    if (type === 'card') setCardPaidTL(totalPriceNum.toString());
+    if (type === 'usd' && usdRate > 0) setUsdPaid((totalPriceNum / usdRate).toFixed(2));
+    if (type === 'eur' && eurRate > 0) setEurPaid((totalPriceNum / eurRate).toFixed(2));
+    if (type === 'credit') {
+      setCreditPaidTL(totalPriceNum.toString());
+      setShowCustomerModal(true);
+    }
+  };
+
+  // Cari Müşteri Arama
+  const handleSearchCustomers = async (q: string) => {
+    setCreditCustomerSearch(q);
+    try {
+      setSearchingCustomers(true);
+      const res = await fetch(`/api/kasa/credit-customers?q=${encodeURIComponent(q)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCreditCustomers(data.customers || []);
+      }
+    } catch {
+      // Hata yok
+    } finally {
+      setSearchingCustomers(false);
+    }
+  };
+
+  const handleSelectCustomer = (customer: KasaCreditCustomer) => {
+    if (!customer.is_approved) {
+      alert('Bu müşterinin cari hesabı onaylı değildir veya limiti sıfırdır. Cari satış yapılamaz!');
+      return;
+    }
+    setSelectedCreditCustomer(customer);
+    setShowCustomerModal(false);
+  };
+
+  const handleSubmitSale = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
-    setFormSuccess(null);
+    setError(null);
+    setSuccess(null);
 
-    if (!productName.trim()) return setFormError('Lütfen ürün / işlem adını girin.');
-    if (!totalTL || totalTL <= 0) return setFormError('Lütfen geçerli bir birim fiyat girin.');
-    if (!isPaymentMathValid) {
-      return setFormError(
-        `Ödeme toplamı (${paidTotalTL.toLocaleString('tr-TR')} TL), satış tutarına (${totalTL.toLocaleString('tr-TR')} TL) eşit değil.`
-      );
+    if (totalPriceNum <= 0) {
+      return setError('Lütfen geçerli bir ürün birim fiyatı girin.');
+    }
+
+    if (Math.abs(paymentDiff) > 0.05) {
+      return setError(`Girilen ödemeler toplamı (${totalPaymentsEntered.toFixed(2)} TL), satış toplamından (${totalPriceNum.toFixed(2)} TL) farklıdır. Fark: ${paymentDiff.toFixed(2)} TL`);
+    }
+
+    if (creditNum > 0) {
+      if (!selectedCreditCustomer) {
+        return setError('Cari / Veresiye ödemeli satışlarda bir cari müşteri seçilmesi zorunludur.');
+      }
+      if (creditNum > selectedCreditCustomer.available_limit_tl + 0.05) {
+        return setError(`Müşterinin kullanılabilir cari limiti (${selectedCreditCustomer.available_limit_tl.toFixed(2)} TL), veresiye tutarından (${creditNum.toFixed(2)} TL) yetersizdir!`);
+      }
     }
 
     try {
       setSubmitting(true);
-
-      const payload: any = {
-        category_id: categoryId,
-        product_name: productName.trim(),
-        brand: brand.trim() || undefined,
-        model: model.trim() || undefined,
-        quantity: Number(quantity),
-        unit_price_tl: Number(unitPriceTL),
-        cash_paid_tl: cashNum,
-        card_paid_tl: cardNum,
-        usd_paid: usdNum,
-        usd_rate: usdNum > 0 ? usdRate : undefined,
-        eur_paid: eurNum,
-        eur_rate: eurNum > 0 ? eurRate : undefined,
-        description: description.trim() || undefined,
-        customer_name: customerName.trim() || undefined,
-        customer_phone: customerPhone.trim() || undefined,
-        serial_imei: serialImei.trim() || undefined,
-        cost_price_tl: costPriceTL ? Number(costPriceTL) : undefined,
-        idempotency_key: `sale_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      };
-
-      if (isTechnicalService) {
-        payload.service_cost_tl = serviceCostTL ? Number(serviceCostTL) : undefined;
-        payload.technical_service_details = {
-          device_type: deviceType.trim() || undefined,
-          brand: brand.trim() || undefined,
-          model: model.trim() || undefined,
-          action_taken: serviceActionTaken.trim() || undefined,
-          service_cost_kurus: serviceCostTL ? Math.round(Number(serviceCostTL) * 100) : undefined,
-        };
-      }
-
       const res = await fetch('/api/kasa/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          category_id: categoryId,
+          product_name: productName.trim(),
+          brand: brand.trim() || undefined,
+          model: model.trim() || undefined,
+          product_code: productCode.trim() || undefined,
+          quantity: qtyNum,
+          unit_price_tl: unitPriceNum,
+          cost_price_tl: costPriceTL ? Number(costPriceTL) : undefined,
+          cash_paid_tl: cashNum,
+          card_paid_tl: cardNum,
+          usd_paid: usdPaidNum > 0 ? usdPaidNum : undefined,
+          eur_paid: eurPaidNum > 0 ? eurPaidNum : undefined,
+          credit_paid_tl: creditNum > 0 ? creditNum : undefined,
+          credit_customer_id: creditNum > 0 ? selectedCreditCustomer?.id : undefined,
+          serial_imei: serialImei.trim() || undefined,
+          description: description.trim() || undefined,
+          idempotency_key: `sale_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Satış kaydı gerçekleştirilemedi.');
 
-      setFormSuccess(`Satış Başarıyla Oluşturuldu! Fiş No: ${data.sale.receipt_no}`);
+      setSuccess(`Satış Kaydı Oluşturuldu! Fiş No: ${data.sale.receipt_no}`);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('kasa-updated'));
       }
 
-      setTimeout(() => {
-        setProductName('');
-        setBrand('');
-        setModel('');
-        setUnitPriceTL('');
-        setCostPriceTL('');
-        setServiceCostTL('');
-        setCashPaidTL('');
-        setCardPaidTL('');
-        setUsdPaid('');
-        setEurPaid('');
-        setDescription('');
-        setCustomerName('');
-        setCustomerPhone('');
-        setSerialImei('');
-        setDeviceType('');
-        setServiceActionTaken('');
-        setFormSuccess(null);
-      }, 1500);
+      // Formu Temizle
+      setProductName('');
+      setBrand('');
+      setModel('');
+      setProductCode('');
+      setQuantity('1');
+      setUnitPriceTL('');
+      setCostPriceTL('');
+      setDescription('');
+      setSerialImei('');
+      setCashPaidTL('');
+      setCardPaidTL('');
+      setUsdPaid('');
+      setEurPaid('');
+      setCreditPaidTL('');
+      setSelectedCreditCustomer(null);
     } catch (err: any) {
-      setFormError(err.message || 'Satış oluşturulurken hata oluştu.');
+      setError(err.message || 'Satış tamamlanamadı.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleFullCash = () => {
-    setCashPaidTL(totalTL.toString());
-    setCardPaidTL('0');
-    setUsdPaid('0');
-    setEurPaid('0');
-  };
-
-  const handleFullCard = () => {
-    setCashPaidTL('0');
-    setCardPaidTL(totalTL.toString());
-    setUsdPaid('0');
-    setEurPaid('0');
-  };
-
   if (loading) {
-    return <div className="p-8 text-slate-500 font-medium">Satış ekranı yükleniyor...</div>;
+    return <div className="p-8 text-slate-500 font-medium">Yükleniyor...</div>;
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push('/kasa')}
-            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-              <ShoppingBag className="text-blue-600" size={26} /> Hızlı Satış & Tahsilat Girişi
-            </h1>
-            <p className="text-xs text-slate-500">Nakit, Kredi Kartı, USD ($) ve EUR (€) Karma Ödeme Girişi</p>
-          </div>
-        </div>
-
-        {/* Kur Göstergesi */}
-        <div className="hidden sm:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 border border-slate-200">
-          <Globe size={14} className="text-blue-600" />
-          <span>TCMB: <strong>1$ = {usdRate.toFixed(2)} TL</strong> | <strong>1€ = {eurRate.toFixed(2)} TL</strong></span>
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+            <ShoppingBag className="text-blue-600" size={26} /> Hızlı Satış Fişi Girişi
+          </h1>
+          <p className="text-xs text-slate-500">Nakit, Kart, USD, EUR ve Cari / Veresiye Satış Kaydı</p>
         </div>
       </div>
 
-      {formError && (
+      {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-800 text-sm font-semibold rounded-2xl flex items-center gap-2">
-          <AlertCircle size={20} className="shrink-0 text-red-600" />
-          {formError}
+          <AlertTriangle size={18} className="shrink-0 text-red-600" /> {error}
         </div>
       )}
 
-      {formSuccess && (
+      {success && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-extrabold rounded-2xl flex items-center gap-2">
-          <CheckCircle size={20} className="shrink-0 text-emerald-600" />
-          {formSuccess}
+          <CheckCircle size={18} className="shrink-0 text-emerald-600" /> {success}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+      <form onSubmit={handleSubmitSale} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
         
-        {/* KATEGORİ VE ÜRÜN BİLGİLERİ */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Satış Kategorisi *</label>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900"
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* ÜRÜN BİLGİLERİ */}
+        <div className="space-y-4">
+          <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2">1. Ürün ve Kategori Bilgisi</h2>
 
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-              {isTechnicalService ? 'İşlem / Yapılan Hizmet Adı *' : 'Ürün / Hizmet Adı *'}
-            </label>
-            <input
-              type="text"
-              required
-              placeholder={isTechnicalService ? 'Örn: iPhone 13 Ekran Değişimi' : 'Örn: Samsung A54 Kılıf'}
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold"
-            />
-          </div>
-        </div>
-
-        {/* TEKNİK SERVİS ÖZEL ALANLARI */}
-        {isTechnicalService && (
-          <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-2xl space-y-4">
-            <div className="flex items-center gap-2 text-blue-900 font-bold text-sm">
-              <Wrench size={18} className="text-blue-600" /> Teknik Servis Detayları
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-blue-800 mb-1">Cihaz Türü</label>
-                <input
-                  type="text"
-                  placeholder="Örn: Telefon / Tablet"
-                  value={deviceType}
-                  onChange={(e) => setDeviceType(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-blue-200 rounded-xl text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-blue-800 mb-1">Marka / Model</label>
-                <input
-                  type="text"
-                  placeholder="Örn: Apple iPhone 11"
-                  value={brand}
-                  onChange={(e) => setBrand(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-blue-200 rounded-xl text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-blue-800 mb-1">Yedek Parça / Parça Maliyeti (TL)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="Örn: 850.00"
-                  value={serviceCostTL}
-                  onChange={(e) => setServiceCostTL(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-blue-200 rounded-xl text-sm font-bold text-slate-900"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ADET, BİRİM FİYAT VE MALİYET */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Satış Adedi *</label>
-            <input
-              type="number"
-              min="1"
-              required
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Satış Birim Fiyatı (TL) *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              required
-              placeholder="0.00"
-              value={unitPriceTL}
-              onChange={(e) => setUnitPriceTL(e.target.value)}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-extrabold text-slate-900"
-            />
-          </div>
-
-          {!isTechnicalService && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Ürün Alış / Maliyet Fiyatı (TL)</label>
+              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Gelir Kategorisi *</label>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900"
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Ürün / Hizmet Adı *</label>
+              <input
+                type="text"
+                required
+                placeholder="Örn: iPhone 13 Pro Kılıf"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Adet *</label>
+              <input
+                type="number"
+                min="1"
+                required
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-center text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Birim Satış Fiyatı (TL) *</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                placeholder="0.00"
+                value={unitPriceTL}
+                onChange={(e) => setUnitPriceTL(e.target.value)}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-lg text-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Birim Alış Maliyeti (TL)</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="Örn: 150.00 (Boş kalırsa uyarı verir)"
+                placeholder="Opsiyonel"
                 value={costPriceTL}
                 onChange={(e) => setCostPriceTL(e.target.value)}
                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold"
               />
             </div>
-          )}
+
+            <div className="p-3 bg-slate-900 text-white rounded-xl flex flex-col justify-center items-center">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Satış Toplamı</span>
+              <span className="text-lg font-black text-emerald-400">{totalPriceNum.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</span>
+            </div>
+          </div>
         </div>
 
-        {/* HESAPLANAN TOPLAM TUTAR BÖLÜMÜ */}
-        <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center justify-between">
-          <span className="text-xs font-bold uppercase text-slate-400">Toplam Satış Tutarı:</span>
-          <span className="text-2xl font-black text-emerald-400">
-            {totalTL.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL
-          </span>
-        </div>
-
-        {/* ÖDEME TÜRLERİ VE KARMA TAHSİLAT (TL, USD, EUR) */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold uppercase text-slate-700">
-              Tahsilat / Ödeme Yöntemi Dağılımı *
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleFullCash}
-                className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg hover:bg-emerald-200"
-              >
-                Tümü Nakit TL
+        {/* ÖDEME YÖNTEMİ SEÇİMİ VE CARİ ÖDEME */}
+        <div className="space-y-4 pt-2">
+          <div className="flex justify-between items-center border-b pb-2">
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">2. Ödeme Yöntemi Dağılımı</h2>
+            <div className="flex gap-1.5">
+              <button type="button" onClick={() => handleQuickPaymentFill('cash')} className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg hover:bg-emerald-200">
+                Tamamı Nakit
               </button>
-              <button
-                type="button"
-                onClick={handleFullCard}
-                className="px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-lg hover:bg-blue-200"
-              >
-                Tümü Kredi Kartı
+              <button type="button" onClick={() => handleQuickPaymentFill('card')} className="px-2.5 py-1 bg-blue-100 text-blue-800 text-[11px] font-bold rounded-lg hover:bg-blue-200">
+                Tamamı Kart
+              </button>
+              <button type="button" onClick={() => handleQuickPaymentFill('credit')} className="px-2.5 py-1 bg-amber-100 text-amber-900 text-[11px] font-bold rounded-lg hover:bg-amber-200">
+                Tamamı Cari / Veresiye
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Nakit TL</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+              <label className="block text-xs font-bold uppercase text-slate-700">Nakit TL</label>
               <input
                 type="number"
                 step="0.01"
@@ -412,12 +366,12 @@ export default function FastPOSPage() {
                 placeholder="0.00"
                 value={cashPaidTL}
                 onChange={(e) => setCashPaidTL(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
+                className="w-full p-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm"
               />
             </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Kredi Kartı TL</label>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+              <label className="block text-xs font-bold uppercase text-slate-700">Kredi Kartı TL</label>
               <input
                 type="number"
                 step="0.01"
@@ -425,117 +379,193 @@ export default function FastPOSPage() {
                 placeholder="0.00"
                 value={cardPaidTL}
                 onChange={(e) => setCardPaidTL(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
+                className="w-full p-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm"
               />
             </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-blue-700 mb-1 flex items-center justify-between">
-                <span>USD Nakit ($)</span>
-                <span className="text-[10px] text-slate-400">({usdRate.toFixed(2)} TL)</span>
-              </label>
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
+              <div className="flex justify-between items-center">
+                <label className="block text-xs font-extrabold text-amber-950 uppercase">Cari / Veresiye TL</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSearchCustomers('');
+                    setShowCustomerModal(true);
+                  }}
+                  className="text-[10px] font-bold text-blue-700 underline"
+                >
+                  {selectedCreditCustomer ? 'Değiştir' : 'Müşteri Seç'}
+                </button>
+              </div>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="0.00 $"
+                placeholder="0.00"
+                value={creditPaidTL}
+                onChange={(e) => setCreditPaidTL(e.target.value)}
+                className="w-full p-2.5 bg-white border border-amber-300 rounded-lg font-extrabold text-sm text-amber-900"
+              />
+              {selectedCreditCustomer && (
+                <div className="text-[11px] text-amber-900 font-semibold flex items-center justify-between pt-1">
+                  <span className="truncate max-w-[140px]">👤 {selectedCreditCustomer.full_name}</span>
+                  <span className="text-[10px] bg-amber-200 px-1.5 py-0.5 rounded">Limit: {selectedCreditCustomer.available_limit_tl.toFixed(0)} TL</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* DÖVİZ SEÇENEKLERİ (USD & EUR) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1">
+              <div className="flex justify-between text-xs font-bold text-blue-900">
+                <span>USD Nakit ($)</span>
+                <span>1 USD = {usdRate.toFixed(2)} TL</span>
+              </div>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
                 value={usdPaid}
                 onChange={(e) => setUsdPaid(e.target.value)}
-                className="w-full p-2.5 bg-blue-50/50 border border-blue-200 rounded-xl text-sm font-extrabold text-blue-900"
+                className="w-full p-2 bg-white border border-blue-300 rounded-lg font-bold text-sm"
               />
-              {usdTLEquivalent > 0 && (
-                <span className="text-[10px] text-blue-700 font-bold block mt-0.5">
-                  = {usdTLEquivalent.toLocaleString('tr-TR')} TL
-                </span>
+              {usdPaidNum > 0 && (
+                <div className="text-[11px] text-blue-700 font-bold">
+                  TL Karşılığı: {usdTLEquivalent.toFixed(2)} TL
+                </div>
               )}
             </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-indigo-700 mb-1 flex items-center justify-between">
+            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-1">
+              <div className="flex justify-between text-xs font-bold text-indigo-900">
                 <span>EUR Nakit (€)</span>
-                <span className="text-[10px] text-slate-400">({eurRate.toFixed(2)} TL)</span>
-              </label>
+                <span>1 EUR = {eurRate.toFixed(2)} TL</span>
+              </div>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="0.00 €"
+                placeholder="0.00"
                 value={eurPaid}
                 onChange={(e) => setEurPaid(e.target.value)}
-                className="w-full p-2.5 bg-indigo-50/50 border border-indigo-200 rounded-xl text-sm font-extrabold text-indigo-900"
+                className="w-full p-2 bg-white border border-indigo-300 rounded-lg font-bold text-sm"
               />
-              {eurTLEquivalent > 0 && (
-                <span className="text-[10px] text-indigo-700 font-bold block mt-0.5">
-                  = {eurTLEquivalent.toLocaleString('tr-TR')} TL
-                </span>
+              {eurPaidNum > 0 && (
+                <div className="text-[11px] text-indigo-700 font-bold">
+                  TL Karşılığı: {eurTLEquivalent.toFixed(2)} TL
+                </div>
               )}
             </div>
           </div>
-
-          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100 text-xs font-semibold">
-            <span>Girilen Toplam Tahsilat:</span>
-            <span className={isPaymentMathValid ? 'text-emerald-700 font-bold' : 'text-red-600 font-bold animate-pulse'}>
-              {paidTotalTL.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL
-              {!isPaymentMathValid && ` (Fark: ${(totalTL - paidTotalTL).toLocaleString('tr-TR')} TL)`}
-            </span>
-          </div>
         </div>
 
-        {/* MÜŞTERİ BİLGİLERİ */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Müşteri Ad Soyad (Opsiyonel)</label>
+        {/* MÜŞTERİ BİLGİLERİ & DETAYLAR */}
+        <div className="space-y-4 pt-2">
+          <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2">3. Müşteri & Seri No (Opsiyonel)</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <input
               type="text"
-              placeholder="Müşteri Adı"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+              placeholder="Müşteri Adı Soyadı"
+              value={selectedCreditCustomer ? selectedCreditCustomer.full_name : ''}
+              onChange={(e) => {
+                if (!selectedCreditCustomer) setProductName(e.target.value);
+              }}
+              className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
             />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Müşteri Telefon (Opsiyonel)</label>
-            <input
-              type="tel"
-              placeholder="05xx xxx xx xx"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Seri No / IMEI (Opsiyonel)</label>
             <input
               type="text"
-              placeholder="IMEI / Cihaz Seri No"
+              placeholder="IMEI / Seri No"
               value={serialImei}
               onChange={(e) => setSerialImei(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+              className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono"
+            />
+            <input
+              type="text"
+              placeholder="Satış Notı / Açıklama"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
             />
           </div>
         </div>
 
-        {/* BUTONLAR */}
-        <div className="flex gap-4 pt-4 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={() => router.push('/kasa')}
-            className="w-1/3 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm"
-          >
-            İptal
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-2/3 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-sm shadow-md transition-all disabled:opacity-50"
-          >
-            {submitting ? 'Kaydediliyor...' : 'Satışı Tamamla ve Kasaya İşle'}
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl text-base shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <CheckCircle size={20} /> {submitting ? 'Satış Kaydediliyor...' : 'Satış Kaydını Tamamla'}
+        </button>
 
       </form>
+
+      {/* CARİ MÜŞTERİ SEÇİM MODALI */}
+      {showCustomerModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                <UserCheck className="text-amber-600" size={22} /> Cari Müşteri Seçimi
+              </h3>
+              <button onClick={() => setShowCustomerModal(false)} className="text-slate-400 hover:text-slate-700 font-bold">
+                ✕
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+              <input
+                type="text"
+                autoFocus
+                placeholder="İsim veya Telefon No Arayın..."
+                value={creditCustomerSearch}
+                onChange={(e) => handleSearchCustomers(e.target.value)}
+                className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
+              />
+            </div>
+
+            <div className="max-h-64 overflow-y-auto space-y-2">
+              {searchingCustomers ? (
+                <div className="p-4 text-center text-xs text-slate-500 font-medium">Aranıyor...</div>
+              ) : creditCustomers.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500">Müşteri bulunamadı veya arama yapın.</div>
+              ) : (
+                creditCustomers.map((c) => (
+                  <button
+                    type="button"
+                    key={c.id}
+                    onClick={() => handleSelectCustomer(c)}
+                    className={`w-full p-3 text-left rounded-xl border flex items-center justify-between transition-all ${
+                      c.is_approved
+                        ? 'bg-slate-50 border-slate-200 hover:border-amber-400 hover:bg-amber-50'
+                        : 'bg-red-50 border-red-200 opacity-60 cursor-not-allowed'
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold text-sm text-slate-900">{c.full_name}</div>
+                      <div className="text-xs text-slate-500">{c.phone}</div>
+                    </div>
+                    <div className="text-right">
+                      {c.is_approved ? (
+                        <>
+                          <div className="text-xs font-black text-amber-900">Kullanılabilir: {c.available_limit_tl.toFixed(0)} TL</div>
+                          <div className="text-[10px] text-slate-500">Limit: {c.credit_limit_tl.toFixed(0)} TL</div>
+                        </>
+                      ) : (
+                        <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded">
+                          Onaylı Limit Yok
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

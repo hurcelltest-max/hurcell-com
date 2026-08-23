@@ -1,55 +1,18 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
-  Printer,
-  Download,
+  FileSpreadsheet,
   Calendar,
-  AlertTriangle,
-  TrendingUp,
-  MinusCircle,
-  Wrench,
-  DollarSign,
-  Banknote,
+  ArrowLeft,
+  Coins,
   CreditCard,
+  TrendingUp,
+  AlertTriangle,
+  Printer,
 } from 'lucide-react';
-
-interface PeriodMetrics {
-  period_name: string;
-  start_date: string;
-  end_date: string;
-  opening_balance_kurus: number;
-  closing_balance_kurus: number;
-  capital_injected_kurus: number;
-  owner_withdrawn_kurus: number;
-  gross_sales_kurus: number;
-  cash_collection_kurus: number;
-  card_collection_kurus: number;
-  returns_total_kurus: number;
-  total_expenses_kurus: number;
-  salary_expenses_kurus: number;
-  technical_service_revenue_kurus: number;
-  technical_service_expense_kurus: number;
-  total_product_cost_kurus: number;
-  net_profit_loss_kurus: number;
-  missing_cost_sales_count: number;
-  missing_cost_warning: boolean;
-  category_summaries: Array<{
-    category_id: string;
-    category_name: string;
-    count: number;
-    cash_total_kurus: number;
-    card_total_kurus: number;
-    grand_total_kurus: number;
-  }>;
-  expense_summaries: Array<{
-    category_id: string;
-    category_name: string;
-    amount_kurus: number;
-  }>;
-}
+import { KasaPeriodReportMetrics } from '@/lib/kasa/service';
 
 function formatTL(kurus: number): string {
   return new Intl.NumberFormat('tr-TR', {
@@ -59,384 +22,257 @@ function formatTL(kurus: number): string {
   }).format(kurus / 100);
 }
 
+function formatFX(cents: number, symbol: string): string {
+  return `${new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(cents / 100)} ${symbol}`;
+}
+
 export default function AdminKasaRaporlarPage() {
-  const [period, setPeriod] = useState<'gunluk' | 'haftalik' | 'aylik' | 'yillik' | 'custom'>('gunluk');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
-  const [displayRange, setDisplayRange] = useState('');
-  const [metrics, setMetrics] = useState<PeriodMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>('daily');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [report, setReport] = useState<KasaPeriodReportMetrics | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadReport = async () => {
+  const fetchReport = async () => {
     try {
       setLoading(true);
       setError(null);
       let url = `/api/kasa/reports?period=${period}`;
-      if (period === 'custom' && customStart && customEnd) {
-        url += `&startDate=${customStart}&endDate=${customEnd}`;
+      if (period === 'custom' && startDate && endDate) {
+        url += `&startDate=${startDate}&endDate=${endDate}`;
       }
 
       const res = await fetch(url);
-      if (!res.ok) throw new Error('Rapor verisi yüklenemedi.');
+      if (!res.ok) throw new Error('Rapor verileri alınamadı.');
       const data = await res.json();
-      setMetrics(data.metrics);
-      setDisplayRange(data.displayRange || '');
+      setReport(data.report);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Rapor oluşturulurken hata oluştu.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadReport();
+    if (period !== 'custom') {
+      fetchReport();
+    }
   }, [period]);
 
-  const handleCustomSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (customStart && customEnd) {
-      loadReport();
+  const handlePrint = () => {
+    if (typeof window !== 'undefined') {
+      window.print();
     }
   };
 
-  const exportCSV = () => {
-    if (!metrics) return;
-    const rows = [
-      ['HurCELL Kasa Raporu', metrics.period_name, displayRange],
-      ['Oluşturma Tarihi', new Date().toLocaleString('tr-TR')],
-      [''],
-      ['Metrik', 'Tutar (TL)'],
-      ['Toplam Ciro', (metrics.gross_sales_kurus / 100).toFixed(2)],
-      ['Nakit Tahsilat', (metrics.cash_collection_kurus / 100).toFixed(2)],
-      ['Kredi Kartı Tahsilatı', (metrics.card_collection_kurus / 100).toFixed(2)],
-      ['Teknik Servis Geliri', (metrics.technical_service_revenue_kurus / 100).toFixed(2)],
-      ['Teknik Servis Gideri', (metrics.technical_service_expense_kurus / 100).toFixed(2)],
-      ['Toplam Ürün Alış Maliyeti', (metrics.total_product_cost_kurus / 100).toFixed(2)],
-      ['Toplam İşletme Gideri', (metrics.total_expenses_kurus / 100).toFixed(2)],
-      ['Maaş Ödemeleri', (metrics.salary_expenses_kurus / 100).toFixed(2)],
-      ['Net Dönem Kâr / Zarar', (metrics.net_profit_loss_kurus / 100).toFixed(2)],
-      [''],
-      ['Satış Kategorisi', 'Adet', 'Nakit (TL)', 'Kart (TL)', 'Toplam (TL)'],
-      ...metrics.category_summaries.map((c) => [
-        c.category_name,
-        c.count,
-        (c.cash_total_kurus / 100).toFixed(2),
-        (c.card_total_kurus / 100).toFixed(2),
-        (c.grand_total_kurus / 100).toFixed(2),
-      ]),
-      [''],
-      ['Gider Kategorisi', 'Tutar (TL)'],
-      ...metrics.expense_summaries.map((e) => [e.category_name, (e.amount_kurus / 100).toFixed(2)]),
-    ];
-
-    // CSV Kaçış (Formula Injection Protection)
-    const csvContent =
-      'data:text/csv;charset=utf-8,\uFEFF' +
-      rows
-        .map((row) =>
-          row
-            .map((cell) => {
-              const str = String(cell);
-              if (/^[=+\-@]/.test(str)) {
-                return `"'${str.replace(/"/g, '""')}"`;
-              }
-              return `"${str.replace(/"/g, '""')}"`;
-            })
-            .join(';')
-        )
-        .join('\n');
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `HurCELL_Kasa_Raporu_${period}_${metrics.start_date}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
-    <div className="space-y-8 max-w-6xl pb-16">
-      {/* PRINT CSS STYLES */}
-      <style jsx global>{`
-        @media print {
-          body {
-            background: white !important;
-            color: black !important;
-          }
-          header,
-          nav,
-          .no-print {
-            display: none !important;
-          }
-          .print-area {
-            display: block !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          .print-card {
-            border: 1px solid #ccc !important;
-            box-shadow: none !important;
-          }
-        }
-      `}</style>
-
-      {/* HEADER (No-Print) */}
-      <div className="flex items-center justify-between no-print flex-wrap gap-4">
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-3">
-          <Link
-            href="/admin/kasa"
-            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
+          <button
+            onClick={() => router.push('/admin/kasa')}
+            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
           >
             <ArrowLeft size={20} />
-          </Link>
+          </button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Kasa Raporları ve Çıktı Merkezi</h1>
-            <p className="text-sm text-slate-500">Günlük, Haftalık, Aylık Kasa Föyü ve Dönemsel Kâr-Zarar</p>
+            <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+              <FileSpreadsheet className="text-indigo-600" size={26} /> Kasa & Kâr-Zarar Dönem Raporları
+            </h1>
+            <p className="text-xs text-slate-500">Günlük, Haftalık, Aylık, Yıllık Kâr-Zarar ve İhtiyatlı Cari Risk Analizi</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => window.print()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md flex items-center gap-2 transition-all"
-          >
-            <Printer size={18} /> Raporu Yazdır (A4 / PDF)
-          </button>
-
-          <button
-            onClick={exportCSV}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md flex items-center gap-2 transition-all"
-          >
-            <Download size={18} /> CSV Dışa Aktar
-          </button>
-        </div>
+        <button
+          onClick={handlePrint}
+          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center gap-2"
+        >
+          <Printer size={16} /> Yazdır / PDF Al
+        </button>
       </div>
 
-      {/* RAPOR DÖNEM SEKMELERİ (No-Print) */}
-      <div className="no-print space-y-4">
-        <div className="flex items-center gap-2 p-1.5 bg-slate-200/80 rounded-2xl w-max flex-wrap">
+      {/* DÖNEM SEÇİM SEKMELERİ */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4 no-print">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setPeriod('gunluk')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-              period === 'gunluk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            onClick={() => setPeriod('daily')}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${period === 'daily' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
           >
             Günlük Rapor
           </button>
           <button
-            onClick={() => setPeriod('haftalik')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-              period === 'haftalik' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            onClick={() => setPeriod('weekly')}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${period === 'weekly' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
           >
             Haftalık Rapor
           </button>
           <button
-            onClick={() => setPeriod('aylik')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-              period === 'aylik' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            onClick={() => setPeriod('monthly')}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${period === 'monthly' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
           >
             Aylık Rapor
           </button>
           <button
-            onClick={() => setPeriod('yillik')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-              period === 'yillik' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            onClick={() => setPeriod('yearly')}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${period === 'yearly' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
           >
             Yıllık Rapor
           </button>
           <button
             onClick={() => setPeriod('custom')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-              period === 'custom' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${period === 'custom' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
           >
             Özel Tarih Aralığı
           </button>
         </div>
 
         {period === 'custom' && (
-          <form onSubmit={handleCustomSearch} className="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200">
-            <input
-              type="date"
-              required
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
-            />
-            <span className="text-slate-400 font-bold">-</span>
-            <input
-              type="date"
-              required
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2.5 bg-slate-900 text-white font-bold rounded-xl text-sm hover:bg-slate-800 transition-all"
-            >
-              Getir
-            </button>
-          </form>
+          <div className="flex items-center gap-3 pt-2">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Başlangıç Tarihi</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Bitiş Tarihi</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+              />
+            </div>
+            <div className="pt-5">
+              <button
+                onClick={fetchReport}
+                disabled={!startDate || !endDate}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs disabled:opacity-50"
+              >
+                Raporu Getir
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
-      {loading ? (
-        <div className="p-8 text-slate-500 font-medium">Rapor verileri hesaplanıyor...</div>
-      ) : error ? (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>
-      ) : metrics ? (
-        <div className="print-area space-y-6">
-          {/* YAZDIRMA BAŞLIĞI */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between print-card">
+      {loading && <div className="p-8 text-center text-slate-500 font-medium">Rapor hesaplanıyor...</div>}
+      {error && <div className="p-4 bg-red-50 text-red-700 text-sm font-bold rounded-2xl">{error}</div>}
+
+      {/* RAPOR ÇIKTISI */}
+      {report && (
+        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6 print:p-0 print:border-none print:shadow-none">
+          <div className="border-b pb-4 flex justify-between items-start">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">HurCELL İletişim Kasa Föyü & Raporu</h2>
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                <Calendar size={14} /> Dönem: <span className="font-bold text-slate-800">{displayRange}</span>
-              </p>
+              <h2 className="text-xl font-black text-slate-900">{report.period_name} Kasa ve Mali Raporu</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Tarih Aralığı: <strong>{report.start_date}</strong> ile <strong>{report.end_date}</strong> arası (Europe/Istanbul)</p>
             </div>
-            <div className="text-right text-xs text-slate-400">
-              Oluşturulma: {new Date().toLocaleDateString('tr-TR')}
+            <div className="text-right">
+              <span className="text-xs font-bold uppercase text-slate-400">Rapor Tarihi</span>
+              <div className="text-xs font-bold text-slate-700">{new Date().toLocaleDateString('tr-TR')}</div>
+            </div>
+          </div>
+          {/* İHTİYATLI YÖNETİM VE GERÇEKLEŞEN KÂR ÖZET KARTLARI */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-1">
+              <span className="text-xs font-bold uppercase text-emerald-800 flex items-center gap-1">
+                <TrendingUp size={16} /> Tahsil Edilmiş Gerçekleşen Net Kâr
+              </span>
+              <div className="text-2xl font-black text-emerald-950">{formatTL(report.realized_net_profit_kurus || 0)}</div>
+              <div className="text-[11px] text-emerald-700 font-semibold">Tahsil edilmiş nakit/kart satış kârı</div>
+            </div>
+
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-1">
+              <span className="text-xs font-bold uppercase text-amber-900 flex items-center gap-1">
+                <CreditCard size={16} /> Tahsil Edilmemiş Cari Risk
+              </span>
+              <div className="text-2xl font-black text-amber-950">-{formatTL(report.uncollected_credit_risk_kurus || 0)}</div>
+              <div className="text-[11px] text-amber-800 font-extrabold">Açık veresiye alacak riski (Kırmızı)</div>
+            </div>
+
+            <div className={`p-4 rounded-2xl border space-y-1 ${report.prudent_financial_result_kurus < 0 ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-200'}`}>
+              <span className="text-xs font-bold uppercase flex items-center gap-1 text-slate-800">
+                <AlertTriangle size={16} /> İhtiyatlı Yönetim Metriği
+              </span>
+              <div className={`text-2xl font-black ${report.prudent_financial_result_kurus < 0 ? 'text-red-700' : 'text-indigo-900'}`}>
+                {formatTL(report.prudent_financial_result_kurus || 0)}
+              </div>
+              <div className="text-[11px] text-slate-600 font-medium">Gerçekleşen Kâr - Açık Cari Risk</div>
             </div>
           </div>
 
-          {/* EKSİK MALİYET UYARISI BANNER'I */}
-          {metrics.missing_cost_warning && (
-            <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl text-amber-900 flex items-center gap-3 text-sm font-semibold shadow-sm">
-              <AlertTriangle size={20} className="text-amber-600 shrink-0" />
-              <span>
-                Bazı ürünlerin alış maliyeti girilmediği için kesin net kâr hesaplanamıyor. ({metrics.missing_cost_sales_count} adet satışta maliyet eksik).
-              </span>
-            </div>
-          )}
-
-          {/* ÜST DÖNEM ÖZET KARTLARI */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1 print-card">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block flex items-center gap-1">
-                <TrendingUp size={14} /> Toplam Ciro
-              </span>
-              <div className="text-xl font-bold text-slate-900">{formatTL(metrics.gross_sales_kurus)}</div>
-              <p className="text-[11px] text-slate-400">Brüt satış geliri</p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1 print-card">
-              <span className="text-xs font-semibold text-purple-600 uppercase tracking-wider block flex items-center gap-1">
-                <Wrench size={14} /> Teknik Servis Geliri
-              </span>
-              <div className="text-xl font-bold text-purple-700">{formatTL(metrics.technical_service_revenue_kurus)}</div>
-              <p className="text-[11px] text-slate-400">Servis & tamir satışı</p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1 print-card">
-              <span className="text-xs font-semibold text-rose-600 uppercase tracking-wider block flex items-center gap-1">
-                <MinusCircle size={14} /> Toplam Gider
-              </span>
-              <div className="text-xl font-bold text-rose-600">{formatTL(metrics.total_expenses_kurus)}</div>
-              <p className="text-[11px] text-slate-400">Giderler + Maaşlar</p>
-            </div>
-
-            <div className={`p-4 rounded-2xl border shadow-sm space-y-1 print-card ${
-              metrics.net_profit_loss_kurus >= 0
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
-                : 'bg-rose-50 border-rose-200 text-rose-950'
-            }`}>
-              <span className="text-xs font-semibold uppercase tracking-wider block flex items-center gap-1">
-                <DollarSign size={14} /> Net Kâr / Zarar
-              </span>
-              <div className={`text-2xl font-extrabold ${
-                metrics.net_profit_loss_kurus >= 0 ? 'text-emerald-700' : 'text-rose-700'
-              }`}>
-                {formatTL(metrics.net_profit_loss_kurus)}
+          {/* DETAYLI HAREKET TABLOSU */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Dönemsel Satış ve Cari Özeti</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-500 font-semibold">Brüt Satış Cirosu</span>
+                <div className="font-extrabold text-slate-900 text-sm">{formatTL(report.gross_sales_kurus)}</div>
               </div>
-              <p className="text-[11px] opacity-75">
-                {metrics.missing_cost_warning ? '⚠️ Eksik maliyetli ara sonuç' : 'Kesin hesaplanan dönem kârı'}
-              </p>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-500 font-semibold">Nakit Tahsilat</span>
+                <div className="font-extrabold text-emerald-700 text-sm">{formatTL(report.cash_collection_kurus)}</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-500 font-semibold">Kredi Kartı Tahsilat</span>
+                <div className="font-extrabold text-blue-700 text-sm">{formatTL(report.card_collection_kurus)}</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-500 font-semibold">Açılan Cari Satış</span>
+                <div className="font-extrabold text-amber-900 text-sm">{formatTL(report.credit_sales_total_kurus || 0)}</div>
+              </div>
             </div>
           </div>
 
-          {/* NAKİT & KART DAĞILIMI */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2 print-card">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase text-emerald-700 flex items-center gap-1">
-                  <Banknote size={16} /> Nakit Tahsilat Toplamı
-                </span>
-                <span className="font-extrabold text-emerald-900 text-lg">{formatTL(metrics.cash_collection_kurus)}</span>
-              </div>
-              <p className="text-xs text-slate-500">Kasa nakit girişleri</p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2 print-card">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase text-blue-700 flex items-center gap-1">
-                  <CreditCard size={16} /> Kredi Kartı Tahsilat Toplamı
-                </span>
-                <span className="font-extrabold text-blue-900 text-lg">{formatTL(metrics.card_collection_kurus)}</span>
-              </div>
-              <p className="text-xs text-slate-500">POS cihazı koleksiyonu (Fiziksel kasaya girmez)</p>
-            </div>
-          </div>
-
-          {/* 9 SATIŞ GELİR KATEGORİSİ TABLOSU */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print-card">
-            <div className="p-4 border-b border-slate-100 font-bold text-slate-900 text-base">
-              Satış ve Gelir Kategorileri Dağılımı (9 Kategori)
-            </div>
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 text-xs font-semibold uppercase">
-                  <th className="py-3 px-4">Gelir Kategorisi</th>
-                  <th className="py-3 px-4 text-center">Satış Adedi</th>
-                  <th className="py-3 px-4 text-right text-emerald-700">Nakit Tutarı</th>
-                  <th className="py-3 px-4 text-right text-blue-700">Kredi Kartı Tutarı</th>
-                  <th className="py-3 px-4 text-right font-bold text-slate-800">Toplam Tutar</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {metrics.category_summaries.map((cat) => (
-                  <tr key={cat.category_id} className="hover:bg-slate-50/50">
-                    <td className="py-3 px-4 font-semibold text-slate-900">{cat.category_name}</td>
-                    <td className="py-3 px-4 text-center text-slate-600">{cat.count} adet</td>
-                    <td className="py-3 px-4 text-right text-emerald-600">{formatTL(cat.cash_total_kurus)}</td>
-                    <td className="py-3 px-4 text-right text-blue-600">{formatTL(cat.card_total_kurus)}</td>
-                    <td className="py-3 px-4 text-right font-bold text-slate-900">{formatTL(cat.grand_total_kurus)}</td>
+          {/* KATEGORİ BAZLI SATIŞ DAĞILIMI */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Kategori Bazlı Satış Dağılımı</h3>
+            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 font-bold text-slate-700 border-b">
+                  <tr>
+                    <th className="p-2.5">Kategori Adı</th>
+                    <th className="p-2.5 text-center">Adet</th>
+                    <th className="p-2.5 text-right">Nakit</th>
+                    <th className="p-2.5 text-right">Kredi Kartı</th>
+                    <th className="p-2.5 text-right">Toplam Ciro</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {report.category_summaries.map((cat) => (
+                    <tr key={cat.category_id} className="hover:bg-slate-50">
+                      <td className="p-2.5 font-bold text-slate-900">{cat.category_name}</td>
+                      <td className="p-2.5 text-center">{cat.count}</td>
+                      <td className="p-2.5 text-right text-emerald-700 font-semibold">{formatTL(cat.cash_total_kurus)}</td>
+                      <td className="p-2.5 text-right text-blue-700 font-semibold">{formatTL(cat.card_total_kurus)}</td>
+                      <td className="p-2.5 text-right font-black text-slate-900">{formatTL(cat.grand_total_kurus)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* 13 GİDER KATEGORİSİ TABLOSU */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print-card">
-            <div className="p-4 border-b border-slate-100 font-bold text-slate-900 text-base">
-              Gider ve Harcama Kategorileri Dağılımı (13 Kategori)
+          {/* GİDER DAĞILIMI */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Kasa Gider Toplamları</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              {report.expense_summaries.map((exp) => (
+                <div key={exp.category_id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+                  <span className="font-semibold text-slate-700">{exp.category_name}</span>
+                  <span className="font-extrabold text-rose-700">{formatTL(exp.amount_kurus)}</span>
+                </div>
+              ))}
             </div>
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 text-xs font-semibold uppercase">
-                  <th className="py-3 px-4">Gider Kategorisi</th>
-                  <th className="py-3 px-4 text-right font-bold text-rose-700">Toplam Harcama (TL)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {metrics.expense_summaries.map((exp) => (
-                  <tr key={exp.category_id} className="hover:bg-slate-50/50">
-                    <td className="py-3 px-4 font-semibold text-slate-900">{exp.category_name}</td>
-                    <td className="py-3 px-4 text-right font-bold text-rose-600">{formatTL(exp.amount_kurus)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
+
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

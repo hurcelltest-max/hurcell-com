@@ -15,6 +15,8 @@ import {
   Settings,
   Coins,
   Globe,
+  CreditCard,
+  UserCheck,
 } from 'lucide-react';
 
 interface ExpenseCategory {
@@ -35,7 +37,7 @@ export default function AdminKasaOverviewPage() {
   const [bootSuccess, setBootSuccess] = useState<string | null>(null);
   const [bootLoading, setBootLoading] = useState(false);
 
-  // Modallar (Capital, FXCapital, Withdrawal, Expense, TargetReserve, BankDeposit, FXConvert, ManualRate)
+  // Modallar
   const [modalType, setModalType] = useState<
     'capital' | 'fx_capital' | 'withdrawal' | 'expense' | 'target_reserve' | 'bank_deposit' | 'fx_convert' | 'manual_rate' | null
   >(null);
@@ -47,7 +49,7 @@ export default function AdminKasaOverviewPage() {
   const [referenceNo, setReferenceNo] = useState('');
   const [targetReserveTL, setTargetReserveTL] = useState('20000');
 
-  // Döviz Bozdurma / Sermaye / Kur State
+  // Döviz State
   const [currencyCode, setCurrencyCode] = useState<'USD' | 'EUR'>('USD');
   const [foreignAmount, setForeignAmount] = useState('');
   const [actualRate, setActualRate] = useState('');
@@ -146,7 +148,7 @@ export default function AdminKasaOverviewPage() {
         if (!res.ok) throw new Error(data.error || 'Sermaye girişi başarısız.');
         setActionSuccess('Sermaye girişi başarıyla kaydedildi.');
       } else if (modalType === 'fx_capital') {
-        if (!foreignAmount || Number(foreignAmount) <= 0) return setActionError('Lütfen geçerli bir döviz sermaye miktarı girin.');
+        if (!foreignAmount || Number(foreignAmount) <= 0) return setActionError('Lütfen geçerli bir döviz miktarı girin.');
         if (!actualRate || Number(actualRate) <= 0) return setActionError('Lütfen geçerli bir kur girin.');
 
         const res = await fetch('/api/admin/kasa/fx-capital', {
@@ -290,7 +292,7 @@ export default function AdminKasaOverviewPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">HurCELL Kasa & Yönetici Kontrol Merkezi</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Sermaye hareketleri, döviz sermayesi, manuel kur belirleme, döviz bozdurma ve gün sonu kapanışı
+          Sermaye hareketleri, döviz kasası, cari / veresiye takibi, 7 günlük gecikme uyarıları ve gün sonu kapanışı
         </p>
       </div>
 
@@ -360,6 +362,13 @@ export default function AdminKasaOverviewPage() {
 
       {/* YÖNETİCİ HIZLI HAREKET BUTONLARI */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          href="/admin/kasa/cari"
+          className="p-3.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all text-xs sm:text-sm"
+        >
+          <CreditCard size={18} /> Cari & Risk Takibi
+        </Link>
+
         <button
           onClick={() => setModalType('fx_convert')}
           className="p-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all text-xs sm:text-sm"
@@ -390,7 +399,7 @@ export default function AdminKasaOverviewPage() {
 
         <button
           onClick={() => setModalType('withdrawal')}
-          className="p-3.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all text-xs sm:text-sm"
+          className="p-3.5 bg-amber-800 hover:bg-amber-900 text-white font-bold rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all text-xs sm:text-sm"
         >
           <MinusCircle size={18} /> Sahip Çekimi
         </button>
@@ -408,17 +417,23 @@ export default function AdminKasaOverviewPage() {
         >
           <PlusCircle size={18} /> Gider / Maaş
         </button>
-
-        <button
-          onClick={() => setModalType('target_reserve')}
-          className="p-3.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all text-xs sm:text-sm"
-        >
-          <Settings size={18} /> Hedef Kasa Bakiyesi
-        </button>
       </div>
 
       {/* YÖNETİCİ KONTROL KARTLARI */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+        <Link
+          href="/admin/kasa/cari"
+          className="bg-white p-6 rounded-2xl border border-amber-200 shadow-sm hover:shadow-md hover:border-amber-400 transition-all space-y-3 group"
+        >
+          <div className="w-12 h-12 bg-amber-100 text-amber-800 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+            <CreditCard size={24} />
+          </div>
+          <h3 className="font-bold text-lg text-slate-900">Cari / Veresiye Takibi</h3>
+          <p className="text-xs text-slate-500">
+            Açık veresiyeler, 7 günlük gecikme uyarıları ve müşteri borç tahsilatlarını yönetin.
+          </p>
+        </Link>
+
         <Link
           href="/admin/kasa/personel"
           className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all space-y-3 group"
@@ -441,7 +456,7 @@ export default function AdminKasaOverviewPage() {
           </div>
           <h3 className="font-bold text-lg text-slate-900">Gün Sonu Kapanışı</h3>
           <p className="text-xs text-slate-500">
-            Fiziksel TL ve USD/EUR döviz sayımını girin, kasa farkını hesaplayın ve günü kilitleyin.
+            Fiziksel TL, USD/EUR döviz ve gün sonu cari veresiye sayım özetini inceleyin.
           </p>
         </Link>
 
@@ -454,7 +469,7 @@ export default function AdminKasaOverviewPage() {
           </div>
           <h3 className="font-bold text-lg text-slate-900">Raporlar & Dışa Aktar</h3>
           <p className="text-xs text-slate-500">
-            Günlük, haftalık, aylık kâr-zarar raporlarını ve yazdırılabilir föyleri inceleyin.
+            Gerçekleşen kâr, açık cari risk ve ihtiyatlı yönetim raporlarını inceleyin.
           </p>
         </Link>
       </div>

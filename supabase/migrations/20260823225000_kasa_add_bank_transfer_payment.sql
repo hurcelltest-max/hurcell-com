@@ -42,6 +42,7 @@ ALTER TABLE public.kasa_credit_payments ADD CONSTRAINT chk_kasa_credit_payments_
 );
 
 -- 3. SECURE ATOMIC RPC: SATIŞ OLUŞTURMA (HAVALE / EFT DESTEKLİ GÜNCEL SÜRÜM - 24 PARAMS)
+-- NOT: PostgREST PGRST203 belirsizlik hatasını önlemek için 24 parametreli yeni sürümde DEFAULT kullanılmaz.
 CREATE OR REPLACE FUNCTION public.fn_kasa_create_sale(
     p_actor_user_id UUID,
     p_kasa_day_id UUID,
@@ -49,24 +50,24 @@ CREATE OR REPLACE FUNCTION public.fn_kasa_create_sale(
     p_product_name TEXT,
     p_quantity INT,
     p_unit_price_kurus BIGINT,
-    p_cost_price_kurus BIGINT DEFAULT 0,
-    p_cash_paid_kurus BIGINT DEFAULT 0,
-    p_card_paid_kurus BIGINT DEFAULT 0,
-    p_usd_paid_cents BIGINT DEFAULT 0,
-    p_usd_rate NUMERIC(12, 4) DEFAULT NULL,
-    p_usd_tl_equivalent_kurus BIGINT DEFAULT 0,
-    p_eur_paid_cents BIGINT DEFAULT 0,
-    p_eur_rate NUMERIC(12, 4) DEFAULT NULL,
-    p_eur_tl_equivalent_kurus BIGINT DEFAULT 0,
-    p_credit_paid_kurus BIGINT DEFAULT 0,
-    p_credit_customer_id UUID DEFAULT NULL,
-    p_brand TEXT DEFAULT NULL,
-    p_model TEXT DEFAULT NULL,
-    p_product_code TEXT DEFAULT NULL,
-    p_description TEXT DEFAULT NULL,
-    p_idempotency_key TEXT DEFAULT NULL,
-    p_bank_transfer_paid_kurus BIGINT DEFAULT 0,
-    p_bank_transfer_reference TEXT DEFAULT NULL
+    p_cost_price_kurus BIGINT,
+    p_cash_paid_kurus BIGINT,
+    p_card_paid_kurus BIGINT,
+    p_usd_paid_cents BIGINT,
+    p_usd_rate NUMERIC(12, 4),
+    p_usd_tl_equivalent_kurus BIGINT,
+    p_eur_paid_cents BIGINT,
+    p_eur_rate NUMERIC(12, 4),
+    p_eur_tl_equivalent_kurus BIGINT,
+    p_credit_paid_kurus BIGINT,
+    p_credit_customer_id UUID,
+    p_brand TEXT,
+    p_model TEXT,
+    p_product_code TEXT,
+    p_description TEXT,
+    p_idempotency_key TEXT,
+    p_bank_transfer_paid_kurus BIGINT,
+    p_bank_transfer_reference TEXT
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -113,22 +114,17 @@ BEGIN
     v_total_price := p_quantity * p_unit_price_kurus;
 
     -- KARMA ÖDEME KONTROLÜ: NAKİT + KART + HAVALE/EFT + USD + EUR + CARİ = TOPLAM FİYAT
-    IF (p_cash_paid_kurus + p_card_paid_kurus + p_bank_transfer_paid_kurus + p_usd_tl_equivalent_kurus + p_eur_tl_equivalent_kurus + p_credit_paid_kurus) <> v_total_price THEN
+    IF (COALESCE(p_cash_paid_kurus, 0) + COALESCE(p_card_paid_kurus, 0) + COALESCE(p_bank_transfer_paid_kurus, 0) + COALESCE(p_usd_tl_equivalent_kurus, 0) + COALESCE(p_eur_tl_equivalent_kurus, 0) + COALESCE(p_credit_paid_kurus, 0)) <> v_total_price THEN
         RAISE EXCEPTION 'GEÇERSİZ_TUTAR: Ödeme toplamı satılan ürün toplam fiyatına eşit olmalıdır.';
     END IF;
 
     v_clean_ref := NULLIF(trim(p_bank_transfer_reference), '');
-    IF v_clean_ref IS NOT NULL THEN
-        IF length(v_clean_ref) > 200 THEN
-            v_clean_ref := substring(v_clean_ref from 1 for 200);
-        END IF;
-        IF v_clean_ref ~ '^[=+\-@\t\r]' THEN
-            v_clean_ref := '''' || v_clean_ref;
-        END IF;
+    IF v_clean_ref IS NOT NULL AND length(v_clean_ref) > 200 THEN
+        RAISE EXCEPTION 'GEÇERSİZ_REFERANS: Referans Numarası en fazla 200 karakter olabilir.';
     END IF;
 
     -- CARİ VERESİYE SATIŞ KONTROLLERİ VE BAKİYE YAZMA
-    IF p_credit_paid_kurus > 0 THEN
+    IF COALESCE(p_credit_paid_kurus, 0) > 0 THEN
         IF p_credit_customer_id IS NULL THEN
             RAISE EXCEPTION 'GEÇERSİZ_MÜŞTERİ: Cari veresiye satış için müşteri seçilmelidir.';
         END IF;
@@ -147,14 +143,34 @@ BEGIN
             RAISE EXCEPTION 'YETERSİZ_LİMİT: Müşterinin kullanılabilir cari limiti (%) veresiye tutarından (% TL) küçüktür.', (v_account.credit_limit - v_account.current_balance), (p_credit_paid_kurus / 100.0);
         END IF;
 
-        IF p_cost_price_kurus > 0 THEN
+        IF COALESCE(p_cost_price_kurus, 0) > 0 THEN
             v_uncollected_cost := ROUND((p_credit_paid_kurus::NUMERIC / v_total_price::NUMERIC) * (p_cost_price_kurus * p_quantity));
         END IF;
     END IF;
 
+    -- İDEMPOTENCY SIKI GÜVENLİK VE ALAN KARŞILAŞTIRMA KONTROLÜ
     IF p_idempotency_key IS NOT NULL AND p_idempotency_key <> '' THEN
         SELECT * INTO v_existing FROM public.kasa_sales WHERE idempotency_key = p_idempotency_key;
         IF v_existing.id IS NOT NULL THEN
+            IF v_existing.created_by_user_id IS DISTINCT FROM p_actor_user_id OR
+               v_existing.kasa_day_id IS DISTINCT FROM p_kasa_day_id OR
+               v_existing.category_id IS DISTINCT FROM p_category_id OR
+               v_existing.product_name IS DISTINCT FROM p_product_name OR
+               v_existing.quantity IS DISTINCT FROM p_quantity OR
+               v_existing.unit_price_kurus IS DISTINCT FROM p_unit_price_kurus OR
+               v_existing.total_price_kurus IS DISTINCT FROM v_total_price OR
+               v_existing.cash_paid_kurus IS DISTINCT FROM COALESCE(p_cash_paid_kurus, 0) OR
+               v_existing.card_paid_kurus IS DISTINCT FROM COALESCE(p_card_paid_kurus, 0) OR
+               v_existing.bank_transfer_paid_kurus IS DISTINCT FROM COALESCE(p_bank_transfer_paid_kurus, 0) OR
+               v_existing.usd_paid_cents IS DISTINCT FROM COALESCE(p_usd_paid_cents, 0) OR
+               v_existing.usd_tl_equivalent_kurus IS DISTINCT FROM COALESCE(p_usd_tl_equivalent_kurus, 0) OR
+               v_existing.eur_paid_cents IS DISTINCT FROM COALESCE(p_eur_paid_cents, 0) OR
+               v_existing.eur_tl_equivalent_kurus IS DISTINCT FROM COALESCE(p_eur_tl_equivalent_kurus, 0) OR
+               v_existing.credit_paid_kurus IS DISTINCT FROM COALESCE(p_credit_paid_kurus, 0) OR
+               v_existing.credit_customer_id IS DISTINCT FROM p_credit_customer_id
+            THEN
+                RAISE EXCEPTION 'GEÇERSİZ_İDEMPOTENCY: Aynı idempotency key ile farklı satış isteği gönderilemez.';
+            END IF;
             RETURN to_jsonb(v_existing);
         END IF;
     END IF;
@@ -286,24 +302,25 @@ REVOKE ALL ON FUNCTION public.fn_kasa_create_sale(UUID, UUID, UUID, TEXT, INT, B
 GRANT EXECUTE ON FUNCTION public.fn_kasa_create_sale(UUID, UUID, UUID, TEXT, INT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, NUMERIC, BIGINT, BIGINT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT) TO service_role;
 
 -- 5. SECURE ATOMIC RPC: CARİ TAHSİLAT ALMA (HAVALE / EFT DESTEKLİ GÜNCEL SÜRÜM - 17 PARAMS)
+-- NOT: PostgREST PGRST203 belirsizlik hatasını önlemek için 17 parametreli yeni sürümde DEFAULT kullanılmaz.
 CREATE OR REPLACE FUNCTION public.fn_kasa_collect_credit_payment(
     p_actor_user_id UUID,
     p_kasa_day_id UUID,
     p_credit_customer_id UUID,
     p_amount_kurus BIGINT,
     p_payment_method TEXT,
-    p_cash_paid_kurus BIGINT DEFAULT 0,
-    p_card_paid_kurus BIGINT DEFAULT 0,
-    p_usd_paid_cents BIGINT DEFAULT 0,
-    p_usd_rate NUMERIC(12, 4) DEFAULT NULL,
-    p_usd_tl_equivalent_kurus BIGINT DEFAULT 0,
-    p_eur_paid_cents BIGINT DEFAULT 0,
-    p_eur_rate NUMERIC(12, 4) DEFAULT NULL,
-    p_eur_tl_equivalent_kurus BIGINT DEFAULT 0,
-    p_description TEXT DEFAULT NULL,
-    p_idempotency_key TEXT DEFAULT NULL,
-    p_bank_transfer_paid_kurus BIGINT DEFAULT 0,
-    p_bank_transfer_reference TEXT DEFAULT NULL
+    p_cash_paid_kurus BIGINT,
+    p_card_paid_kurus BIGINT,
+    p_usd_paid_cents BIGINT,
+    p_usd_rate NUMERIC(12, 4),
+    p_usd_tl_equivalent_kurus BIGINT,
+    p_eur_paid_cents BIGINT,
+    p_eur_rate NUMERIC(12, 4),
+    p_eur_tl_equivalent_kurus BIGINT,
+    p_description TEXT,
+    p_idempotency_key TEXT,
+    p_bank_transfer_paid_kurus BIGINT,
+    p_bank_transfer_reference TEXT
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -353,32 +370,51 @@ BEGIN
         RAISE EXCEPTION 'GEÇERSİZ_PARAMETRE: Tahsilat tutarı 0 veya negatif olamaz.';
     END IF;
 
+    -- TAHSİLAT ÖDEME MATEMATİĞİ VE PARÇA UYUMLULUK KONTROLÜ
+    IF COALESCE(p_cash_paid_kurus, 0) < 0 OR COALESCE(p_card_paid_kurus, 0) < 0 OR COALESCE(p_bank_transfer_paid_kurus, 0) < 0 OR COALESCE(p_usd_tl_equivalent_kurus, 0) < 0 OR COALESCE(p_eur_tl_equivalent_kurus, 0) < 0 THEN
+        RAISE EXCEPTION 'GEÇERSİZ_TUTAR: Ödeme tutarları negatif olamaz.';
+    END IF;
+
+    IF p_amount_kurus <> (COALESCE(p_cash_paid_kurus, 0) + COALESCE(p_card_paid_kurus, 0) + COALESCE(p_bank_transfer_paid_kurus, 0) + COALESCE(p_usd_tl_equivalent_kurus, 0) + COALESCE(p_eur_tl_equivalent_kurus, 0)) THEN
+        RAISE EXCEPTION 'GEÇERSİZ_TUTAR: Tahsilat tutarı ödeme parçalarının toplamına eşit olmalıdır.';
+    END IF;
+
+    IF (p_payment_method = 'cash' AND (p_cash_paid_kurus <> p_amount_kurus OR p_card_paid_kurus <> 0 OR p_bank_transfer_paid_kurus <> 0 OR p_usd_tl_equivalent_kurus <> 0 OR p_eur_tl_equivalent_kurus <> 0)) OR
+       (p_payment_method = 'card' AND (p_card_paid_kurus <> p_amount_kurus OR p_cash_paid_kurus <> 0 OR p_bank_transfer_paid_kurus <> 0 OR p_usd_tl_equivalent_kurus <> 0 OR p_eur_tl_equivalent_kurus <> 0)) OR
+       (p_payment_method = 'bank_transfer' AND (p_bank_transfer_paid_kurus <> p_amount_kurus OR p_cash_paid_kurus <> 0 OR p_card_paid_kurus <> 0 OR p_usd_tl_equivalent_kurus <> 0 OR p_eur_tl_equivalent_kurus <> 0)) OR
+       (p_payment_method = 'usd' AND (p_usd_tl_equivalent_kurus <> p_amount_kurus OR p_cash_paid_kurus <> 0 OR p_card_paid_kurus <> 0 OR p_bank_transfer_paid_kurus <> 0 OR p_eur_tl_equivalent_kurus <> 0)) OR
+       (p_payment_method = 'eur' AND (p_eur_tl_equivalent_kurus <> p_amount_kurus OR p_cash_paid_kurus <> 0 OR p_card_paid_kurus <> 0 OR p_bank_transfer_paid_kurus <> 0 OR p_usd_tl_equivalent_kurus <> 0))
+    THEN
+        RAISE EXCEPTION 'GEÇERSİZ_ÖDEME: Seçilen ödeme yöntemi (%) ile ödeme tutarları uyumsuzdur.', p_payment_method;
+    END IF;
+
     -- FAZLA TAHSİLAT ENGELİ: KURUŞ BAZINDA TAM KARŞILAŞTIRMA
     IF p_amount_kurus > ROUND(v_account.current_balance * 100) THEN
         RAISE EXCEPTION 'FAZLA_TAHSİLAT_ENGELİ: Tahsilat tutarı (% TL), müşterinin toplam açık cari borcundan (% TL) büyük olamaz.', (p_amount_kurus / 100.0), v_account.current_balance;
     END IF;
 
-    IF p_payment_method = 'bank_transfer' THEN
-        v_bank_transfer_amt := COALESCE(NULLIF(p_bank_transfer_paid_kurus, 0), p_amount_kurus);
-    ELSE
-        v_bank_transfer_amt := p_bank_transfer_paid_kurus;
-    END IF;
+    v_bank_transfer_amt := COALESCE(p_bank_transfer_paid_kurus, 0);
 
     v_clean_ref := NULLIF(trim(p_bank_transfer_reference), '');
-    IF v_clean_ref IS NOT NULL THEN
-        IF length(v_clean_ref) > 200 THEN
-            v_clean_ref := substring(v_clean_ref from 1 for 200);
-        END IF;
-        IF v_clean_ref ~ '^[=+\-@\t\r]' THEN
-            v_clean_ref := '''' || v_clean_ref;
-        END IF;
+    IF v_clean_ref IS NOT NULL AND length(v_clean_ref) > 200 THEN
+        RAISE EXCEPTION 'GEÇERSİZ_REFERANS: Referans Numarası en fazla 200 karakter olabilir.';
     END IF;
 
+    -- İDEMPOTENCY SIKI GÜVENLİK VE ALAN KARŞILAŞTIRMA KONTROLÜ
     IF p_idempotency_key IS NOT NULL AND p_idempotency_key <> '' THEN
         SELECT * INTO v_existing FROM public.kasa_credit_payments WHERE idempotency_key = p_idempotency_key;
         IF v_existing.id IS NOT NULL THEN
-            IF v_existing.credit_customer_id <> p_credit_customer_id OR v_existing.amount_kurus <> p_amount_kurus THEN
-                RAISE EXCEPTION 'GEÇERSİZ_İDEMPOTENCY: Aynı idempotency key ile farklı müşteri veya tutar gönderilemez.';
+            IF v_existing.created_by_user_id IS DISTINCT FROM p_actor_user_id OR
+               v_existing.credit_customer_id IS DISTINCT FROM p_credit_customer_id OR
+               v_existing.amount_kurus IS DISTINCT FROM p_amount_kurus OR
+               v_existing.payment_method IS DISTINCT FROM p_payment_method OR
+               v_existing.cash_paid_kurus IS DISTINCT FROM COALESCE(p_cash_paid_kurus, 0) OR
+               v_existing.card_paid_kurus IS DISTINCT FROM COALESCE(p_card_paid_kurus, 0) OR
+               v_existing.bank_transfer_paid_kurus IS DISTINCT FROM v_bank_transfer_amt OR
+               v_existing.usd_paid_cents IS DISTINCT FROM COALESCE(p_usd_paid_cents, 0) OR
+               v_existing.eur_paid_cents IS DISTINCT FROM COALESCE(p_eur_paid_cents, 0)
+            THEN
+                RAISE EXCEPTION 'GEÇERSİZ_İDEMPOTENCY: Aynı idempotency key ile farklı tahsilat isteği gönderilemez.';
             END IF;
             RETURN to_jsonb(v_existing);
         END IF;

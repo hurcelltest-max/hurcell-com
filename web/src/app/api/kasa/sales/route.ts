@@ -4,10 +4,10 @@ import { createSaleTransaction, listDailySales, getOrCreateTodayDay } from '@/li
 
 function sanitizeReference(ref: unknown): string | undefined {
   if (!ref) return undefined;
-  let str = String(ref).trim().slice(0, 200);
+  const str = String(ref).trim();
   if (str.length === 0) return undefined;
-  if (/^[=+\-@\t\r]/.test(str)) {
-    str = "'" + str;
+  if (str.length > 200) {
+    throw new Error('Referans / Dekont Numarası en fazla 200 karakter olabilir.');
   }
   return str;
 }

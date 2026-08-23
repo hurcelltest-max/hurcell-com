@@ -100,10 +100,20 @@ export default function AdminKasaOverviewPage() {
     checkBootstrap();
   }, []);
 
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+
   const handleCreateInitialManager = async (e: React.FormEvent) => {
     e.preventDefault();
     setBootError(null);
     setBootSuccess(null);
+
+    if (password.length < 10) {
+      return setBootError('Parola en az 10 karakter olmalıdır.');
+    }
+
+    if (password !== passwordConfirm) {
+      return setBootError('Girilen parolalar birbiriyle eşleşmiyor.');
+    }
 
     try {
       setBootLoading(true);
@@ -321,11 +331,11 @@ export default function AdminKasaOverviewPage() {
             </div>
           )}
 
-          <form onSubmit={handleCreateInitialManager} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <form onSubmit={handleCreateInitialManager} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <input
               type="text"
               required
-              placeholder="Yönetici Kullanıcı Adı"
+              placeholder="Yönetici Kullanıcı Adı (Örn: hür)"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="p-3 bg-white border border-amber-200 rounded-xl text-sm font-medium"
@@ -347,7 +357,16 @@ export default function AdminKasaOverviewPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="p-3 bg-white border border-amber-200 rounded-xl text-sm font-medium"
             />
-            <div className="sm:col-span-3">
+            <input
+              type="password"
+              required
+              minLength={10}
+              placeholder="Şifre Tekrar"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              className="p-3 bg-white border border-amber-200 rounded-xl text-sm font-medium"
+            />
+            <div className="sm:col-span-2">
               <button
                 type="submit"
                 disabled={bootLoading}

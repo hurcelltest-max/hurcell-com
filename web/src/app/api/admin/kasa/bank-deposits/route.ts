@@ -4,6 +4,7 @@ import {
   depositToBankTransaction,
   getOrCreateTodayDay,
   listDailyBankDeposits,
+  getDashboardMetrics,
 } from '@/lib/kasa/service';
 
 export async function GET() {
@@ -25,12 +26,29 @@ export async function POST(req: Request) {
 
     const { amount_tl, bank_name, reference_no, description, idempotency_key } = body;
 
-    if (!amount_tl || Number(amount_tl) <= 0) {
+    const todayDay = await getOrCreateTodayDay(auth.user.id);
+    const dashboard = await getDashboardMetrics(todayDay.id, auth.user.role);
+    const maxAllowedDepositKurus = Math.max(dashboard.expected_cash_kurus - dashboard.cash_reserve_target_kurus, 0);
+
+    if (maxAllowedDepositKurus <= 0) {
+      return NextResponse.json(
+        { error: 'Kasada hedef rezervi (15.000 TL) aşan fazla fiziki nakit bulunmamaktadır.' },
+        { status: 400 }
+      );
+    }
+
+    let amountKurus = amount_tl ? Math.round(Number(amount_tl) * 100) : maxAllowedDepositKurus;
+
+    if (amountKurus <= 0) {
       return NextResponse.json({ error: 'Yatırılacak tutar 0 veya negatif olamaz.' }, { status: 400 });
     }
 
-    const amountKurus = Math.round(Number(amount_tl) * 100);
-    const todayDay = await getOrCreateTodayDay(auth.user.id);
+    if (amountKurus > maxAllowedDepositKurus) {
+      return NextResponse.json(
+        { error: `Yatırılacak tutar kasadaki fazla nakitten (${(maxAllowedDepositKurus / 100).toLocaleString('tr-TR')} TL) büyük olamaz.` },
+        { status: 400 }
+      );
+    }
 
     const deposit = await depositToBankTransaction(
       auth.user.id,

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ShoppingBag,
   CheckCircle,
@@ -12,6 +13,7 @@ import {
   Search,
   UserCheck,
   UserX,
+  ArrowLeft,
 } from 'lucide-react';
 import { KasaCategory, KasaCreditCustomer, KasaFXRatesResponse } from '@/lib/kasa/types';
 
@@ -246,13 +248,19 @@ export default function KasaSatisPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
             <ShoppingBag className="text-blue-600" size={26} /> Hızlı Satış Fişi Girişi
           </h1>
           <p className="text-xs text-slate-500">Nakit, Kart, USD, EUR ve Cari / Veresiye Satış Kaydı</p>
         </div>
+        <Link
+          href="/kasa"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition shadow-sm"
+        >
+          <ArrowLeft size={18} /> Kasa Föyüne Dön
+        </Link>
       </div>
 
       {error && (

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireKasaAuth, requireManagerAuth } from '@/lib/kasa/auth';
-import { createExpense, getOrCreateTodayDay, listDailyExpenses } from '@/lib/kasa/service';
+import { createExpense, getOrCreateTodayDay, listDailyExpenses, getKasaExpenseCategories } from '@/lib/kasa/service';
 
 export async function GET() {
   try {
@@ -16,8 +16,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    // İş kuralı #8: Gider ve maaş kaydı yalnızca yetkili yönetici tarafından eklenebilir
-    const auth = await requireManagerAuth();
+    const auth = await requireKasaAuth();
     const body = await req.json();
     const { expense_category_id, amount_tl, description, recipient_name } = body;
 
@@ -25,6 +24,16 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: 'Gider kategorisi, tutar ve açıklama zorunludur.' },
         { status: 400 }
+      );
+    }
+
+    const categories = await getKasaExpenseCategories();
+    const selectedCategory = categories.find((c) => c.id === String(expense_category_id));
+
+    if (selectedCategory?.is_salary_category && auth.user.role !== 'yonetici') {
+      return NextResponse.json(
+        { error: 'Personel maaşı kaydı yalnızca yöneticiler tarafından eklenebilir.' },
+        { status: 403 }
       );
     }
 
@@ -47,7 +56,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     if (error.message?.startsWith('FORBIDDEN')) {
       return NextResponse.json(
-        { error: 'Gider ve maaş kaydı oluşturma yetkisi yalnızca yöneticilere aittir.' },
+        { error: 'Gider oluşturma yetkisi bulunmamaktadır.' },
         { status: 403 }
       );
     }

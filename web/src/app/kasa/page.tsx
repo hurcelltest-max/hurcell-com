@@ -49,6 +49,7 @@ interface Metrics {
   technical_service_expense_kurus: number;
   missing_cost_warning: boolean;
   estimated_profit_kurus: number;
+  cash_reserve_target_kurus?: number;
 }
 
 interface UserData {
@@ -75,6 +76,17 @@ export default function KasaMainDashboardPage() {
   const [dateStr, setDateStr] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Gider Modalı State'leri
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [expenseCategories, setExpenseCategories] = useState<{ id: string; name: string; is_salary_category: boolean }[]>([]);
+  const [expenseCatId, setExpenseCatId] = useState('');
+  const [expenseAmountTL, setExpenseAmountTL] = useState('');
+  const [expenseDescription, setExpenseDescription] = useState('');
+  const [expenseRecipient, setExpenseRecipient] = useState('');
+  const [expenseSubmitting, setExpenseSubmitting] = useState(false);
+  const [expenseError, setExpenseError] = useState<string | null>(null);
+  const [expenseSuccess, setExpenseSuccess] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -110,7 +122,73 @@ export default function KasaMainDashboardPage() {
     router.push('/kasa/giris');
   };
 
-  if (loading) {
+  const openExpenseModal = async () => {
+    setExpenseError(null);
+    setExpenseSuccess(null);
+    setShowExpenseModal(true);
+    try {
+      const res = await fetch('/api/kasa/expense-categories');
+      if (res.ok) {
+        const data = await res.json();
+        let cats = data.categories || [];
+        if (user?.role !== 'yonetici') {
+          cats = cats.filter((c: any) => !c.is_salary_category);
+        }
+        setExpenseCategories(cats);
+        if (cats.length > 0) setExpenseCatId(cats[0].id);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCreateExpenseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setExpenseError(null);
+    setExpenseSuccess(null);
+
+    if (!expenseAmountTL || Number(expenseAmountTL) <= 0) {
+      return setExpenseError('Lütfen geçerli bir gider tutarı girin.');
+    }
+    if (!expenseCatId) {
+      return setExpenseError('Lütfen bir gider kategorisi seçin.');
+    }
+    if (!expenseDescription.trim()) {
+      return setExpenseError('Lütfen gider açıklaması girin.');
+    }
+
+    try {
+      setExpenseSubmitting(true);
+      const res = await fetch('/api/kasa/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expense_category_id: expenseCatId,
+          amount_tl: Number(expenseAmountTL),
+          description: expenseDescription.trim(),
+          recipient_name: expenseRecipient.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gider kaydı eklenemedi.');
+
+      setExpenseSuccess('Günlük gider başarıyla kaydedildi.');
+      setExpenseAmountTL('');
+      setExpenseDescription('');
+      setExpenseRecipient('');
+      setShowExpenseModal(false);
+
+      // Verileri anında güncelle
+      await loadData();
+    } catch (err: any) {
+      setExpenseError(err.message || 'Gider eklenirken hata oluştu.');
+    } finally {
+      setExpenseSubmitting(false);
+    }
+  };
+
+  if (loading && !metrics) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="text-center space-y-3">
@@ -126,6 +204,9 @@ export default function KasaMainDashboardPage() {
   const grandCard = categories.reduce((sum, c) => sum + c.card_total_kurus, 0);
   const grandBankTransfer = categories.reduce((sum, c) => sum + (c.bank_transfer_total_kurus || 0), 0);
   const grandTotal = categories.reduce((sum, c) => sum + c.grand_total_kurus, 0);
+
+  const reserveTargetKurus = metrics?.cash_reserve_target_kurus || 1500000;
+  const excessCashToBankKurus = (metrics?.expected_cash_kurus || 0) - reserveTargetKurus;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-12">
@@ -155,7 +236,7 @@ export default function KasaMainDashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium text-slate-700">
               <User size={14} className="text-slate-500" />
               <span>{user?.full_name}</span>
@@ -163,6 +244,13 @@ export default function KasaMainDashboardPage() {
                 {user?.role === 'yonetici' ? 'Yönetici' : 'Personel'}
               </span>
             </div>
+
+            <button
+              onClick={openExpenseModal}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-rose-600/20 flex items-center gap-2 transition-all active:scale-[0.98]"
+            >
+              <MinusCircle size={18} /> Günlük Gider Ekle
+            </button>
 
             <Link
               href="/kasa/satis"
@@ -200,8 +288,33 @@ export default function KasaMainDashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
         {error && (
-          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold">
             {error}
+          </div>
+        )}
+
+        {/* BANKAYA PARA YATIRMA UYARISI BANNER'I (Sadece fiziki nakit 15.000 TL aşınca gösterilir) */}
+        {excessCashToBankKurus > 0 && (
+          <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 flex items-center justify-between flex-wrap gap-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500 text-white rounded-xl shrink-0">
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <div className="font-extrabold text-sm text-amber-950 uppercase tracking-wide">BANKAYA PARA YATIRMA UYARISI</div>
+                <p className="text-xs text-amber-900 font-medium mt-0.5">
+                  Kasada <strong>{formatTL(excessCashToBankKurus)}</strong> fazla var. Bankaya yatırılmalı. (Hedef Nakit Limiti: {formatTL(reserveTargetKurus)})
+                </p>
+              </div>
+            </div>
+            {user?.role === 'yonetici' && (
+              <Link
+                href="/admin/kasa"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-sm"
+              >
+                Bankaya Çıkış Yap (Yönetici)
+              </Link>
+            )}
           </div>
         )}
 
@@ -394,6 +507,108 @@ export default function KasaMainDashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* GÜNLÜK GİDER EKLEME MODALI */}
+      {showExpenseModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                <MinusCircle className="text-rose-600" size={20} /> Günlük Kasa Gideri Ekle
+              </h3>
+              <button
+                onClick={() => setShowExpenseModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {expenseError && (
+              <div className="p-3 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-200">
+                {expenseError}
+              </div>
+            )}
+
+            {expenseSuccess && (
+              <div className="p-3 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200">
+                {expenseSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateExpenseSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Gider Kategorisi</label>
+                <select
+                  value={expenseCatId}
+                  onChange={(e) => setExpenseCatId(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-rose-500 transition-all"
+                >
+                  {expenseCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Tutar (TL)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  placeholder="0.00"
+                  value={expenseAmountTL}
+                  onChange={(e) => setExpenseAmountTL(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-base font-extrabold text-slate-900 focus:bg-white focus:ring-2 focus:ring-rose-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Açıklama</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Gider açıklaması (Örn: Ofis su faturası ödemesi)"
+                  value={expenseDescription}
+                  onChange={(e) => setExpenseDescription(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-rose-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Ödeme Yapılan Kişi / Firma (Opsiyonel)</label>
+                <input
+                  type="text"
+                  placeholder="Kişi veya kurum adı"
+                  value={expenseRecipient}
+                  onChange={(e) => setExpenseRecipient(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-rose-500 transition-all"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowExpenseModal(false)}
+                  className="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-all"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={expenseSubmitting}
+                  className="w-1/2 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm shadow-md transition-all disabled:opacity-50"
+                >
+                  {expenseSubmitting ? 'Kaydediliyor...' : 'Gideri Kaydet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

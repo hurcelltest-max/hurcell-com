@@ -17,6 +17,7 @@ import {
   Globe,
   CreditCard,
   UserCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import { KasaDashboardMetrics } from '@/lib/kasa/types';
 
@@ -57,7 +58,7 @@ export default function AdminKasaOverviewPage() {
   const [justification, setJustification] = useState('');
   const [bankName, setBankName] = useState('');
   const [referenceNo, setReferenceNo] = useState('');
-  const [targetReserveTL, setTargetReserveTL] = useState('20000');
+  const [targetReserveTL, setTargetReserveTL] = useState('15000');
 
   // Döviz State
   const [currencyCode, setCurrencyCode] = useState<'USD' | 'EUR'>('USD');
@@ -283,6 +284,8 @@ export default function AdminKasaOverviewPage() {
         window.dispatchEvent(new CustomEvent('kasa-updated'));
       }
 
+      await checkBootstrap();
+
       setTimeout(() => {
         setModalType(null);
         setAmountTL('');
@@ -444,6 +447,32 @@ export default function AdminKasaOverviewPage() {
               <p className="text-[10px] text-amber-800 font-semibold">Tahsil edilmeyen veresiyeler</p>
             </div>
           </div>
+
+          {/* BANKAYA PARA YATIRMA UYARISI BANNER'I */}
+          {metrics.expected_cash_kurus > (metrics.cash_reserve_target_kurus || 1500000) && (
+            <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 flex items-center justify-between flex-wrap gap-3 shadow-sm mt-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-500 text-white rounded-xl shrink-0">
+                  <AlertTriangle size={22} />
+                </div>
+                <div>
+                  <div className="font-extrabold text-sm text-amber-950 uppercase tracking-wide">BANKAYA PARA YATIRMA UYARISI</div>
+                  <p className="text-xs text-amber-900 font-medium mt-0.5">
+                    Kasada <strong>{formatTL(metrics.expected_cash_kurus - (metrics.cash_reserve_target_kurus || 1500000))}</strong> fazla var. Bankaya yatırılmalı. (Hedef Nakit Limiti: {formatTL(metrics.cash_reserve_target_kurus || 1500000)})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setAmountTL(((metrics.expected_cash_kurus - (metrics.cash_reserve_target_kurus || 1500000)) / 100).toString());
+                  setModalType('bank_deposit');
+                }}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-sm"
+              >
+                Bankaya Çıkış Yap
+              </button>
+            </div>
+          )}
         </div>
       )}
 

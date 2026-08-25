@@ -170,7 +170,7 @@ export async function getKasaSettings(): Promise<KasaSettings> {
   if (error || !data) {
     return {
       id: 'default',
-      cash_reserve_target_kurus: 2000000,
+      cash_reserve_target_kurus: 1500000,
       updated_at: new Date().toISOString(),
     };
   }
@@ -518,7 +518,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
   const totalFxTLEquivalentKurus = usdTLEquivalentKurus + eurTLEquivalentKurus;
   const totalAssetTRYEquivalentKurus = expectedCash + totalFxTLEquivalentKurus;
 
-  const cashReserveTarget = Number(settings.cash_reserve_target_kurus || 2000000);
+  const cashReserveTarget = Number(settings.cash_reserve_target_kurus || 1500000);
   const excessCashToBank = Math.max(expectedCash - cashReserveTarget, 0);
   const reserveDeficit = Math.max(cashReserveTarget - expectedCash, 0);
 
@@ -956,6 +956,71 @@ export async function cancelSaleTransaction(
 
   if (error || !data) {
     throw new Error(error?.message || 'Satış iptal edilemedi.');
+  }
+
+  return data as KasaSale;
+}
+
+export async function updateSaleTransaction(
+  actorUserId: string,
+  saleId: string,
+  saleData: {
+    category_id: string;
+    product_name: string;
+    quantity: number;
+    unit_price_kurus: number;
+    cash_paid_kurus?: number;
+    card_paid_kurus?: number;
+    bank_transfer_paid_kurus?: number;
+    bank_transfer_reference?: string;
+    usd_paid_cents?: number;
+    usd_rate?: number;
+    usd_tl_equivalent_kurus?: number;
+    eur_paid_cents?: number;
+    eur_rate?: number;
+    eur_tl_equivalent_kurus?: number;
+    credit_paid_kurus?: number;
+    credit_customer_id?: string;
+    justification: string;
+    customer_name?: string;
+    customer_phone?: string;
+    serial_imei?: string;
+    description?: string;
+    cost_price_kurus?: number;
+    service_cost_kurus?: number;
+  }
+): Promise<KasaSale> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc('fn_kasa_update_sale', {
+    p_actor_user_id: actorUserId,
+    p_sale_id: saleId,
+    p_category_id: saleData.category_id,
+    p_product_name: saleData.product_name,
+    p_quantity: saleData.quantity,
+    p_unit_price_kurus: saleData.unit_price_kurus,
+    p_cash_paid_kurus: saleData.cash_paid_kurus || 0,
+    p_card_paid_kurus: saleData.card_paid_kurus || 0,
+    p_bank_transfer_paid_kurus: saleData.bank_transfer_paid_kurus || 0,
+    p_bank_transfer_reference: saleData.bank_transfer_reference || null,
+    p_usd_paid_cents: saleData.usd_paid_cents || 0,
+    p_usd_rate: saleData.usd_rate || null,
+    p_usd_tl_equivalent_kurus: saleData.usd_tl_equivalent_kurus || 0,
+    p_eur_paid_cents: saleData.eur_paid_cents || 0,
+    p_eur_rate: saleData.eur_rate || null,
+    p_eur_tl_equivalent_kurus: saleData.eur_tl_equivalent_kurus || 0,
+    p_credit_paid_kurus: saleData.credit_paid_kurus || 0,
+    p_credit_customer_id: saleData.credit_customer_id || null,
+    p_justification: saleData.justification,
+    p_customer_name: saleData.customer_name || null,
+    p_customer_phone: saleData.customer_phone || null,
+    p_serial_imei: saleData.serial_imei || null,
+    p_description: saleData.description || null,
+    p_cost_price_kurus: saleData.cost_price_kurus || null,
+    p_service_cost_kurus: saleData.service_cost_kurus || null,
+  });
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Satış düzeltilemedi.');
   }
 
   return data as KasaSale;

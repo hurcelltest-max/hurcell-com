@@ -14,6 +14,7 @@ import {
   KasaExpense,
   KasaExpenseCategory,
   KasaFXTransaction,
+  KasaMonthlyReport,
   KasaSale,
   KasaSettings,
   KasaUser,
@@ -389,7 +390,8 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
       amount_kurus, sale_id,
       category:kasa_expense_categories(name, is_salary_category)
     `)
-    .eq('kasa_day_id', dayId);
+    .eq('kasa_day_id', dayId)
+    .neq('status', 'cancelled');
 
   const { data: bankDeposits } = await supabase
     .from('kasa_bank_deposits')
@@ -610,6 +612,7 @@ export async function createSaleTransaction(
     serial_imei?: string;
     cost_price_kurus?: number;
     service_cost_kurus?: number;
+    service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'legacy_unspecified';
     technical_service_details?: TechnicalServiceDetails;
     idempotency_key?: string;
   }
@@ -668,6 +671,8 @@ export async function createSaleTransaction(
     p_idempotency_key: input.idempotency_key || null,
     p_bank_transfer_paid_kurus: input.bank_transfer_paid_kurus || 0,
     p_bank_transfer_reference: input.bank_transfer_reference || null,
+    p_service_cost_kurus: input.service_cost_kurus || 0,
+    p_service_cost_payment_status: input.service_cost_payment_status || 'previously_paid_or_stock',
   });
 
   if (error || !data) {
@@ -945,13 +950,15 @@ export async function listDailySales(dayId: string): Promise<KasaSale[]> {
 export async function cancelSaleTransaction(
   actorUserId: string,
   saleId: string,
-  justification: string
+  justification: string,
+  costRefunded?: boolean
 ): Promise<KasaSale> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.rpc('fn_kasa_cancel_sale', {
     p_actor_user_id: actorUserId,
     p_sale_id: saleId,
     p_justification: justification,
+    p_cost_refunded: costRefunded ?? false,
   });
 
   if (error || !data) {
@@ -988,6 +995,7 @@ export async function updateSaleTransaction(
     description?: string;
     cost_price_kurus?: number;
     service_cost_kurus?: number;
+    service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'legacy_unspecified';
   }
 ): Promise<KasaSale> {
   const supabase = getSupabaseAdmin();
@@ -1017,6 +1025,7 @@ export async function updateSaleTransaction(
     p_description: saleData.description || null,
     p_cost_price_kurus: saleData.cost_price_kurus || null,
     p_service_cost_kurus: saleData.service_cost_kurus || null,
+    p_service_cost_payment_status: saleData.service_cost_payment_status || null,
   });
 
   if (error || !data) {
@@ -1048,6 +1057,52 @@ export async function createExpense(
 
   if (error || !data) {
     throw new Error(error?.message || 'Gider kaydı eklenemedi.');
+  }
+
+  return data as KasaExpense;
+}
+
+export async function updateExpenseTransaction(
+  actorUserId: string,
+  expenseId: string,
+  expenseCategoryId: string,
+  amountKurus: number,
+  description: string,
+  recipientName?: string,
+  justification?: string
+): Promise<KasaExpense> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc('fn_kasa_update_expense', {
+    p_actor_user_id: actorUserId,
+    p_expense_id: expenseId,
+    p_expense_category_id: expenseCategoryId,
+    p_amount_kurus: amountKurus,
+    p_description: description.trim(),
+    p_recipient_name: recipientName ? recipientName.trim() : null,
+    p_justification: justification ? justification.trim() : null,
+  });
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Gider kaydı düzeltilemedi.');
+  }
+
+  return data as KasaExpense;
+}
+
+export async function cancelExpenseTransaction(
+  actorUserId: string,
+  expenseId: string,
+  justification: string
+): Promise<KasaExpense> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc('fn_kasa_cancel_expense', {
+    p_actor_user_id: actorUserId,
+    p_expense_id: expenseId,
+    p_justification: justification.trim(),
+  });
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Gider kaydı iptal edilemedi.');
   }
 
   return data as KasaExpense;
@@ -1363,5 +1418,215 @@ export async function getPeriodReportMetrics(
     overdue_credit_total_kurus: overdueCreditTotalKurus,
     category_summaries: categorySummaries,
     expense_summaries: expenseSummaries,
+  };
+}
+
+export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRole): Promise<KasaMonthlyReport> {
+  const supabase = getSupabaseAdmin();
+
+  const [yearStr, monthStr] = monthISO.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+
+  const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+  const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+  const startISO = startDate.toISOString();
+  const endISO = endDate.toISOString();
+
+  // 1. Sales in month
+  const { data: sales } = await supabase
+    .from('kasa_sales')
+    .select(`
+      *,
+      category:kasa_categories(name)
+    `)
+    .gte('created_at', startISO)
+    .lte('created_at', endISO)
+    .eq('status', 'completed');
+
+  let gross_sales_kurus = 0;
+  let cash_sales_kurus = 0;
+  let card_sales_kurus = 0;
+  let bank_transfer_sales_kurus = 0;
+  let technical_service_revenue_kurus = 0;
+  let product_sales_cost_kurus = 0;
+  let technical_service_direct_cost_kurus = 0;
+  let ts_cost_paid_from_cash_kurus = 0;
+  let ts_cost_unpaid_kurus = 0;
+  let monthly_credit_sales_kurus = 0;
+  let missing_cost_sales_count = 0;
+
+  for (const s of sales || []) {
+    gross_sales_kurus += Number(s.total_price_kurus || 0);
+    cash_sales_kurus += Number(s.cash_paid_kurus || 0);
+    card_sales_kurus += Number(s.card_paid_kurus || 0);
+    bank_transfer_sales_kurus += Number(s.bank_transfer_paid_kurus || 0);
+    monthly_credit_sales_kurus += Number(s.credit_paid_kurus || 0);
+
+    const catObj: any = Array.isArray(s.category) ? s.category[0] : s.category;
+    const isTS = catObj?.name === 'Teknik Servis';
+
+    if (isTS) {
+      technical_service_revenue_kurus += Number(s.total_price_kurus || 0);
+      const sCost = Number(s.service_cost_kurus || s.cost_price_kurus || 0);
+      technical_service_direct_cost_kurus += sCost;
+
+      if (s.service_cost_payment_status === 'paid_from_cash') {
+        ts_cost_paid_from_cash_kurus += sCost;
+      } else if (s.service_cost_payment_status === 'unpaid') {
+        ts_cost_unpaid_kurus += sCost;
+      }
+    } else {
+      const pCost = Number(s.cost_price_kurus || 0);
+      if (pCost === 0 && Number(s.total_price_kurus || 0) > 0) {
+        missing_cost_sales_count++;
+      }
+      product_sales_cost_kurus += pCost * Number(s.quantity || 1);
+    }
+  }
+
+  // 2. Credit payments collected in month
+  const { data: creditPayments } = await supabase
+    .from('kasa_credit_payments')
+    .select('amount_kurus')
+    .gte('created_at', startISO)
+    .lte('created_at', endISO);
+
+  const credit_payments_collected_kurus = (creditPayments || []).reduce((sum, c) => sum + Number(c.amount_kurus || 0), 0);
+
+  // 3. Expenses in month (active only!)
+  const { data: expenses } = await supabase
+    .from('kasa_expenses')
+    .select(`
+      amount_kurus,
+      category:kasa_expense_categories(name, is_salary_category)
+    `)
+    .gte('created_at', startISO)
+    .lte('created_at', endISO)
+    .neq('status', 'cancelled');
+
+  let general_operating_expenses_kurus = 0;
+  let salary_expenses_kurus = 0;
+
+  for (const e of expenses || []) {
+    const expCatObj: any = Array.isArray(e.category) ? e.category[0] : e.category;
+    if (expCatObj?.is_salary_category || expCatObj?.name === 'Personel Maaşı') {
+      salary_expenses_kurus += Number(e.amount_kurus || 0);
+    } else {
+      general_operating_expenses_kurus += Number(e.amount_kurus || 0);
+    }
+  }
+
+  // 4. Open credit balance & overdue
+  const { data: openSales } = await supabase
+    .from('kasa_sales')
+    .select('uncollected_credit_kurus, created_at')
+    .eq('status', 'completed')
+    .gt('uncollected_credit_kurus', 0);
+
+  let total_open_credit_balance_kurus = 0;
+  let overdue_credit_balance_kurus = 0;
+
+  for (const os of openSales || []) {
+    const uncoll = Number(os.uncollected_credit_kurus || 0);
+    total_open_credit_balance_kurus += uncoll;
+    const ageDays = Math.floor((Date.now() - new Date(os.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    if (ageDays > 7) {
+      overdue_credit_balance_kurus += uncoll;
+    }
+  }
+
+  // 5. Capital & Withdrawals & Bank Deposits in month
+  const { data: days } = await supabase
+    .from('kasa_days')
+    .select('capital_injected_kurus, owner_withdrawn_kurus, closing_balance_kurus, opening_balance_kurus')
+    .gte('date_val', `${yearStr}-${monthStr.padStart(2, '0')}-01`)
+    .lte('date_val', `${yearStr}-${monthStr.padStart(2, '0')}-31`);
+
+  const capital_injected_kurus = (days || []).reduce((sum, d) => sum + Number(d.capital_injected_kurus || 0), 0);
+  const owner_withdrawn_kurus = (days || []).reduce((sum, d) => sum + Number(d.owner_withdrawn_kurus || 0), 0);
+
+  const { data: bankDeposits } = await supabase
+    .from('kasa_bank_deposits')
+    .select('amount_kurus')
+    .gte('created_at', startISO)
+    .lte('created_at', endISO);
+
+  const bank_deposits_kurus = (bankDeposits || []).reduce((sum, b) => sum + Number(b.amount_kurus || 0), 0);
+
+  const latestDay = days && days.length > 0 ? days[days.length - 1] : null;
+  const end_of_month_cash_kurus = latestDay ? Number(latestDay.closing_balance_kurus || latestDay.opening_balance_kurus || 0) : 0;
+
+  // 6. Cancelled sales TS cost & financial loss handling
+  const { data: cancelledSales } = await supabase
+    .from('kasa_sales')
+    .select('service_cost_kurus, cost_price_kurus, service_cost_payment_status, cost_refunded_on_cancel, category:kasa_categories(name)')
+    .eq('status', 'cancelled')
+    .gte('created_at', startISO)
+    .lte('created_at', endISO);
+
+  let unrefunded_cancelled_ts_cost_kurus = 0;
+  let cancelled_unpaid_ts_cost_kurus = 0;
+  let cancelled_stock_ts_cost_kurus = 0;
+
+  for (const cs of cancelledSales || []) {
+    const catObj: any = Array.isArray(cs.category) ? cs.category[0] : cs.category;
+    if (catObj?.name === 'Teknik Servis') {
+      const sCost = Number(cs.service_cost_kurus || cs.cost_price_kurus || 0);
+      if (sCost > 0) {
+        if (cs.service_cost_payment_status === 'paid_from_cash' && !cs.cost_refunded_on_cancel) {
+          unrefunded_cancelled_ts_cost_kurus += sCost;
+        } else if (cs.service_cost_payment_status === 'unpaid') {
+          cancelled_unpaid_ts_cost_kurus += sCost;
+          ts_cost_unpaid_kurus += sCost; // Borç görünmeye devam eder
+        } else if (cs.service_cost_payment_status === 'previously_paid_or_stock' || cs.service_cost_payment_status === 'legacy_unspecified') {
+          cancelled_stock_ts_cost_kurus += sCost;
+        }
+      }
+    }
+  }
+
+  const cancelled_ts_loss_kurus = unrefunded_cancelled_ts_cost_kurus + cancelled_unpaid_ts_cost_kurus + cancelled_stock_ts_cost_kurus;
+
+  const gross_profit_kurus = gross_sales_kurus - product_sales_cost_kurus - technical_service_direct_cost_kurus - cancelled_ts_loss_kurus;
+
+  const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  const month_label = `${monthNames[month - 1]} ${year}`;
+
+  const safe_salary_expenses = actorRole === 'personel' ? undefined : salary_expenses_kurus;
+  const safe_net_profit = actorRole === 'personel' ? (gross_profit_kurus - general_operating_expenses_kurus) : (gross_profit_kurus - general_operating_expenses_kurus - salary_expenses_kurus);
+
+  return {
+    month_iso: monthISO,
+    month_label,
+    gross_sales_kurus,
+    cash_sales_kurus,
+    card_sales_kurus,
+    bank_transfer_sales_kurus,
+    technical_service_revenue_kurus,
+    credit_payments_collected_kurus,
+    product_sales_cost_kurus,
+    technical_service_direct_cost_kurus,
+    ts_cost_paid_from_cash_kurus,
+    ts_cost_unpaid_kurus,
+    unrefunded_cancelled_ts_cost_kurus,
+    cancelled_unpaid_ts_cost_kurus,
+    cancelled_ts_loss_kurus,
+    general_operating_expenses_kurus,
+    salary_expenses_kurus: safe_salary_expenses,
+    total_costs_and_expenses_kurus: product_sales_cost_kurus + technical_service_direct_cost_kurus + cancelled_ts_loss_kurus + general_operating_expenses_kurus + (safe_salary_expenses || 0),
+    monthly_credit_sales_kurus,
+    monthly_credit_collected_kurus: credit_payments_collected_kurus,
+    total_open_credit_balance_kurus,
+    overdue_credit_balance_kurus,
+    capital_injected_kurus,
+    owner_withdrawn_kurus,
+    bank_deposits_kurus,
+    end_of_month_cash_kurus,
+    gross_profit_kurus,
+    net_profit_kurus: safe_net_profit,
+    missing_cost_sales_count,
+    missing_cost_warning: missing_cost_sales_count > 0,
   };
 }

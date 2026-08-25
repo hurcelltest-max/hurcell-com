@@ -71,6 +71,7 @@ export default function KasaHareketlerPage() {
   // İptal Modalı State'leri
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [justification, setJustification] = useState('');
+  const [costRefunded, setCostRefunded] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
@@ -253,7 +254,10 @@ export default function KasaHareketlerPage() {
       const res = await fetch(`/api/kasa/sales/${selectedSale.id}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ justification: justification.trim() }),
+        body: JSON.stringify({
+          justification: justification.trim(),
+          cost_refunded: costRefunded,
+        }),
       });
 
       const data = await res.json();
@@ -653,6 +657,24 @@ export default function KasaHareketlerPage() {
             )}
 
             <form onSubmit={handleCancelSubmit} className="space-y-4">
+              {selectedSale.category_name === 'Teknik Servis' && (selectedSale as any).service_cost_payment_status === 'paid_from_cash' && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-xs">
+                  <span className="font-extrabold text-amber-950 block">Teknik Servis Maliyet İadesi Seçimi</span>
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-amber-900">
+                    <input
+                      type="checkbox"
+                      checked={costRefunded}
+                      onChange={(e) => setCostRefunded(e.target.checked)}
+                      className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                    />
+                    <span>Ödenen maliyet tutarı ustadan/tedarikçiden kasaya nakit geri alındı (Fiziki kasaya ekler)</span>
+                  </label>
+                  <p className="text-[11px] text-amber-800">
+                    İşaretlenmezse ödenen maliyet kasaya geri eklenmez; iptal edilen satışın gerçekleşmiş maliyeti olarak raporlanır.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
                   İptal Gerekçesi (Zorunlu) *

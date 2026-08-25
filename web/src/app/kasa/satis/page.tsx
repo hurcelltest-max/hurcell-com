@@ -40,6 +40,7 @@ export default function KasaSatisPage() {
   const [quantity, setQuantity] = useState('1');
   const [unitPriceTL, setUnitPriceTL] = useState('');
   const [costPriceTL, setCostPriceTL] = useState('');
+  const [serviceCostPaymentStatus, setServiceCostPaymentStatus] = useState<'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid'>('previously_paid_or_stock');
   const [description, setDescription] = useState('');
   const [serialImei, setSerialImei] = useState('');
 
@@ -62,6 +63,9 @@ export default function KasaSatisPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const selectedCategoryObj = categories.find((c) => c.id === categoryId);
+  const isTechnicalService = selectedCategoryObj?.name === 'Teknik Servis';
 
   useEffect(() => {
     async function loadInitialData() {
@@ -194,7 +198,9 @@ export default function KasaSatisPage() {
           product_code: productCode.trim() || undefined,
           quantity: qtyNum,
           unit_price_tl: unitPriceNum,
-          cost_price_tl: costPriceTL ? Number(costPriceTL) : undefined,
+          cost_price_tl: isTechnicalService ? undefined : (costPriceTL ? Number(costPriceTL) : undefined),
+          service_cost_tl: isTechnicalService ? (costPriceTL ? Number(costPriceTL) : undefined) : undefined,
+          service_cost_payment_status: isTechnicalService ? serviceCostPaymentStatus : undefined,
           cash_paid_tl: cashNum,
           card_paid_tl: cardNum,
           bank_transfer_paid_tl: bankTransferNum,
@@ -338,7 +344,9 @@ export default function KasaSatisPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Birim Alış Maliyeti (TL)</label>
+              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+                {isTechnicalService ? 'Teknik Servis Doğrudan Maliyeti (TL)' : 'Birim Alış Maliyeti (TL)'}
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -348,7 +356,28 @@ export default function KasaSatisPage() {
                 onChange={(e) => setCostPriceTL(e.target.value)}
                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold"
               />
+              {isTechnicalService && (
+                <p className="text-[10px] text-slate-500 mt-1">Kullanılan yedek parça, dış usta/servis bedeli veya doğrudan maliyet</p>
+              )}
             </div>
+
+            {isTechnicalService && costPriceTL && Number(costPriceTL) > 0 && (
+              <div className="col-span-1 sm:col-span-2">
+                <label className="block text-xs font-extrabold uppercase text-purple-900 mb-1">
+                  Maliyet Nasıl Karşılandı? *
+                </label>
+                <select
+                  required
+                  value={serviceCostPaymentStatus}
+                  onChange={(e) => setServiceCostPaymentStatus(e.target.value as any)}
+                  className="w-full p-3 bg-purple-50 border border-purple-300 rounded-xl text-xs font-bold text-purple-950 focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="paid_from_cash">Kasadan şimdi ödendi (Fiziki kasadan düşer)</option>
+                  <option value="previously_paid_or_stock">Daha önce ödenmiş / stoktan kullanıldı (Bugünkü kasayı etkilemez)</option>
+                  <option value="unpaid">Henüz ödenmedi (Ödenmemiş Maliyet Borcu)</option>
+                </select>
+              </div>
+            )}
 
             <div className="p-3 bg-slate-900 text-white rounded-xl flex flex-col justify-center items-center">
               <span className="text-[10px] uppercase font-bold text-slate-400">Satış Toplamı</span>

@@ -19,7 +19,12 @@ import {
   User,
   AlertTriangle,
   Wrench,
+  Edit3,
+  ChevronLeft,
+  ChevronRight,
+  PieChart,
 } from 'lucide-react';
+import { KasaMonthlyReport } from '@/lib/kasa/types';
 
 interface CategorySummary {
   category_id: string;
@@ -59,6 +64,22 @@ interface UserData {
   role: 'yonetici' | 'personel';
 }
 
+interface ExpenseItem {
+  id: string;
+  kasa_day_id: string;
+  expense_category_id: string;
+  category_name?: string;
+  amount_kurus: number;
+  description: string;
+  recipient_name?: string;
+  status?: 'active' | 'cancelled';
+  cancelled_at?: string;
+  cancel_reason?: string;
+  created_by_user_id: string;
+  created_by_name?: string;
+  created_at: string;
+}
+
 function formatTL(kurus: number): string {
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
@@ -77,7 +98,7 @@ export default function KasaMainDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Gider Modalı State'leri
+  // Gider Ekleme Modalı State'leri
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseCategories, setExpenseCategories] = useState<{ id: string; name: string; is_salary_category: boolean }[]>([]);
   const [expenseCatId, setExpenseCatId] = useState('');
@@ -87,6 +108,35 @@ export default function KasaMainDashboardPage() {
   const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const [expenseError, setExpenseError] = useState<string | null>(null);
   const [expenseSuccess, setExpenseSuccess] = useState<string | null>(null);
+
+  // Gider Listesi Modalı State'leri
+  const [showExpenseListModal, setShowExpenseListModal] = useState(false);
+  const [dailyExpenses, setDailyExpenses] = useState<ExpenseItem[]>([]);
+  const [expenseListLoading, setExpenseListLoading] = useState(false);
+
+  // Gider Düzeltme Modalı State'leri
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | null>(null);
+  const [editExpCatId, setEditExpCatId] = useState('');
+  const [editExpAmountTL, setEditExpAmountTL] = useState('');
+  const [editExpDescription, setEditExpDescription] = useState('');
+  const [editExpRecipient, setEditExpRecipient] = useState('');
+  const [editExpJustification, setEditExpJustification] = useState('');
+  const [editExpSubmitting, setEditExpSubmitting] = useState(false);
+  const [editExpError, setEditExpError] = useState<string | null>(null);
+
+  // Gider İptal Modalı State'leri
+  const [cancellingExpense, setCancellingExpense] = useState<ExpenseItem | null>(null);
+  const [cancelExpJustification, setCancelExpJustification] = useState('');
+  const [cancelExpSubmitting, setCancelExpSubmitting] = useState(false);
+  const [cancelExpError, setCancelExpError] = useState<string | null>(null);
+
+  // Aylık Bilanço State'leri
+  const [selectedMonthISO, setSelectedMonthISO] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [monthlyReport, setMonthlyReport] = useState<KasaMonthlyReport | null>(null);
+  const [monthlyLoading, setMonthlyLoading] = useState<boolean>(false);
 
   const loadData = async () => {
     try {
@@ -113,9 +163,48 @@ export default function KasaMainDashboardPage() {
     }
   };
 
+  const loadMonthlyReportData = async (monthISO: string) => {
+    try {
+      setMonthlyLoading(true);
+      const res = await fetch(`/api/kasa/monthly-report?month=${monthISO}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMonthlyReport(data.report);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setMonthlyLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    loadMonthlyReportData(selectedMonthISO);
+  }, [selectedMonthISO]);
+
+  const loadDailyExpenses = async () => {
+    try {
+      setExpenseListLoading(true);
+      const res = await fetch('/api/kasa/expenses');
+      if (res.ok) {
+        const data = await res.json();
+        setDailyExpenses(data.expenses || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setExpenseListLoading(false);
+    }
+  };
+
+  const openExpenseListModal = async () => {
+    setShowExpenseListModal(true);
+    await loadDailyExpenses();
+  };
 
   const handleLogout = async () => {
     await fetch('/api/kasa/auth/logout', { method: 'POST' });
@@ -125,40 +214,60 @@ export default function KasaMainDashboardPage() {
   const openExpenseModal = async () => {
     setExpenseError(null);
     setExpenseSuccess(null);
-    setShowExpenseModal(true);
+    setExpenseAmountTL('');
+    setExpenseDescription('');
+    setExpenseRecipient('');
+
     try {
       const res = await fetch('/api/kasa/expense-categories');
       if (res.ok) {
         const data = await res.json();
-        let cats = data.categories || [];
-        if (user?.role !== 'yonetici') {
-          cats = cats.filter((c: any) => !c.is_salary_category);
-        }
+        const cats = data.categories || [];
         setExpenseCategories(cats);
-        if (cats.length > 0) setExpenseCatId(cats[0].id);
+        if (cats.length > 0) {
+          const defaultCat = cats.find((c: any) => !c.is_salary_category && c.name !== 'Personel Maaşı') || cats[0];
+          setExpenseCatId(defaultCat.id);
+        }
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error(e);
+    }
+    setShowExpenseModal(true);
+  };
+
+  const openEditExpenseModal = async (exp: ExpenseItem) => {
+    setEditExpError(null);
+    setEditingExpense(exp);
+    setEditExpCatId(exp.expense_category_id);
+    setEditExpAmountTL((exp.amount_kurus / 100).toString());
+    setEditExpDescription(exp.description);
+    setEditExpRecipient(exp.recipient_name || '');
+    setEditExpJustification('');
+
+    if (expenseCategories.length === 0) {
+      try {
+        const res = await fetch('/api/kasa/expense-categories');
+        if (res.ok) {
+          const data = await res.json();
+          setExpenseCategories(data.categories || []);
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
-  const handleCreateExpenseSubmit = async (e: React.FormEvent) => {
+  const handleExpenseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setExpenseError(null);
-    setExpenseSuccess(null);
-
-    if (!expenseAmountTL || Number(expenseAmountTL) <= 0) {
-      return setExpenseError('Lütfen geçerli bir gider tutarı girin.');
-    }
-    if (!expenseCatId) {
-      return setExpenseError('Lütfen bir gider kategorisi seçin.');
-    }
-    if (!expenseDescription.trim()) {
-      return setExpenseError('Lütfen gider açıklaması girin.');
+    if (!expenseCatId || !expenseAmountTL || !expenseDescription.trim()) {
+      setExpenseError('Lütfen kategori, tutar ve açıklama alanlarını doldurun.');
+      return;
     }
 
     try {
       setExpenseSubmitting(true);
+      setExpenseError(null);
+
       const res = await fetch('/api/kasa/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,20 +280,109 @@ export default function KasaMainDashboardPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gider kaydı eklenemedi.');
+      if (!res.ok) throw new Error(data.error || 'Gider eklenemedi.');
 
-      setExpenseSuccess('Günlük gider başarıyla kaydedildi.');
-      setExpenseAmountTL('');
-      setExpenseDescription('');
-      setExpenseRecipient('');
+      setExpenseSuccess('Gider başarıyla kaydedildi.');
       setShowExpenseModal(false);
-
-      // Verileri anında güncelle
       await loadData();
+      await loadMonthlyReportData(selectedMonthISO);
     } catch (err: any) {
       setExpenseError(err.message || 'Gider eklenirken hata oluştu.');
     } finally {
       setExpenseSubmitting(false);
+    }
+  };
+
+  const handleEditExpenseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense) return;
+
+    if (!editExpJustification.trim()) {
+      return setEditExpError('Gider düzeltme için gerekçe girilmesi zorunludur.');
+    }
+
+    if (!editExpAmountTL || Number(editExpAmountTL) <= 0 || !editExpDescription.trim()) {
+      return setEditExpError('Lütfen geçerli bir tutar ve açıklama girin.');
+    }
+
+    try {
+      setEditExpSubmitting(true);
+      setEditExpError(null);
+
+      const res = await fetch(`/api/kasa/expenses/${editingExpense.id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expense_category_id: editExpCatId,
+          amount_tl: Number(editExpAmountTL),
+          description: editExpDescription.trim(),
+          recipient_name: editExpRecipient.trim() || undefined,
+          justification: editExpJustification.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gider düzeltilemedi.');
+
+      setEditingExpense(null);
+      await loadDailyExpenses();
+      await loadData();
+      await loadMonthlyReportData(selectedMonthISO);
+    } catch (err: any) {
+      setEditExpError(err.message || 'Gider düzeltilirken hata oluştu.');
+    } finally {
+      setEditExpSubmitting(false);
+    }
+  };
+
+  const handleCancelExpenseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancellingExpense) return;
+
+    if (!cancelExpJustification.trim()) {
+      return setCancelExpError('Gider iptali için gerekçe belirtilmesi zorunludur.');
+    }
+
+    try {
+      setCancelExpSubmitting(true);
+      setCancelExpError(null);
+
+      const res = await fetch(`/api/kasa/expenses/${cancellingExpense.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ justification: cancelExpJustification.trim() }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gider iptal edilemedi.');
+
+      setCancellingExpense(null);
+      setCancelExpJustification('');
+      await loadDailyExpenses();
+      await loadData();
+      await loadMonthlyReportData(selectedMonthISO);
+    } catch (err: any) {
+      setCancelExpError(err.message || 'Gider iptal edilirken hata oluştu.');
+    } finally {
+      setCancelExpSubmitting(false);
+    }
+  };
+
+  const handlePrevMonth = () => {
+    const [y, m] = selectedMonthISO.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 2, 1));
+    const newMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    setSelectedMonthISO(newMonth);
+  };
+
+  const handleNextMonth = () => {
+    const [y, m] = selectedMonthISO.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m, 1));
+    const now = new Date();
+    const currentCalendarMonthISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const newMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    if (newMonth <= currentCalendarMonthISO) {
+      setSelectedMonthISO(newMonth);
     }
   };
 
@@ -207,6 +405,10 @@ export default function KasaMainDashboardPage() {
 
   const reserveTargetKurus = metrics?.cash_reserve_target_kurus || 1500000;
   const excessCashToBankKurus = (metrics?.expected_cash_kurus || 0) - reserveTargetKurus;
+
+  const now = new Date();
+  const currentCalendarMonthISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const isNextDisabled = selectedMonthISO >= currentCalendarMonthISO;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-12">
@@ -252,6 +454,13 @@ export default function KasaMainDashboardPage() {
               <MinusCircle size={18} /> Günlük Gider Ekle
             </button>
 
+            <button
+              onClick={openExpenseListModal}
+              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
+            >
+              <List size={18} /> Giderler
+            </button>
+
             <Link
               href="/kasa/satis"
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all active:scale-[0.98]"
@@ -293,7 +502,7 @@ export default function KasaMainDashboardPage() {
           </div>
         )}
 
-        {/* BANKAYA PARA YATIRMA UYARISI BANNER'I (Sadece fiziki nakit 15.000 TL aşınca gösterilir) */}
+        {/* BANKAYA PARA YATIRMA UYARISI BANNER'I */}
         {excessCashToBankKurus > 0 && (
           <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 flex items-center justify-between flex-wrap gap-3 shadow-sm">
             <div className="flex items-center gap-3">
@@ -326,7 +535,7 @@ export default function KasaMainDashboardPage() {
           </div>
         )}
 
-        {/* ÜST ÖZET KARTLARI (Önceki gün devri, sermaye ve çekimler dahil) */}
+        {/* ÜST ÖZET KARTLARI */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
@@ -388,14 +597,19 @@ export default function KasaMainDashboardPage() {
             <p className="text-[11px] text-slate-400">Brüt satış cirosu</p>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
-            <span className="text-xs font-semibold text-rose-600 uppercase tracking-wider block flex items-center gap-1">
-              <MinusCircle size={14} /> Kasa Gideri
+          {/* KASA GİDERİ KARTI (Tıklanabilir -> Gider Listesini Açar) */}
+          <div
+            onClick={openExpenseListModal}
+            className="bg-white hover:bg-rose-50/50 p-4 rounded-2xl border border-slate-200 hover:border-rose-300 shadow-sm space-y-1 cursor-pointer transition-all group"
+          >
+            <span className="text-xs font-semibold text-rose-600 uppercase tracking-wider block flex items-center justify-between">
+              <span className="flex items-center gap-1"><MinusCircle size={14} /> Kasa Gideri</span>
+              <span className="text-[10px] text-rose-500 group-hover:underline">Detaylar &gt;</span>
             </span>
             <div className="text-xl font-bold text-rose-600">
               {formatTL(metrics?.expenses_total_kurus || 0)}
             </div>
-            <p className="text-[11px] text-slate-400">Giderler + Maaşlar</p>
+            <p className="text-[11px] text-slate-400">Giderler + Maaşlar (Tıklayın)</p>
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
@@ -448,81 +662,218 @@ export default function KasaMainDashboardPage() {
           </div>
         )}
 
-        {/* ANA EKRAN: KASA FÖYÜ TABLOSU (9 Kategori) */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h2 className="font-bold text-lg text-slate-900">Günlük Kasa Özet Föyü</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                9 Satış ve Gelir Kategorisine göre miktar, nakit ve kredi kartı tahsilat dağılımı
-              </p>
+        {/* AYLIK BİLANÇO BÖLÜMÜ */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-md shadow-indigo-600/20">
+                <PieChart size={22} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {monthlyReport?.month_label || 'Aylık Bilanço'} Finansal Durumu
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Europe/Istanbul takvim ayına göre brüt satışlar, maliyetler, cari risk ve net sonuçlar
+                </p>
+              </div>
             </div>
-            <button
-              onClick={loadData}
-              className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-            >
-              Yenile
-            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePrevMonth}
+                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all"
+                title="Önceki Ay"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              <span className="px-3 py-1.5 bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 rounded-xl">
+                {monthlyReport?.month_label || selectedMonthISO}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                disabled={isNextDisabled}
+                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Sonraki Ay"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wider">
-                  <th className="py-3.5 px-6">Gelir / Satış Kategorisi</th>
-                  <th className="py-3.5 px-4 text-center">Miktar / Adet</th>
-                  <th className="py-3.5 px-6 text-right text-emerald-700">Nakit Tutarı</th>
-                  <th className="py-3.5 px-6 text-right text-blue-700">Kredi Kartı</th>
-                  <th className="py-3.5 px-6 text-right text-purple-700">Havale / EFT</th>
-                  <th className="py-3.5 px-6 text-right font-bold text-slate-800">Toplam Tutar</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm font-medium">
-                {categories.map((cat) => (
-                  <tr key={cat.category_id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-3.5 px-6 text-slate-900 font-semibold">{cat.category_name}</td>
-                    <td className="py-3.5 px-4 text-center text-slate-600 font-semibold">{cat.count} adet</td>
-                    <td className="py-3.5 px-6 text-right text-emerald-600">{formatTL(cat.cash_total_kurus)}</td>
-                    <td className="py-3.5 px-6 text-right text-blue-600">{formatTL(cat.card_total_kurus)}</td>
-                    <td className="py-3.5 px-6 text-right text-purple-600">{formatTL(cat.bank_transfer_total_kurus || 0)}</td>
-                    <td className="py-3.5 px-6 text-right font-bold text-slate-900">
-                      {formatTL(cat.grand_total_kurus)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-slate-900 text-white font-bold text-base border-t-2 border-slate-900">
-                  <td className="py-4 px-6 uppercase tracking-wider text-sm font-semibold">GENEL TOPLAM</td>
-                  <td className="py-4 px-4 text-center text-amber-400">{grandCount} adet</td>
-                  <td className="py-4 px-6 text-right text-emerald-400">{formatTL(grandCash)}</td>
-                  <td className="py-4 px-6 text-right text-blue-400">{formatTL(grandCard)}</td>
-                  <td className="py-4 px-6 text-right text-purple-300">{formatTL(grandBankTransfer)}</td>
-                  <td className="py-4 px-6 text-right text-white font-extrabold text-lg">
-                    {formatTL(grandTotal)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
+          {monthlyLoading ? (
+            <div className="py-8 text-center text-xs font-semibold text-slate-400">
+              Aylık bilanço verileri yükleniyor...
+            </div>
+          ) : monthlyReport ? (
+            <div className="space-y-6">
+              {/* MALİYET EKSİK UYARISI BANNER'I */}
+              {monthlyReport.missing_cost_warning && (
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                  <span>Maliyet bilgisi eksik satışlar bulunduğu için net kâr kesin değildir ({monthlyReport.missing_cost_sales_count} satışta maliyet eksik).</span>
+                </div>
+              )}
+
+              {/* GRUP 1: GELİR VE TAHSİLATLAR */}
+              <div>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-3">1. Gelirler & Tahsilatlar</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">Toplam Ciro</span>
+                    <div className="text-sm font-extrabold text-slate-900">{formatTL(monthlyReport.gross_sales_kurus)}</div>
+                  </div>
+                  <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-emerald-700">Nakit Satış</span>
+                    <div className="text-sm font-extrabold text-emerald-800">{formatTL(monthlyReport.cash_sales_kurus)}</div>
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-blue-700">Kredi Kartı</span>
+                    <div className="text-sm font-extrabold text-blue-800">{formatTL(monthlyReport.card_sales_kurus)}</div>
+                  </div>
+                  <div className="bg-purple-50 p-3 rounded-xl border border-purple-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-purple-700">Havale / EFT</span>
+                    <div className="text-sm font-extrabold text-purple-800">{formatTL(monthlyReport.bank_transfer_sales_kurus)}</div>
+                  </div>
+                  <div className="bg-purple-50 p-3 rounded-xl border border-purple-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-purple-700">Teknik Servis</span>
+                    <div className="text-sm font-extrabold text-purple-800">{formatTL(monthlyReport.technical_service_revenue_kurus)}</div>
+                  </div>
+                  <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-emerald-700">Tahsil Edilen Cari</span>
+                    <div className="text-sm font-extrabold text-emerald-800">{formatTL(monthlyReport.credit_payments_collected_kurus)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* GRUP 2: MALİYET VE GİDERLER */}
+              <div>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-3">2. Maliyetler & Giderler</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-slate-600">Ürün Satış Maliyeti</span>
+                    <div className="text-sm font-extrabold text-slate-800">{formatTL(monthlyReport.product_sales_cost_kurus)}</div>
+                  </div>
+                  <div className="bg-rose-50 p-3 rounded-xl border border-rose-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-rose-700">Teknik Servis Doğrudan Maliyeti</span>
+                    <div className="text-sm font-extrabold text-rose-800">{formatTL(monthlyReport.technical_service_direct_cost_kurus)}</div>
+                    <p className="text-[9px] text-rose-600 font-semibold">
+                      Kasadan Ödenen: {formatTL(monthlyReport.ts_cost_paid_from_cash_kurus)} | Toplam Ödenmemiş Borç: {formatTL(monthlyReport.ts_cost_unpaid_kurus)}
+                    </p>
+                    {monthlyReport.unrefunded_cancelled_ts_cost_kurus > 0 && (
+                      <p className="text-[9px] text-red-600 font-bold mt-0.5">
+                        Geri Alınamayan İptal Maliyeti: {formatTL(monthlyReport.unrefunded_cancelled_ts_cost_kurus)}
+                      </p>
+                    )}
+                    {monthlyReport.cancelled_unpaid_ts_cost_kurus > 0 && (
+                      <p className="text-[9px] text-amber-700 font-bold mt-0.5">
+                        İptal Edilmiş Servis Borcu (Zarar): {formatTL(monthlyReport.cancelled_unpaid_ts_cost_kurus)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="bg-rose-50 p-3 rounded-xl border border-rose-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-rose-700">Genel İşletme Giderleri</span>
+                    <div className="text-sm font-extrabold text-rose-800">{formatTL(monthlyReport.general_operating_expenses_kurus)}</div>
+                  </div>
+                  {user?.role === 'yonetici' && (
+                    <div className="bg-rose-50 p-3 rounded-xl border border-rose-200 space-y-0.5">
+                      <span className="text-[10px] font-bold uppercase text-rose-700">Personel Maaşları</span>
+                      <div className="text-sm font-extrabold text-rose-800">{formatTL(monthlyReport.salary_expenses_kurus)}</div>
+                    </div>
+                  )}
+                  <div className="bg-slate-900 text-white p-3 rounded-xl space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Toplam Maliyet & Gider</span>
+                    <div className="text-sm font-extrabold text-white">{formatTL(monthlyReport.total_costs_and_expenses_kurus)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* GRUP 3: CARİ RİSK VE KASA HAREKETLERİ */}
+              <div>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-3">3. Cari Risk & Diğer Kasa Hareketleri</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-amber-800">Aylık Cari Satış</span>
+                    <div className="text-sm font-extrabold text-amber-900">{formatTL(monthlyReport.monthly_credit_sales_kurus)}</div>
+                  </div>
+                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-amber-800">Açık Cari Risk</span>
+                    <div className="text-sm font-extrabold text-amber-950">{formatTL(monthlyReport.total_open_credit_balance_kurus)}</div>
+                  </div>
+                  <div className="bg-red-50 p-3 rounded-xl border border-red-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-red-700">7+ Gün Geciken Cari</span>
+                    <div className="text-sm font-extrabold text-red-800">{formatTL(monthlyReport.overdue_credit_balance_kurus)}</div>
+                  </div>
+                  <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-indigo-700">Sermaye Girişi</span>
+                    <div className="text-sm font-extrabold text-indigo-900">{formatTL(monthlyReport.capital_injected_kurus)}</div>
+                  </div>
+                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-amber-800">Patron Çekimi</span>
+                    <div className="text-sm font-extrabold text-amber-900">{formatTL(monthlyReport.owner_withdrawn_kurus)}</div>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-0.5">
+                    <span className="text-[10px] font-bold uppercase text-slate-600">Bankaya Yatırılan</span>
+                    <div className="text-sm font-extrabold text-slate-800">{formatTL(monthlyReport.bank_deposits_kurus)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* GRUP 4: NET SONUÇ */}
+              <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center justify-between flex-wrap gap-4 shadow-md">
+                <div className="flex items-center gap-6">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Brüt Kâr</span>
+                    <div className="text-lg font-bold text-slate-200">{formatTL(monthlyReport.gross_profit_kurus)}</div>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Net Kâr / Zarar</span>
+                    <div className={`text-2xl font-black ${monthlyReport.net_profit_kurus >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {formatTL(monthlyReport.net_profit_kurus)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {monthlyReport.net_profit_kurus >= 0 ? (
+                    <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-xs font-bold uppercase tracking-wide">
+                      AYLIK KÂR
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full text-xs font-bold uppercase tracking-wide">
+                      AYLIK ZARAR
+                    </span>
+                  )}
+
+                  {user?.role === 'yonetici' && (
+                    <Link
+                      href="/admin/kasa/raporlar"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-sm"
+                    >
+                      Detaylı Dönem Raporu
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-xs font-semibold text-slate-400">
+              Bu aya ait finansal kayıt bulunamadı.
+            </div>
+          )}
+        </section>
       </main>
 
-      {/* GÜNLÜK GİDER EKLEME MODALI */}
+      {/* GİDER EKLEME MODALI */}
       {showExpenseModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                <MinusCircle className="text-rose-600" size={20} /> Günlük Kasa Gideri Ekle
-              </h3>
-              <button
-                onClick={() => setShowExpenseModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
+            <h3 className="font-bold text-lg text-slate-900">Günlük Gider Ekle</h3>
 
             {expenseError && (
               <div className="p-3 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-200">
@@ -530,30 +881,27 @@ export default function KasaMainDashboardPage() {
               </div>
             )}
 
-            {expenseSuccess && (
-              <div className="p-3 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200">
-                {expenseSuccess}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateExpenseSubmit} className="space-y-4">
+            <form onSubmit={handleExpenseSubmit} className="space-y-4 text-xs font-semibold">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Gider Kategorisi</label>
+                <label className="block text-slate-700 mb-1">Gider Kategorisi *</label>
                 <select
+                  required
                   value={expenseCatId}
                   onChange={(e) => setExpenseCatId(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-rose-500 transition-all"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                 >
-                  {expenseCategories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
+                  {expenseCategories
+                    .filter((c) => user?.role === 'yonetici' || (!c.is_salary_category && c.name !== 'Personel Maaşı'))
+                    .map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Tutar (TL)</label>
+                <label className="block text-slate-700 mb-1">Gider Tutarı (TL) *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -562,47 +910,320 @@ export default function KasaMainDashboardPage() {
                   placeholder="0.00"
                   value={expenseAmountTL}
                   onChange={(e) => setExpenseAmountTL(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-base font-extrabold text-slate-900 focus:bg-white focus:ring-2 focus:ring-rose-500 transition-all"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-rose-600"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Açıklama</label>
-                <input
-                  type="text"
+                <label className="block text-slate-700 mb-1">Gider Açıklaması *</label>
+                <textarea
                   required
-                  placeholder="Gider açıklaması (Örn: Ofis su faturası ödemesi)"
+                  rows={2}
+                  placeholder="Örn: Yemek / Ofis temizlik malzemeleri"
                   value={expenseDescription}
                   onChange={(e) => setExpenseDescription(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-rose-500 transition-all"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Ödeme Yapılan Kişi / Firma (Opsiyonel)</label>
+                <label className="block text-slate-700 mb-1">Ödeme Yapılan Kişi / Firma (Opsiyonel)</label>
                 <input
                   type="text"
-                  placeholder="Kişi veya kurum adı"
+                  placeholder="Kişi veya marka adı"
                   value={expenseRecipient}
                   onChange={(e) => setExpenseRecipient(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-rose-500 transition-all"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                 />
               </div>
 
-              <div className="flex items-center gap-3 pt-2">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowExpenseModal(false)}
-                  className="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-all"
+                  className="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
                 >
-                  İptal
+                  Vazgeç
                 </button>
                 <button
                   type="submit"
                   disabled={expenseSubmitting}
-                  className="w-1/2 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm shadow-md transition-all disabled:opacity-50"
+                  className="w-1/2 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-colors shadow-md shadow-rose-600/20 disabled:opacity-50"
                 >
                   {expenseSubmitting ? 'Kaydediliyor...' : 'Gideri Kaydet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* GÜNLÜK GİDER LİSTESİ MODALI */}
+      {showExpenseListModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white max-w-4xl w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                <MinusCircle className="text-rose-600" size={22} /> Günlük Gider Listesi
+              </h3>
+              <button
+                onClick={() => setShowExpenseListModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                    <th className="py-3 px-3">Tarih / Saat</th>
+                    <th className="py-3 px-3">Kategori</th>
+                    <th className="py-3 px-3">Açıklama</th>
+                    <th className="py-3 px-3">Alıcı / Firma</th>
+                    <th className="py-3 px-3 text-right">Tutar</th>
+                    <th className="py-3 px-3 text-center">Ekleyen</th>
+                    <th className="py-3 px-3 text-center">Durum</th>
+                    <th className="py-3 px-3 text-center">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                  {dailyExpenses.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                        Bugün henüz kaydedilmiş bir gider bulunmamaktadır.
+                      </td>
+                    </tr>
+                  ) : (
+                    dailyExpenses.map((exp) => {
+                      const isManager = user?.role === 'yonetici';
+                      const isOwnExpense = exp.created_by_user_id === user?.id;
+                      const isSalary = exp.category_name === 'Personel Maaşı';
+
+                      const canEdit =
+                        exp.status !== 'cancelled' &&
+                        dayStatus === 'open' &&
+                        (isManager || (isOwnExpense && !isSalary));
+                      const canCancel = exp.status !== 'cancelled' && dayStatus === 'open' && isManager;
+
+                      return (
+                        <tr key={exp.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3 px-3 text-slate-500">
+                            {new Date(exp.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="py-3 px-3 font-semibold text-slate-800">{exp.category_name}</td>
+                          <td className="py-3 px-3 text-slate-900">{exp.description}</td>
+                          <td className="py-3 px-3 text-slate-600">{exp.recipient_name || '-'}</td>
+                          <td className="py-3 px-3 text-right font-extrabold text-rose-600">
+                            {formatTL(exp.amount_kurus)}
+                          </td>
+                          <td className="py-3 px-3 text-center text-slate-600">{exp.created_by_name}</td>
+                          <td className="py-3 px-3 text-center">
+                            {exp.status === 'cancelled' ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">
+                                İptal Edildi
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                Aktif
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {canEdit && (
+                                <button
+                                  onClick={() => openEditExpenseModal(exp)}
+                                  className="px-2 py-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                  <Edit3 size={12} /> Düzelt
+                                </button>
+                              )}
+                              {canCancel && (
+                                <button
+                                  onClick={() => setCancellingExpense(exp)}
+                                  className="px-2 py-1 text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                                >
+                                  İptal Et
+                                </button>
+                              )}
+                              {!canEdit && !canCancel && <span className="text-slate-400 text-[11px]">-</span>}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowExpenseListModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GİDER DÜZELTME MODALI */}
+      {editingExpense && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                <Edit3 className="text-blue-600" size={20} /> Gider Kaydını Düzelt
+              </h3>
+              <button onClick={() => setEditingExpense(null)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">
+                ✕
+              </button>
+            </div>
+
+            {editExpError && (
+              <div className="p-3 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-200">
+                {editExpError}
+              </div>
+            )}
+
+            <form onSubmit={handleEditExpenseSubmit} className="space-y-4 text-xs font-semibold">
+              <div>
+                <label className="block text-slate-700 mb-1">Gider Kategorisi *</label>
+                <select
+                  required
+                  value={editExpCatId}
+                  onChange={(e) => setEditExpCatId(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                >
+                  {expenseCategories
+                    .filter((c) => user?.role === 'yonetici' || (!c.is_salary_category && c.name !== 'Personel Maaşı'))
+                    .map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 mb-1">Gider Tutarı (TL) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={editExpAmountTL}
+                  onChange={(e) => setEditExpAmountTL(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-rose-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 mb-1">Gider Açıklaması *</label>
+                <textarea
+                  required
+                  rows={2}
+                  value={editExpDescription}
+                  onChange={(e) => setEditExpDescription(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 mb-1">Ödeme Yapılan Kişi / Firma</label>
+                <input
+                  type="text"
+                  value={editExpRecipient}
+                  onChange={(e) => setEditExpRecipient(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-blue-900 uppercase tracking-wider mb-1">
+                  Düzeltme Gerekçesi (Zorunlu) *
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  placeholder="Gider tutarında veya kategorisinde yapılan değişikliğin sebebini açıklayın..."
+                  value={editExpJustification}
+                  onChange={(e) => setEditExpJustification(e.target.value)}
+                  className="w-full p-3 bg-blue-50/50 border border-blue-200 rounded-xl text-xs font-semibold focus:bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingExpense(null)}
+                  className="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  disabled={editExpSubmitting}
+                  className="w-1/2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-md text-xs disabled:opacity-50"
+                >
+                  {editExpSubmitting ? 'Düzeltiliyor...' : 'Düzeltmeyi Kaydet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* GİDER İPTAL MODALI */}
+      {cancellingExpense && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <h3 className="font-bold text-lg text-slate-900">Gider İptali Onayı (Yönetici)</h3>
+            <p className="text-xs text-slate-600">
+              <span className="font-bold">{cancellingExpense.category_name}</span> kategorisindeki{' '}
+              <span className="font-bold">{formatTL(cancellingExpense.amount_kurus)}</span> tutarındaki gider kaydı iptal edilecektir.
+            </p>
+
+            {cancelExpError && (
+              <div className="p-3 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-200">
+                {cancelExpError}
+              </div>
+            )}
+
+            <form onSubmit={handleCancelExpenseSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  İptal Gerekçesi (Zorunlu) *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Gider kaydının iptal sebebini açıklayın..."
+                  value={cancelExpJustification}
+                  onChange={(e) => setCancelExpJustification(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCancellingExpense(null)}
+                  className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-colors"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  disabled={cancelExpSubmitting}
+                  className="w-1/2 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-colors shadow-md shadow-red-600/20"
+                >
+                  {cancelExpSubmitting ? 'İptal Ediliyor...' : 'Gideri İptal Et'}
                 </button>
               </div>
             </form>

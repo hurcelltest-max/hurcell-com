@@ -10,7 +10,7 @@ export async function POST(
     const auth = await requireManagerAuth();
     const { id: saleId } = await params;
     const body = await req.json();
-    const { justification } = body;
+    const { justification, cost_refunded } = body;
 
     if (!justification || !String(justification).trim()) {
       return NextResponse.json(
@@ -22,7 +22,8 @@ export async function POST(
     const cancelledSale = await cancelSaleTransaction(
       auth.user.id,
       saleId,
-      String(justification).trim()
+      String(justification).trim(),
+      Boolean(cost_refunded)
     );
 
     return NextResponse.json({ success: true, sale: cancelledSale });

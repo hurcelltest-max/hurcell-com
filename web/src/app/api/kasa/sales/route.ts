@@ -61,6 +61,7 @@ export async function POST(req: Request) {
       serial_imei,
       cost_price_tl,
       service_cost_tl,
+      service_cost_payment_status,
       technical_service_details,
       idempotency_key,
     } = body;
@@ -115,6 +116,7 @@ export async function POST(req: Request) {
       serial_imei: serial_imei ? String(serial_imei).trim() : undefined,
       cost_price_kurus: costPriceKurus,
       service_cost_kurus: serviceCostKurus,
+      service_cost_payment_status: service_cost_payment_status || 'previously_paid_or_stock',
       technical_service_details,
       idempotency_key: idempotency_key ? String(idempotency_key) : undefined,
     });

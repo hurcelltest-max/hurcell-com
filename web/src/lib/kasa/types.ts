@@ -85,6 +85,10 @@ export interface KasaSale {
   total_price_kurus: number;
   cost_price_kurus?: number;
   service_cost_kurus?: number;
+  service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'legacy_unspecified';
+  service_cost_paid_at?: string;
+  service_cost_paid_by_user_id?: string;
+  cost_refunded_on_cancel?: boolean;
   cash_paid_kurus: number;
   card_paid_kurus: number;
   bank_transfer_paid_kurus: number;
@@ -153,6 +157,10 @@ export interface KasaExpense {
   amount_kurus: number;
   description: string;
   recipient_name?: string;
+  status?: 'active' | 'cancelled';
+  cancelled_at?: string;
+  cancelled_by_user_id?: string;
+  cancel_reason?: string;
   created_by_user_id: string;
   created_by_name?: string;
   created_at: string;
@@ -280,4 +288,37 @@ export interface KasaDashboardMetrics {
   total_fx_tl_equivalent_kurus: number;
   total_asset_try_equivalent_kurus: number;
   realized_fx_diff_total_kurus: number;
+}
+
+export interface KasaMonthlyReport {
+  month_iso: string; // e.g. '2026-08'
+  month_label: string; // e.g. 'Ağustos 2026'
+  gross_sales_kurus: number;
+  cash_sales_kurus: number;
+  card_sales_kurus: number;
+  bank_transfer_sales_kurus: number;
+  technical_service_revenue_kurus: number;
+  credit_payments_collected_kurus: number;
+  product_sales_cost_kurus: number;
+  technical_service_direct_cost_kurus: number;
+  ts_cost_paid_from_cash_kurus: number;
+  ts_cost_unpaid_kurus: number;
+  unrefunded_cancelled_ts_cost_kurus: number;
+  cancelled_unpaid_ts_cost_kurus: number;
+  cancelled_ts_loss_kurus: number;
+  general_operating_expenses_kurus: number;
+  salary_expenses_kurus?: number;
+  total_costs_and_expenses_kurus: number;
+  monthly_credit_sales_kurus: number;
+  monthly_credit_collected_kurus: number;
+  total_open_credit_balance_kurus: number;
+  overdue_credit_balance_kurus: number;
+  capital_injected_kurus: number;
+  owner_withdrawn_kurus: number;
+  bank_deposits_kurus: number;
+  end_of_month_cash_kurus: number;
+  gross_profit_kurus: number;
+  net_profit_kurus: number;
+  missing_cost_sales_count: number;
+  missing_cost_warning: boolean;
 }

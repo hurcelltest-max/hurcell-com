@@ -998,7 +998,7 @@ export async function updateSaleTransaction(
     description?: string;
     cost_price_kurus?: number;
     service_cost_kurus?: number;
-    service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'legacy_unspecified';
+    service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost' | 'legacy_unspecified';
   }
 ): Promise<KasaSale> {
   const supabase = getSupabaseAdmin();
@@ -1473,11 +1473,23 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
     if (isTS) {
       technical_service_revenue_kurus += Number(s.total_price_kurus || 0);
       const sCost = Number(s.service_cost_kurus || s.cost_price_kurus || 0);
+      const st = s.service_cost_payment_status;
+
+      if (!st || st === 'legacy_unspecified') {
+        missing_cost_sales_count++;
+      } else if (st === 'no_cost') {
+        // Maliyet 0 TL olarak bilinçli tanımlanmış, eksik sayılmaz.
+      } else if (st === 'paid_from_cash' || st === 'previously_paid_or_stock' || st === 'unpaid') {
+        if (sCost <= 0) {
+          missing_cost_sales_count++;
+        }
+      }
+
       technical_service_direct_cost_kurus += sCost;
 
-      if (s.service_cost_payment_status === 'paid_from_cash') {
+      if (st === 'paid_from_cash') {
         ts_cost_paid_from_cash_kurus += sCost;
-      } else if (s.service_cost_payment_status === 'unpaid') {
+      } else if (st === 'unpaid') {
         ts_cost_unpaid_kurus += sCost;
       }
     } else {

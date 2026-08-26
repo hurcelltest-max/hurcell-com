@@ -104,7 +104,7 @@ export interface KasaSale {
   total_price_kurus: number;
   cost_price_kurus?: number;
   service_cost_kurus?: number;
-  service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'legacy_unspecified';
+  service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost' | 'legacy_unspecified';
   service_cost_paid_at?: string;
   service_cost_paid_by_user_id?: string;
   cost_refunded_on_cancel?: boolean;

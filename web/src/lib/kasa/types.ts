@@ -322,3 +322,36 @@ export interface KasaMonthlyReport {
   missing_cost_sales_count: number;
   missing_cost_warning: boolean;
 }
+
+export interface KasaExpenseCategorySummary {
+  category_id: string;
+  category_name: string;
+  is_salary_category: boolean;
+  count: number;
+  active_total_kurus: number;
+  cancelled_total_kurus: number;
+  net_total_kurus: number;
+}
+
+export interface KasaUnifiedMovement {
+  id: string;
+  kasa_day_id: string;
+  date_val: string;
+  movement_type: string;
+  movement_label: string;
+  category_name?: string;
+  description: string;
+  cash_in_kurus: number;
+  cash_out_kurus: number;
+  card_portion_kurus: number;
+  bank_transfer_portion_kurus: number;
+  usd_amount_cents?: number;
+  eur_amount_cents?: number;
+  credit_amount_kurus?: number;
+  created_by_user_id: string;
+  created_by_name: string;
+  created_at: string;
+  status?: string;
+  ref_id?: string;
+  receipt_no?: string;
+}

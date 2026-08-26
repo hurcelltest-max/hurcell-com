@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     const auth = await requireManagerAuth();
     const body = await req.json();
 
-    const { counted_cash_tl, closing_note, counted_usd, counted_eur } = body;
+    const { kasa_day_id, counted_cash_tl, closing_note, counted_usd, counted_eur } = body;
 
     if (counted_cash_tl === undefined || Number(counted_cash_tl) < 0) {
       return NextResponse.json({ error: 'Lütfen geçerli bir fiziki TL nakit sayımı giriniz.' }, { status: 400 });
@@ -17,11 +17,15 @@ export async function POST(req: Request) {
     const countedUsdCents = counted_usd !== undefined && counted_usd !== null && counted_usd !== '' ? Math.round(Number(counted_usd) * 100) : undefined;
     const countedEurCents = counted_eur !== undefined && counted_eur !== null && counted_eur !== '' ? Math.round(Number(counted_eur) * 100) : undefined;
 
-    const todayDay = await getOrCreateTodayDay(auth.user.id);
+    let targetDayId = kasa_day_id;
+    if (!targetDayId) {
+      const todayDay = await getOrCreateTodayDay(auth.user.id);
+      targetDayId = todayDay.id;
+    }
 
     const closedDay = await closeDayTransaction(
       auth.user.id,
-      todayDay.id,
+      targetDayId,
       countedCashKurus,
       closing_note ? String(closing_note).trim() : undefined,
       countedUsdCents,

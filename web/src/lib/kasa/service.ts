@@ -13,10 +13,12 @@ import {
   KasaDay,
   KasaExpense,
   KasaExpenseCategory,
+  KasaExpenseCategorySummary,
   KasaFXTransaction,
   KasaMonthlyReport,
   KasaSale,
   KasaSettings,
+  KasaUnifiedMovement,
   KasaUser,
   KasaUserRole,
   TechnicalServiceDetails,
@@ -1540,7 +1542,7 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
   // 5. Capital & Withdrawals & Bank Deposits in month
   const { data: days } = await supabase
     .from('kasa_days')
-    .select('capital_injected_kurus, owner_withdrawn_kurus, closing_balance_kurus, opening_balance_kurus')
+    .select('capital_injected_kurus, owner_withdrawn_kurus, counted_cash_kurus, opening_balance_kurus')
     .gte('date_val', `${yearStr}-${monthStr.padStart(2, '0')}-01`)
     .lte('date_val', `${yearStr}-${monthStr.padStart(2, '0')}-31`);
 
@@ -1556,7 +1558,7 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
   const bank_deposits_kurus = (bankDeposits || []).reduce((sum, b) => sum + Number(b.amount_kurus || 0), 0);
 
   const latestDay = days && days.length > 0 ? days[days.length - 1] : null;
-  const end_of_month_cash_kurus = latestDay ? Number(latestDay.closing_balance_kurus || latestDay.opening_balance_kurus || 0) : 0;
+  const end_of_month_cash_kurus = latestDay ? Number(latestDay.counted_cash_kurus || latestDay.opening_balance_kurus || 0) : 0;
 
   // 6. Cancelled sales TS cost & financial loss handling
   const { data: cancelledSales } = await supabase
@@ -1629,4 +1631,231 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
     missing_cost_sales_count,
     missing_cost_warning: missing_cost_sales_count > 0,
   };
+}
+
+export async function getDailyExpenseCategorySummary(
+  kasaDayId: string,
+  actorRole: KasaUserRole
+): Promise<KasaExpenseCategorySummary[]> {
+  const supabase = getSupabaseAdmin();
+
+  const { data: categories } = await supabase
+    .from('kasa_expense_categories')
+    .select('id, name, is_salary_category, display_order')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  const { data: expenses } = await supabase
+    .from('kasa_expenses')
+    .select('id, expense_category_id, amount_kurus, status')
+    .eq('kasa_day_id', kasaDayId);
+
+  const expMap = new Map<string, { count: number; active: number; cancelled: number }>();
+
+  for (const e of expenses || []) {
+    const catId = e.expense_category_id;
+    const cur = expMap.get(catId) || { count: 0, active: 0, cancelled: 0 };
+    const amt = Number(e.amount_kurus || 0);
+
+    if (e.status === 'cancelled') {
+      cur.cancelled += amt;
+    } else {
+      cur.count += 1;
+      cur.active += amt;
+    }
+    expMap.set(catId, cur);
+  }
+
+  const result: KasaExpenseCategorySummary[] = [];
+
+  for (const cat of categories || []) {
+    if (actorRole === 'personel' && cat.is_salary_category) {
+      continue;
+    }
+
+    const st = expMap.get(cat.id) || { count: 0, active: 0, cancelled: 0 };
+    result.push({
+      category_id: cat.id,
+      category_name: cat.name,
+      is_salary_category: cat.is_salary_category,
+      count: st.count,
+      active_total_kurus: st.active,
+      cancelled_total_kurus: st.cancelled,
+      net_total_kurus: st.active,
+    });
+  }
+
+  return result;
+}
+
+export interface KasaUnifiedMovementsResponse {
+  items: KasaUnifiedMovement[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export async function getUnifiedDailyMovements(params: {
+  kasaDayId?: string;
+  startDate?: string;
+  endDate?: string;
+  movementType?: string;
+  direction?: 'all' | 'in' | 'out' | 'non_cash';
+  page?: number;
+  pageSize?: number;
+  actorRole?: KasaUserRole;
+}): Promise<KasaUnifiedMovementsResponse> {
+  const supabase = getSupabaseAdmin();
+
+  const page = Math.max(1, Number(params.page) || 1);
+  const pageSize = Math.min(200, Math.max(1, Number(params.pageSize) || 50));
+  const offset = (page - 1) * pageSize;
+
+  let query = supabase
+    .from('kasa_movements')
+    .select(`
+      id, kasa_day_id, movement_type, sale_id, amount_kurus, cash_portion_kurus,
+      card_portion_kurus, bank_transfer_portion_kurus, description, created_by_user_id, created_at,
+      kasa_days!inner(date_val),
+      created_by:kasa_users(full_name),
+      sale:kasa_sales(receipt_no, status, credit_customer_id, category:kasa_categories(name))
+    `, { count: 'exact' });
+
+  if (params.kasaDayId) {
+    query = query.eq('kasa_day_id', params.kasaDayId);
+  }
+
+  if (params.startDate) {
+    query = query.gte('kasa_days.date_val', params.startDate);
+  }
+
+  if (params.endDate) {
+    query = query.lte('kasa_days.date_val', params.endDate);
+  }
+
+  if (params.movementType) {
+    query = query.eq('movement_type', params.movementType);
+  }
+
+  if (params.direction === 'in') {
+    query = query.gt('cash_portion_kurus', 0);
+  } else if (params.direction === 'out') {
+    query = query.lt('cash_portion_kurus', 0);
+  } else if (params.direction === 'non_cash') {
+    query = query.or('card_portion_kurus.gt.0,bank_transfer_portion_kurus.gt.0');
+  }
+
+  query = query.order('created_at', { ascending: false }).range(offset, offset + pageSize - 1);
+
+  const { data: movements, count, error } = await query;
+  if (error) {
+    console.error('getUnifiedDailyMovements DB Error:', error);
+    throw new Error(`Hareket defteri verileri okunamadı: ${error.message}`);
+  }
+
+  const items: KasaUnifiedMovement[] = [];
+
+  const labelMap: Record<string, string> = {
+    satis: 'Satış',
+    nakit_tahsilat: 'Nakit Tahsilat',
+    kredi_karti_tahsilat: 'Kredi Kartı Tahsilat',
+    bank_transfer_tahsilat: 'Havale / EFT Tahsilat',
+    nakit_gider: 'Gider Ödemesi',
+    salary_payment: 'Personel Maaş Ödemesi',
+    iade: 'Satış İadesi',
+    iptal: 'Satış İptali',
+    acilis_bakiyesi: 'Önceki Gün Devri / Açılış',
+    gun_sonu_kapanis: 'Gün Sonu Kapanış Sayımı',
+    capital_injection: 'Sermaye Girişi',
+    owner_withdrawal: 'İşletme Sahibi Çekimi',
+    bank_deposit: 'Bankaya Yatırılan Nakit',
+    fx_sale_payment: 'Dövizli Satış Tahsilatı',
+    fx_conversion_to_try: 'Döviz Bozdurma (TL Kasa Girişi)',
+    credit_tahsilat: 'Cari Tahsilat',
+    satis_duzeltme_iptal: 'Satış Düzeltme İptal Kaydı',
+    satis_duzeltme_yeni: 'Satış Düzeltme Yeni Kayıt',
+    gider_duzeltme_iptal: 'Gider Düzeltme İptal Kaydı',
+    gider_duzeltme_yeni: 'Gider Düzeltme Yeni Kayıt',
+    gider_iptal: 'Gider İptali',
+    ts_cost_cash_payment: 'Teknik Servis Nakit Maliyet Ödemesi',
+    ts_cost_cash_refund: 'Teknik Servis Maliyet İadesi Kasaya Giriş',
+    carryover_repair: 'Devir Onarımı Kaydı',
+  };
+
+  for (const m of movements || []) {
+    const isSalary = m.movement_type === 'salary_payment';
+    if (params.actorRole === 'personel' && isSalary) {
+      continue;
+    }
+
+    const cashPortion = Number(m.cash_portion_kurus || 0);
+    const cardPortion = Number(m.card_portion_kurus || 0);
+    const bankTransferPortion = Number(m.bank_transfer_portion_kurus || 0);
+
+    let cash_in_kurus = 0;
+    let cash_out_kurus = 0;
+
+    if (cashPortion > 0) {
+      cash_in_kurus = cashPortion;
+    } else if (cashPortion < 0) {
+      cash_out_kurus = Math.abs(cashPortion);
+    }
+
+    const movement_label = labelMap[m.movement_type] || m.movement_type;
+    const date_val = (m.kasa_days as any)?.date_val || new Date(m.created_at).toISOString().split('T')[0];
+    const created_by_name = (m.created_by as any)?.full_name || 'Sistem';
+    const receipt_no = (m.sale as any)?.receipt_no || undefined;
+    const category_name = (m.sale as any)?.category?.name || undefined;
+
+    items.push({
+      id: m.id,
+      kasa_day_id: m.kasa_day_id,
+      date_val,
+      movement_type: m.movement_type,
+      movement_label,
+      category_name,
+      description: m.description,
+      cash_in_kurus,
+      cash_out_kurus,
+      card_portion_kurus: cardPortion,
+      bank_transfer_portion_kurus: bankTransferPortion,
+      created_by_user_id: m.created_by_user_id,
+      created_by_name,
+      created_at: m.created_at,
+      receipt_no,
+    });
+  }
+
+  const total = count || 0;
+  const total_pages = Math.ceil(total / pageSize);
+
+  return {
+    items,
+    page,
+    page_size: pageSize,
+    total,
+    total_pages,
+  };
+}
+
+export async function repairDayCarryover(
+  actorUserId: string,
+  targetDayId: string,
+  sourceDayId: string,
+  justification: string
+): Promise<KasaDay> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc('fn_kasa_repair_day_carryover', {
+    p_actor_user_id: actorUserId,
+    p_target_day_id: targetDayId,
+    p_source_day_id: sourceDayId,
+    p_justification: justification,
+  });
+
+  if (error || !data) {
+    throw new Error(`Devir onarımı başarısız: ${error?.message}`);
+  }
+
+  return data as KasaDay;
 }

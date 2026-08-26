@@ -55,6 +55,7 @@ interface Metrics {
   missing_cost_warning: boolean;
   estimated_profit_kurus: number;
   cash_reserve_target_kurus?: number;
+  bank_deposits_total_kurus?: number;
 }
 
 interface UserData {
@@ -130,6 +131,18 @@ export default function KasaMainDashboardPage() {
   const [cancelExpSubmitting, setCancelExpSubmitting] = useState(false);
   const [cancelExpError, setCancelExpError] = useState<string | null>(null);
 
+  // Gider Özet Föyü State'leri
+  const [expenseSummary, setExpenseSummary] = useState<any[]>([]);
+
+  // Devir & Fiziksel Kasa Modalları
+  const [showDevirModal, setShowDevirModal] = useState(false);
+  const [showPhysicalCashModal, setShowPhysicalCashModal] = useState(false);
+  const [targetDayId, setTargetDayId] = useState<string | null>(null);
+  const [repairOpeningTL, setRepairOpeningTL] = useState('');
+  const [repairJustification, setRepairJustification] = useState('');
+  const [repairSubmitting, setRepairSubmitting] = useState(false);
+  const [repairError, setRepairError] = useState<string | null>(null);
+
   // Aylık Bilanço State'leri
   const [selectedMonthISO, setSelectedMonthISO] = useState<string>(() => {
     const d = new Date();
@@ -137,6 +150,18 @@ export default function KasaMainDashboardPage() {
   });
   const [monthlyReport, setMonthlyReport] = useState<KasaMonthlyReport | null>(null);
   const [monthlyLoading, setMonthlyLoading] = useState<boolean>(false);
+
+  const loadExpenseSummary = async () => {
+    try {
+      const res = await fetch('/api/kasa/expense-summary');
+      if (res.ok) {
+        const data = await res.json();
+        setExpenseSummary(data.expenseSummary || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -156,6 +181,8 @@ export default function KasaMainDashboardPage() {
       setCategories(dashData.categorySummary || []);
       setDayStatus(dashData.day?.status || 'open');
       setDateStr(dashData.day?.date_val || '');
+      if (dashData.day?.id) setTargetDayId(dashData.day.id);
+      await loadExpenseSummary();
     } catch (err: any) {
       setError(err.message || 'Veriler yüklenirken hata oluştu.');
     } finally {
@@ -472,7 +499,23 @@ export default function KasaMainDashboardPage() {
               href="/kasa/hareketler"
               className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-sm font-medium rounded-xl flex items-center gap-2 transition-all"
             >
-              <List size={18} /> Satışlar
+              <List size={18} /> Kasa Hareketleri
+            </Link>
+
+            {user?.role === 'yonetici' && (
+              <Link
+                href="/admin/kasa/gun-sonu"
+                className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
+              >
+                Gün Sonu
+              </Link>
+            )}
+
+            <Link
+              href="/admin/kasa/gunluk-arsiv"
+              className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
+            >
+              Günlük Arşiv
             </Link>
 
             {user?.role === 'yonetici' && (
@@ -537,14 +580,18 @@ export default function KasaMainDashboardPage() {
 
         {/* ÜST ÖZET KARTLARI */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-              Önceki Gün Devri
+          <div
+            onClick={() => setShowDevirModal(true)}
+            className="bg-white hover:bg-slate-50 p-4 rounded-2xl border border-slate-200 hover:border-blue-300 shadow-sm space-y-1 cursor-pointer transition-all group"
+          >
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block flex items-center justify-between">
+              <span>Önceki Gün Devri</span>
+              <span className="text-[10px] text-blue-600 group-hover:underline">Detay &gt;</span>
             </span>
             <div className="text-xl font-bold text-slate-900">
               {formatTL(metrics?.opening_balance_kurus || 0)}
             </div>
-            <p className="text-[11px] text-slate-400">Önceki günden devreden nakit</p>
+            <p className="text-[11px] text-slate-400">Önceki günden devreden nakit (Tıklayın)</p>
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
@@ -622,14 +669,18 @@ export default function KasaMainDashboardPage() {
             <p className="text-[11px] text-slate-400">İade edilen nakit</p>
           </div>
 
-          <div className="bg-emerald-600 text-white p-4 rounded-2xl border border-emerald-700 shadow-md space-y-1">
-            <span className="text-xs font-semibold uppercase tracking-wider block text-emerald-100 flex items-center gap-1">
-              <DollarSign size={14} /> Beklenen Fiziksel Kasa
+          <div
+            onClick={() => setShowPhysicalCashModal(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl border border-emerald-700 shadow-md space-y-1 cursor-pointer transition-all group"
+          >
+            <span className="text-xs font-semibold uppercase tracking-wider block text-emerald-100 flex items-center justify-between">
+              <span className="flex items-center gap-1"><DollarSign size={14} /> Beklenen Fiziksel Kasa</span>
+              <span className="text-[10px] text-emerald-200 group-hover:underline">Hesap Dökümü &gt;</span>
             </span>
             <div className="text-2xl font-extrabold text-white">
               {formatTL(metrics?.expected_cash_kurus || 0)}
             </div>
-            <p className="text-[11px] text-emerald-100/80">Kasada olması gereken net fiziki nakit</p>
+            <p className="text-[11px] text-emerald-100/80">Kasada olması gereken net fiziki nakit (Tıklayın)</p>
           </div>
         </div>
 
@@ -661,6 +712,71 @@ export default function KasaMainDashboardPage() {
             </div>
           </div>
         )}
+
+        {/* GÜNLÜK KASA GİDERİ ÖZET FÖYÜ */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-100 pb-3">
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <MinusCircle size={18} className="text-rose-600" /> Günlük Kasa Gideri Özet Föyü
+            </h2>
+            <button
+              onClick={openExpenseListModal}
+              className="text-xs font-semibold text-rose-600 hover:underline flex items-center gap-1"
+            >
+              Tüm Gider Listesini Gör &gt;
+            </button>
+          </div>
+
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200">
+                <tr>
+                  <th className="p-3">Gider Kategorisi</th>
+                  <th className="p-3 text-center">İşlem Adedi</th>
+                  <th className="p-3 text-right">Nakit Gider Toplamı</th>
+                  <th className="p-3 text-right">İptal / Düzeltme Toplamı</th>
+                  <th className="p-3 text-right">Net Gider Toplamı</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {expenseSummary.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-6 text-center text-slate-400 font-medium">
+                      Bugün için kaydedilmiş gider bulunmamaktadır.
+                    </td>
+                  </tr>
+                ) : (
+                  expenseSummary.map((item) => (
+                    <tr key={item.category_id} className="hover:bg-slate-50">
+                      <td className="p-3 font-semibold text-slate-800">{item.category_name}</td>
+                      <td className="p-3 text-center font-bold text-slate-700">{item.count}</td>
+                      <td className="p-3 text-right font-bold text-rose-600">{formatTL(item.active_total_kurus)}</td>
+                      <td className="p-3 text-right font-medium text-slate-400">{formatTL(item.cancelled_total_kurus)}</td>
+                      <td className="p-3 text-right font-black text-rose-700">{formatTL(item.net_total_kurus)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              {expenseSummary.length > 0 && (
+                <tfoot className="bg-slate-50 font-bold text-slate-900 border-t border-slate-200">
+                  <tr>
+                    <td className="p-3">GENEL GİDER TOPLAMI</td>
+                    <td className="p-3 text-center">{expenseSummary.reduce((sum, i) => sum + i.count, 0)}</td>
+                    <td className="p-3 text-right text-rose-600">
+                      {formatTL(expenseSummary.reduce((sum, i) => sum + i.active_total_kurus, 0))}
+                    </td>
+                    <td className="p-3 text-right text-slate-400">
+                      {formatTL(expenseSummary.reduce((sum, i) => sum + i.cancelled_total_kurus, 0))}
+                    </td>
+                    <td className="p-3 text-right text-rose-700 text-sm">
+                      {formatTL(expenseSummary.reduce((sum, i) => sum + i.net_total_kurus, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </section>
 
         {/* AYLIK BİLANÇO BÖLÜMÜ */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
@@ -1227,6 +1343,174 @@ export default function KasaMainDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DEVİR DETAYI VE ONARIM MODALI */}
+      {showDevirModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+              <Calendar size={20} className="text-blue-600" /> Önceki Gün Devir Detayı
+            </h3>
+
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-1">
+              <span className="text-xs font-bold uppercase text-blue-700">Mevcut Gün Açılış Devri</span>
+              <div className="text-2xl font-black text-blue-900">{formatTL(metrics?.opening_balance_kurus || 0)}</div>
+              <p className="text-xs text-blue-800">
+                Bu tutar önceki kapatılan kasa gününün sayılan kapanış bakiyesinden otomatik olarak devredilmiştir.
+              </p>
+            </div>
+
+            {user?.role === 'yonetici' && (
+              <div className="border-t border-slate-100 pt-4 space-y-3">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">Güvenli Devir Onarımı (Yönetici)</h4>
+                <p className="text-xs text-slate-500">
+                  Devir bakiyesi veritabanındaki en yakın kapatılmış önceki günden otomatik olarak hesaplanır. Yönetici serbest tutar giremez.
+                </p>
+
+                {repairError && (
+                  <div className="p-3 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-200">
+                    {repairError}
+                  </div>
+                )}
+
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!targetDayId || !repairJustification.trim()) {
+                      return setRepairError('Lütfen onarım gerekçesi girin.');
+                    }
+                    try {
+                      setRepairSubmitting(true);
+                      setRepairError(null);
+
+                      // Önceki kapatılmış kasa gününü getir
+                      const daysRes = await fetch('/api/admin/kasa/reports?type=daily_archive');
+                      let sourceDayId = null;
+                      if (daysRes.ok) {
+                        const daysData = await daysRes.json();
+                        const closedPrevDay = (daysData.days || []).find(
+                          (d: any) => d.status === 'closed' && d.id !== targetDayId
+                        );
+                        if (closedPrevDay) sourceDayId = closedPrevDay.id;
+                      }
+
+                      if (!sourceDayId) {
+                        throw new Error('Onaylı kapatılmış önceki kasa günü bulunamadı. Lütfen önce önceki kasa gününü kapatın.');
+                      }
+
+                      const res = await fetch('/api/admin/kasa/repair-carryover', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          target_day_id: targetDayId,
+                          source_day_id: sourceDayId,
+                          justification: repairJustification.trim(),
+                        }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || 'Devir onarılamadı.');
+                      setShowDevirModal(false);
+                      setRepairJustification('');
+                      await loadData();
+                    } catch (err: any) {
+                      setRepairError(err.message || 'Hata oluştu.');
+                    } finally {
+                      setRepairSubmitting(false);
+                    }
+                  }}
+                  className="space-y-3 text-xs font-semibold"
+                >
+                  <div>
+                    <label className="block text-slate-700 mb-1">Onarım Gerekçesi *</label>
+                    <textarea
+                      required
+                      rows={2}
+                      placeholder="Örn: Önceki kapatılmış günün bakiyesi otomatik devir olarak doğrulandı."
+                      value={repairJustification}
+                      onChange={(e) => setRepairJustification(e.target.value)}
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={repairSubmitting}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {repairSubmitting ? 'Hesaplanan Devir Onaylanıyor...' : 'Hesaplanan Devri Onayla'}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDevirModal(false)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BEKLENEN FİZİKSEL KASA HESAP DÖKÜMÜ MODALI */}
+      {showPhysicalCashModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+              <DollarSign size={20} className="text-emerald-600" /> Fiziksel Kasa Hesap Dökümü
+            </h3>
+
+            <p className="text-xs text-slate-500">
+              Fiziki kasada bulunması gereken TL nakit mevcudunun adım adım detaylı formül hesaplaması:
+            </p>
+
+            <div className="space-y-2 text-xs font-semibold divide-y divide-slate-100">
+              <div className="flex justify-between py-1.5">
+                <span className="text-slate-600">Önceki Gün Devri (+)</span>
+                <span className="font-bold text-slate-900">{formatTL(metrics?.opening_balance_kurus || 0)}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-emerald-700">Nakit Satışlar (+)</span>
+                <span className="font-bold text-emerald-700">{formatTL(metrics?.cash_collection_kurus || 0)}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-indigo-700">Sermaye Girişleri (+)</span>
+                <span className="font-bold text-indigo-700">{formatTL(metrics?.capital_injected_kurus || 0)}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-rose-600">Nakit Gider Ödemeleri (-)</span>
+                <span className="font-bold text-rose-600">-{formatTL(metrics?.expenses_total_kurus || 0)}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-slate-600">Bankaya Yatırılan Nakit (-)</span>
+                <span className="font-bold text-slate-600">-{formatTL(metrics?.bank_deposits_total_kurus || 0)}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-amber-800">Patron Çekimleri (-)</span>
+                <span className="font-bold text-amber-800">-{formatTL(metrics?.owner_withdrawn_kurus || 0)}</span>
+              </div>
+              <div className="flex justify-between py-2 pt-3 text-sm font-extrabold border-t-2 border-slate-900 bg-emerald-50 p-2 rounded-xl text-emerald-950">
+                <span>BEKLENEN FİZİKSEL KASA</span>
+                <span>{formatTL(metrics?.expected_cash_kurus || 0)}</span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowPhysicalCashModal(false)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition"
+              >
+                Tamam
+              </button>
+            </div>
           </div>
         </div>
       )}

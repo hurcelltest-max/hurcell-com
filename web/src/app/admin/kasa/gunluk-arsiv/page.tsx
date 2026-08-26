@@ -39,6 +39,7 @@ export default function AdminGunlukArsivPage() {
     sales: any[];
     expenses: any[];
     ledger: any[];
+    counts?: { sales: number; expenses: number; movements: number };
   } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -139,16 +140,27 @@ export default function AdminGunlukArsivPage() {
     }
   };
 
+  const [detailError, setDetailError] = useState<string | null>(null);
+
   const handleSelectDay = async (day: KasaDay) => {
     setSelectedDay(day);
+    setDayDetail(null);
+    setDetailError(null);
     try {
       setDetailLoading(true);
-      const res = await fetch(`/api/admin/kasa/day-detail?kasa_day_id=${day.id}`);
+      const res = await fetch(`/api/admin/kasa/day-detail?day_id=${day.id}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gün detayları alınamadı.');
-      setDayDetail(data);
+      if (!res.ok) {
+        setDetailError(data.error || 'Gün detayları alınamadı.');
+        return;
+      }
+      const ledgerMovements = data.movements || data.ledger || [];
+      setDayDetail({
+        ...data,
+        ledger: ledgerMovements,
+      });
     } catch (err: any) {
-      console.error('handleSelectDay error:', err);
+      setDetailError(err.message || 'Gün detayları yüklenirken hata oluştu.');
     } finally {
       setDetailLoading(false);
     }
@@ -508,6 +520,16 @@ export default function AdminGunlukArsivPage() {
                   </div>
                 </div>
 
+                {detailError && (
+                  <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                    <AlertCircle size={18} className="shrink-0 text-red-600" />
+                    <div>
+                      <div className="font-bold text-sm">Gün Detay Verileri Yüklenemedi</div>
+                      <p className="mt-0.5">{detailError}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Özet Kartları (NaN Önleyici Temiz Hesaplama) */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -516,11 +538,11 @@ export default function AdminGunlukArsivPage() {
                   </div>
                   <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
                     <span className="text-[10px] font-bold text-emerald-700 uppercase">Sermaye Girişi</span>
-                    <div className="text-sm font-extrabold text-emerald-800">{formatTL(dayDetail?.day?.capital_injected_kurus || selectedDay.capital_injected_kurus || 0)}</div>
+                    <div className="text-sm font-extrabold text-emerald-800">{formatTL(dayDetail?.day?.capital_injected_kurus ?? selectedDay.capital_injected_kurus ?? 0)}</div>
                   </div>
                   <div className="bg-amber-50 p-3 rounded-xl border border-amber-200">
                     <span className="text-[10px] font-bold text-amber-800 uppercase">Patron Çekimi</span>
-                    <div className="text-sm font-extrabold text-amber-900">{formatTL(dayDetail?.day?.owner_withdrawn_kurus || selectedDay.owner_withdrawn_kurus || 0)}</div>
+                    <div className="text-sm font-extrabold text-amber-900">{formatTL(dayDetail?.day?.owner_withdrawn_kurus ?? selectedDay.owner_withdrawn_kurus ?? 0)}</div>
                   </div>
                   <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
                     <span className="text-[10px] font-bold text-blue-700 uppercase">Kapanış / Sayılan</span>
@@ -552,7 +574,7 @@ export default function AdminGunlukArsivPage() {
                           : 'border-transparent text-slate-500 hover:text-slate-700'
                       }`}
                     >
-                      Günlük Satışlar ({dayDetail?.sales?.length || 0})
+                      Günlük Satışlar ({dayDetail?.counts?.sales ?? dayDetail?.sales?.length ?? 0})
                     </button>
                     <button
                       onClick={() => setActiveTab('expenses')}
@@ -562,7 +584,7 @@ export default function AdminGunlukArsivPage() {
                           : 'border-transparent text-slate-500 hover:text-slate-700'
                       }`}
                     >
-                      Kasa Giderleri ({dayDetail?.expenses?.length || 0})
+                      Kasa Giderleri ({dayDetail?.counts?.expenses ?? dayDetail?.expenses?.length ?? 0})
                     </button>
                   </div>
 

@@ -7,44 +7,69 @@ export async function GET(req: Request) {
   try {
     await requireManagerAuth();
     const { searchParams } = new URL(req.url);
-    const kasaDayId = searchParams.get('kasa_day_id');
+    const dayId = searchParams.get('day_id') || searchParams.get('kasa_day_id');
 
-    if (!kasaDayId) {
-      return NextResponse.json({ error: 'kasa_day_id parametresi zorunludur.' }, { status: 400 });
+    if (!dayId) {
+      return NextResponse.json({ error: 'day_id veya kasa_day_id parametresi zorunludur.' }, { status: 400 });
     }
 
     const supabase = getSupabaseAdmin();
 
-    // 1. Gün bilgisi
+    // 1. Kasa Günü Bilgisi
     const { data: day, error: dayError } = await supabase
       .from('kasa_days')
       .select('*')
-      .eq('id', kasaDayId)
+      .eq('id', dayId)
       .single();
 
     if (dayError || !day) {
-      return NextResponse.json({ error: 'Kasa günü bulunamadı.' }, { status: 444 });
+      console.error('day-detail: Kasa günü sorgu hatası:', dayError);
+      return NextResponse.json(
+        { error: dayError ? `Veritabanı hatası: ${dayError.message}` : 'Kasa günü bulunamadı.' },
+        { status: dayError ? 500 : 404 }
+      );
     }
 
     const isDayOpen = day.status === 'open';
-    const physicalCashKurus = await calculatePhysicalCashForDay(kasaDayId);
+    const physicalCashKurus = await calculatePhysicalCashForDay(dayId);
 
-    // 2. Satışlar (kasa_sales)
+    // 2. Güvenli Ayrı Lookup Sorguları (Foreign Key Join bağımlılığını tamamen kaldırıyoruz)
+    const [usersRes, salesCatsRes, expCatsRes] = await Promise.all([
+      supabase.from('kasa_users').select('id, full_name'),
+      supabase.from('kasa_categories').select('id, name'),
+      supabase.from('kasa_expense_categories').select('id, name, is_salary_category'),
+    ]);
+
+    const userMap = new Map<string, string>();
+    (usersRes.data || []).forEach((u: any) => userMap.set(u.id, u.full_name));
+
+    const salesCatMap = new Map<string, string>();
+    (salesCatsRes.data || []).forEach((c: any) => salesCatMap.set(c.id, c.name));
+
+    const expCatMap = new Map<string, { name: string; is_salary_category: boolean }>();
+    (expCatsRes.data || []).forEach((c: any) =>
+      expCatMap.set(c.id, { name: c.name, is_salary_category: !!c.is_salary_category })
+    );
+
+    // 3. Satışlar (kasa_sales) Sorgusu
     const { data: salesData, error: salesError } = await supabase
       .from('kasa_sales')
-      .select(`
-        *,
-        category:kasa_categories(name),
-        created_by:kasa_users(full_name)
-      `)
-      .eq('kasa_day_id', kasaDayId)
-      .order('created_at', { ascending: false });
+      .select('*')
+      .eq('kasa_day_id', dayId)
+      .order('created_at', { ascending: true });
 
     if (salesError) {
-      throw new Error(`Satışlar okunamadı: ${salesError.message}`);
+      console.error('day-detail: Satışlar sorgu hatası:', salesError);
+      return NextResponse.json({ error: `Satış verileri okunamadı: ${salesError.message}` }, { status: 500 });
     }
 
+    const saleReceiptMap = new Map<string, string>();
+
     const sales = (salesData || []).map((s: any) => {
+      if (s.id && s.receipt_no) {
+        saleReceiptMap.set(s.id, s.receipt_no);
+      }
+
       const isCompleted = s.status === 'completed';
       const canAct = isDayOpen && isCompleted;
       let blockReason: string | null = null;
@@ -61,7 +86,7 @@ export async function GET(req: Request) {
         receipt_no: s.receipt_no,
         kasa_day_id: s.kasa_day_id,
         category_id: s.category_id,
-        category_name: (s.category as any)?.name || 'Genel',
+        category_name: salesCatMap.get(s.category_id) || 'Genel',
         product_name: s.product_name,
         quantity: Number(s.quantity || 1),
         unit_price_kurus: Number(s.unit_price_kurus || 0),
@@ -76,26 +101,23 @@ export async function GET(req: Request) {
         service_cost_kurus: s.service_cost_kurus ? Number(s.service_cost_kurus) : undefined,
         status: s.status,
         created_at: s.created_at,
-        created_by_name: (s.created_by as any)?.full_name || 'Sistem',
+        created_by_name: userMap.get(s.created_by_user_id) || 'Sistem',
         can_update: canAct,
         can_cancel: canAct,
         action_block_reason: blockReason,
       };
     });
 
-    // 3. Giderler (kasa_expenses)
+    // 4. Giderler (kasa_expenses) Sorgusu
     const { data: expensesData, error: expensesError } = await supabase
       .from('kasa_expenses')
-      .select(`
-        *,
-        category:kasa_expense_categories(name, is_salary_category),
-        created_by:kasa_users(full_name)
-      `)
-      .eq('kasa_day_id', kasaDayId)
-      .order('created_at', { ascending: false });
+      .select('*')
+      .eq('kasa_day_id', dayId)
+      .order('created_at', { ascending: true });
 
     if (expensesError) {
-      throw new Error(`Giderler okunamadı: ${expensesError.message}`);
+      console.error('day-detail: Giderler sorgu hatası:', expensesError);
+      return NextResponse.json({ error: `Gider verileri okunamadı: ${expensesError.message}` }, { status: 500 });
     }
 
     const expenses = (expensesData || []).map((e: any) => {
@@ -109,38 +131,37 @@ export async function GET(req: Request) {
         blockReason = 'İptal edilmiş gider düzenlenemez.';
       }
 
+      const expCatInfo = expCatMap.get(e.expense_category_id);
+
       return {
         entity_type: 'expense',
         entity_id: e.id,
         kasa_day_id: e.kasa_day_id,
         expense_category_id: e.expense_category_id,
-        category_name: (e.category as any)?.name || 'Gider',
-        is_salary_category: (e.category as any)?.is_salary_category || false,
+        category_name: expCatInfo?.name || 'Gider',
+        is_salary_category: expCatInfo?.is_salary_category || false,
         amount_kurus: Number(e.amount_kurus || 0),
         description: e.description,
         recipient_name: e.recipient_name || '',
         status: e.status,
         created_at: e.created_at,
-        created_by_name: (e.created_by as any)?.full_name || 'Sistem',
+        created_by_name: userMap.get(e.created_by_user_id) || 'Sistem',
         can_update: canAct,
         can_cancel: canAct,
         action_block_reason: blockReason,
       };
     });
 
-    // 4. Hareket Defteri (kasa_movements)
+    // 5. Hareket Defteri (kasa_movements) Sorgusu
     const { data: movementsData, error: movementsError } = await supabase
       .from('kasa_movements')
-      .select(`
-        *,
-        created_by:kasa_users(full_name),
-        sale:kasa_sales(receipt_no, status, category:kasa_categories(name))
-      `)
-      .eq('kasa_day_id', kasaDayId)
-      .order('created_at', { ascending: false });
+      .select('*')
+      .eq('kasa_day_id', dayId)
+      .order('created_at', { ascending: true });
 
     if (movementsError) {
-      throw new Error(`Hareket defteri okunamadı: ${movementsError.message}`);
+      console.error('day-detail: Hareket defteri sorgu hatası:', movementsError);
+      return NextResponse.json({ error: `Hareket defteri okunamadı: ${movementsError.message}` }, { status: 500 });
     }
 
     const labelMap: Record<string, string> = {
@@ -170,7 +191,7 @@ export async function GET(req: Request) {
       carryover_repair: 'Devir Onarımı Kaydı',
     };
 
-    const ledger = (movementsData || []).map((m: any) => {
+    const movements = (movementsData || []).map((m: any) => {
       const cashPortion = Number(m.cash_portion_kurus || 0);
       const cardPortion = Number(m.card_portion_kurus || 0);
       const bankTransferPortion = Number(m.bank_transfer_portion_kurus || 0);
@@ -196,8 +217,8 @@ export async function GET(req: Request) {
         card_portion_kurus: cardPortion,
         bank_transfer_portion_kurus: bankTransferPortion,
         created_at: m.created_at,
-        created_by_name: (m.created_by as any)?.full_name || 'Sistem',
-        receipt_no: (m.sale as any)?.receipt_no || undefined,
+        created_by_name: userMap.get(m.created_by_user_id) || 'Sistem',
+        receipt_no: m.sale_id ? saleReceiptMap.get(m.sale_id) : undefined,
         can_update: false,
         can_cancel: false,
         action_block_reason: 'Muhasebe defter satırları doğrudan değiştirilemez.',
@@ -217,9 +238,15 @@ export async function GET(req: Request) {
       },
       sales,
       expenses,
-      ledger,
+      movements,
+      counts: {
+        sales: sales.length,
+        expenses: expenses.length,
+        movements: movements.length,
+      },
     });
   } catch (error: any) {
+    console.error('day-detail: Beklenmeyen hata:', error);
     if (error.message?.startsWith('FORBIDDEN') || error.message?.includes('YETKİSİZ')) {
       return NextResponse.json({ error: 'Bu işlem yalnızca yöneticilere aittir.' }, { status: 403 });
     }

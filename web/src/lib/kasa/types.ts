@@ -18,6 +18,15 @@ export interface KasaUser {
   updated_at: string;
 }
 
+export interface DashboardCarryoverInfo {
+  opening_balance_kurus: number;
+  displayed_carryover_kurus: number;
+  carryover_status: 'confirmed' | 'pending_previous_close' | 'repair_required' | 'first_day';
+  carryover_source_day_id: string | null;
+  carryover_source_date: string | null;
+  carryover_block_reason: string | null;
+}
+
 export interface KasaSettings {
   id: string;
   cash_reserve_target_kurus: number;
@@ -233,6 +242,9 @@ export interface KasaDay {
   closing_note?: string;
   created_at: string;
   overdue_days_threshold?: number;
+  can_close?: boolean;
+  close_block_reason?: string | null;
+  calculated_physical_cash_kurus?: number;
 }
 
 export interface KasaCategorySummary {

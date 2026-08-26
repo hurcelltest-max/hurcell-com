@@ -30,16 +30,18 @@ export default function AdminGunlukArsivPage() {
   const loadDays = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/admin/kasa/reports?type=daily_archive');
-      if (!res.ok) {
-        const altRes = await fetch('/api/kasa/reports?type=archive');
-        if (!altRes.ok) throw new Error('Günlük arşiv verileri yüklenemedi.');
-        const altData = await altRes.json();
-        setDays(altData.days || []);
-        return;
-      }
+      setError(null);
+      const res = await fetch('/api/admin/kasa/days');
       const data = await res.json();
-      setDays(data.days || []);
+      if (!res.ok) {
+        throw new Error(data.error || 'Günlük arşiv verileri yüklenemedi.');
+      }
+      const fetchedDays = data.items || [];
+      setDays(fetchedDays);
+      if (fetchedDays.length > 0 && !selectedDay) {
+        setSelectedDay(fetchedDays[0]);
+        handleSelectDay(fetchedDays[0]);
+      }
     } catch (err: any) {
       setError(err.message || 'Hata oluştu.');
     } finally {
@@ -218,15 +220,25 @@ export default function AdminGunlukArsivPage() {
                   </div>
                   <div className="flex items-center gap-2 print:hidden">
                     {selectedDay.status === 'open' && (
-                      <button
-                        onClick={() => {
-                          setCountedCashTL(((selectedDay.expected_cash_kurus || 0) / 100).toFixed(2));
-                          setShowCloseModal(true);
-                        }}
-                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-sm"
-                      >
-                        <Lock size={14} /> Bu Günü Kapat (Gün Sonu)
-                      </button>
+                      selectedDay.can_close !== false ? (
+                        <button
+                          onClick={() => {
+                            setCountedCashTL(((selectedDay.expected_cash_kurus || (selectedDay as any).calculated_physical_cash_kurus || 0) / 100).toFixed(2));
+                            setShowCloseModal(true);
+                          }}
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                        >
+                          <Lock size={14} /> Bu Günü Kapat (Gün Sonu)
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          title={(selectedDay as any).close_block_reason || 'Önceki gün kapatılmadan bu gün kapatılamaz.'}
+                          className="px-3 py-1.5 bg-slate-200 text-slate-400 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-not-allowed opacity-80"
+                        >
+                          <Lock size={14} /> Kapanış Kilitli
+                        </button>
+                      )
                     )}
                     <button
                       onClick={() => exportCSV(selectedDay, dayMovements)}

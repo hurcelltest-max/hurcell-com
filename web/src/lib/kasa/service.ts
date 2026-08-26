@@ -4,6 +4,7 @@ import { hashPassword } from './crypto';
 import { calculateOverdueDays, calculatePrudentResult } from './math';
 import { getTCMBExchangeRates } from './tcmb';
 import {
+  DashboardCarryoverInfo,
   KasaBankDeposit,
   KasaCategory,
   KasaCategorySummary,
@@ -1858,4 +1859,96 @@ export async function repairDayCarryover(
   }
 
   return data as KasaDay;
+}
+
+export async function calculatePhysicalCashForDay(kasaDayId: string): Promise<number> {
+  const supabase = getSupabaseAdmin();
+  const { data: day } = await supabase.from('kasa_days').select('*').eq('id', kasaDayId).single();
+  if (!day) return 0;
+
+  const opening = Number(day.opening_balance_kurus || 0);
+  const capital = Number(day.capital_injected_kurus || 0);
+  const withdrawn = Number(day.owner_withdrawn_kurus || 0);
+
+  const { data: sales } = await supabase.from('kasa_sales').select('cash_paid_kurus').eq('kasa_day_id', kasaDayId).eq('status', 'completed');
+  const cashSales = (sales || []).reduce((sum, s) => sum + Number(s.cash_paid_kurus || 0), 0);
+
+  const { data: expenses } = await supabase.from('kasa_expenses').select('amount_kurus').eq('kasa_day_id', kasaDayId).neq('status', 'cancelled');
+  const cashExpenses = (expenses || []).reduce((sum, e) => sum + Number(e.amount_kurus || 0), 0);
+
+  const { data: creditPayments } = await supabase.from('kasa_credit_payments').select('cash_paid_kurus').eq('kasa_day_id', kasaDayId);
+  const cashCreditColls = (creditPayments || []).reduce((sum, c) => sum + Number(c.cash_paid_kurus || 0), 0);
+
+  const { data: bankDepositsData } = await supabase.from('kasa_bank_deposits').select('amount_kurus').eq('kasa_day_id', kasaDayId);
+  const bankDepositsTotal = (bankDepositsData || []).reduce((sum, b) => sum + Number(b.amount_kurus || 0), 0);
+
+  const { data: fxTrans } = await supabase.from('kasa_fx_transactions').select('tl_equivalent_kurus').eq('kasa_day_id', kasaDayId).eq('transaction_type', 'fx_conversion_to_try');
+  const fxTry = (fxTrans || []).reduce((sum, f) => sum + Number(f.tl_equivalent_kurus || 0), 0);
+
+  const { data: tsMovements } = await supabase.from('kasa_movements').select('cash_portion_kurus, movement_type').eq('kasa_day_id', kasaDayId).in('movement_type', ['ts_cost_cash_payment', 'ts_cost_cash_refund']);
+  const tsNetCash = (tsMovements || []).reduce((sum, m) => sum + Number(m.cash_portion_kurus || 0), 0);
+
+  return opening + capital - withdrawn + cashSales + cashCreditColls + fxTry + tsNetCash - cashExpenses - bankDepositsTotal;
+}
+
+export async function getDashboardCarryoverInfo(todayDay: KasaDay): Promise<DashboardCarryoverInfo> {
+  const supabase = getSupabaseAdmin();
+
+  // Kendisinden eski en yakın kasa gününü bul (status bağımsız)
+  const { data: prevDays } = await supabase
+    .from('kasa_days')
+    .select('*')
+    .lt('date_val', todayDay.date_val)
+    .order('date_val', { ascending: false })
+    .limit(1);
+
+  const prevDay = prevDays && prevDays.length > 0 ? prevDays[0] : null;
+
+  if (!prevDay) {
+    return {
+      opening_balance_kurus: Number(todayDay.opening_balance_kurus || 0),
+      displayed_carryover_kurus: Number(todayDay.opening_balance_kurus || 0),
+      carryover_status: 'first_day',
+      carryover_source_day_id: null,
+      carryover_source_date: null,
+      carryover_block_reason: null,
+    };
+  }
+
+  // Önceki gün açık mı?
+  if (prevDay.status === 'open') {
+    const prevDayCash = await calculatePhysicalCashForDay(prevDay.id);
+    return {
+      opening_balance_kurus: Number(todayDay.opening_balance_kurus || 0),
+      displayed_carryover_kurus: prevDayCash,
+      carryover_status: 'pending_previous_close',
+      carryover_source_day_id: prevDay.id,
+      carryover_source_date: prevDay.date_val,
+      carryover_block_reason: `${prevDay.date_val} tarihli önceki kasa gününün gün sonu kapatılması bekleniyor.`,
+    };
+  }
+
+  // Önceki gün kapalı
+  const prevCounted = Number(prevDay.counted_cash_kurus || 0);
+  const targetOpening = Number(todayDay.opening_balance_kurus || 0);
+
+  if (targetOpening === prevCounted) {
+    return {
+      opening_balance_kurus: targetOpening,
+      displayed_carryover_kurus: targetOpening,
+      carryover_status: 'confirmed',
+      carryover_source_day_id: prevDay.id,
+      carryover_source_date: prevDay.date_val,
+      carryover_block_reason: null,
+    };
+  }
+
+  return {
+    opening_balance_kurus: targetOpening,
+    displayed_carryover_kurus: prevCounted,
+    carryover_status: 'repair_required',
+    carryover_source_day_id: prevDay.id,
+    carryover_source_date: prevDay.date_val,
+    carryover_block_reason: 'Açılış bakiyesi ile önceki gün kapanış sayımı uyuşmuyor. Devir onarımı gereklidir.',
+  };
 }

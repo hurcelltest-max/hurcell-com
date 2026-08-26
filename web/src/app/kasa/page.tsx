@@ -24,7 +24,7 @@ import {
   ChevronRight,
   PieChart,
 } from 'lucide-react';
-import { KasaMonthlyReport } from '@/lib/kasa/types';
+import { DashboardCarryoverInfo, KasaMonthlyReport } from '@/lib/kasa/types';
 
 interface CategorySummary {
   category_id: string;
@@ -135,6 +135,7 @@ export default function KasaMainDashboardPage() {
   const [expenseSummary, setExpenseSummary] = useState<any[]>([]);
 
   // Devir & Fiziksel Kasa Modalları
+  const [carryoverInfo, setCarryoverInfo] = useState<DashboardCarryoverInfo | null>(null);
   const [showDevirModal, setShowDevirModal] = useState(false);
   const [showPhysicalCashModal, setShowPhysicalCashModal] = useState(false);
   const [targetDayId, setTargetDayId] = useState<string | null>(null);
@@ -179,9 +180,12 @@ export default function KasaMainDashboardPage() {
       const dashData = await dashRes.json();
       setMetrics(dashData.metrics);
       setCategories(dashData.categorySummary || []);
-      setDayStatus(dashData.day?.status || 'open');
-      setDateStr(dashData.day?.date_val || '');
-      if (dashData.day?.id) setTargetDayId(dashData.day.id);
+      setCarryoverInfo(dashData.carryoverInfo || null);
+      if (dashData.day) {
+        setDayStatus(dashData.day.status);
+        setDateStr(dashData.day.date_val);
+        setTargetDayId(dashData.day.id);
+      }
       await loadExpenseSummary();
     } catch (err: any) {
       setError(err.message || 'Veriler yüklenirken hata oluştu.');
@@ -580,6 +584,7 @@ export default function KasaMainDashboardPage() {
 
         {/* ÜST ÖZET KARTLARI */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4">
+          {/* ÖNCEKİ GÜN DEVRİ KARTI */}
           <div
             onClick={() => setShowDevirModal(true)}
             className="bg-white hover:bg-slate-50 p-4 rounded-2xl border border-slate-200 hover:border-blue-300 shadow-sm space-y-1 cursor-pointer transition-all group"
@@ -588,10 +593,27 @@ export default function KasaMainDashboardPage() {
               <span>Önceki Gün Devri</span>
               <span className="text-[10px] text-blue-600 group-hover:underline">Detay &gt;</span>
             </span>
-            <div className="text-xl font-bold text-slate-900">
-              {formatTL(metrics?.opening_balance_kurus || 0)}
-            </div>
-            <p className="text-[11px] text-slate-400">Önceki günden devreden nakit (Tıklayın)</p>
+
+            {carryoverInfo?.carryover_status === 'pending_previous_close' ? (
+              <div className="space-y-1 pt-1">
+                <div className="flex items-center gap-1 text-amber-600 font-extrabold text-[11px] uppercase tracking-wide">
+                  <AlertTriangle size={12} /> DEVİR ONAYI BEKLİYOR
+                </div>
+                <div className="text-lg font-black text-amber-900">
+                  {formatTL(carryoverInfo.displayed_carryover_kurus)}
+                </div>
+                <p className="text-[11px] text-amber-700 font-medium leading-tight">
+                  Kaynak: {carryoverInfo.carryover_source_date} (Kapanış bekleniyor)
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="text-xl font-bold text-slate-900">
+                  {formatTL(carryoverInfo?.displayed_carryover_kurus || metrics?.opening_balance_kurus || 0)}
+                </div>
+                <p className="text-[11px] text-slate-400">Önceki günden devreden nakit (Tıklayın)</p>
+              </>
+            )}
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">

@@ -103,12 +103,15 @@ export function KasaHeaderWidget() {
           <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
             {/* FİZİKSEL TL KASA */}
             {carryoverInfo?.carryover_status === 'pending_previous_close' ? (
-              <div className="flex items-center gap-2 bg-amber-950/90 border border-amber-500/50 text-amber-300 px-3 py-1.5 rounded-xl shadow-inner" title="Önceki gün kapanışı bekleniyor (Devir Onayı Bekliyor)">
+              <div
+                className="flex items-center gap-2 bg-amber-950/90 border border-amber-500/50 text-amber-300 px-3 py-1.5 rounded-xl shadow-inner cursor-help"
+                title={`${formatTL(carryoverInfo.displayed_carryover_kurus)} bekleyen devir + ${formatTL(carryoverInfo.today_net_cash_kurus)} bugünkü net nakit`}
+              >
                 <AlertTriangle size={16} className="text-amber-400 shrink-0" />
                 <div className="flex flex-col">
                   <span className="text-[9px] uppercase tracking-wider text-amber-400 font-extrabold">TAHMİNİ FİZİKSEL KASA</span>
                   <span className="text-sm font-black text-amber-300">
-                    {formatTL(carryoverInfo.displayed_carryover_kurus)}
+                    {formatTL(carryoverInfo.displayed_expected_cash_kurus)}
                   </span>
                 </div>
               </div>

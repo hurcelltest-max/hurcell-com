@@ -351,17 +351,17 @@ export default function KasaSatisPage() {
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="Opsiyonel"
+                placeholder={isTechnicalService ? '0.00 (Maliyet yoksa 0 girin)' : 'Opsiyonel'}
                 value={costPriceTL}
                 onChange={(e) => setCostPriceTL(e.target.value)}
                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold"
               />
               {isTechnicalService && (
-                <p className="text-[10px] text-slate-500 mt-1">Kullanılan yedek parça, dış usta/servis bedeli veya doğrudan maliyet</p>
+                <p className="text-[10px] text-slate-500 mt-1">Parça, dış servis, teknisyen veya bu iş için doğrudan oluşan maliyet.</p>
               )}
             </div>
 
-            {isTechnicalService && costPriceTL && Number(costPriceTL) > 0 && (
+            {isTechnicalService && (
               <div className="col-span-1 sm:col-span-2">
                 <label className="block text-xs font-extrabold uppercase text-purple-900 mb-1">
                   Maliyet Nasıl Karşılandı? *
@@ -369,12 +369,21 @@ export default function KasaSatisPage() {
                 <select
                   required
                   value={serviceCostPaymentStatus}
-                  onChange={(e) => setServiceCostPaymentStatus(e.target.value as any)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'no_cost') {
+                      setCostPriceTL('0');
+                      setServiceCostPaymentStatus('previously_paid_or_stock');
+                    } else {
+                      setServiceCostPaymentStatus(val as any);
+                    }
+                  }}
                   className="w-full p-3 bg-purple-50 border border-purple-300 rounded-xl text-xs font-bold text-purple-950 focus:ring-2 focus:ring-purple-500"
                 >
-                  <option value="paid_from_cash">Kasadan şimdi ödendi (Fiziki kasadan düşer)</option>
-                  <option value="previously_paid_or_stock">Daha önce ödenmiş / stoktan kullanıldı (Bugünkü kasayı etkilemez)</option>
+                  <option value="paid_from_cash">Şimdi TL kasadan ödendi (Kasadan nakit düşer)</option>
+                  <option value="previously_paid_or_stock">Önceden ödendi / stoktan kullanıldı (Bugünkü kasayı etkilemez)</option>
                   <option value="unpaid">Henüz ödenmedi (Ödenmemiş Maliyet Borcu)</option>
+                  <option value="no_cost">Bu işlemde maliyet yok (0 TL Maliyet)</option>
                 </select>
               </div>
             )}

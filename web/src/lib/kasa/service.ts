@@ -1894,6 +1894,74 @@ export async function calculatePhysicalCashForDay(kasaDayId: string): Promise<nu
 
 export async function getDashboardCarryoverInfo(todayDay: KasaDay): Promise<DashboardCarryoverInfo> {
   const supabase = getSupabaseAdmin();
+  const todayDayId = todayDay.id;
+
+  // Today's Net Cash Movements
+  const { data: salesToday } = await supabase
+    .from('kasa_sales')
+    .select('cash_paid_kurus, service_cost_kurus, service_cost_payment_status')
+    .eq('kasa_day_id', todayDayId)
+    .eq('status', 'completed');
+
+  const today_cash_sales_kurus = (salesToday || []).reduce((sum, s) => sum + Number(s.cash_paid_kurus || 0), 0);
+  const today_ts_cash_costs_kurus = (salesToday || []).reduce((sum, s) => {
+    if (s.service_cost_payment_status === 'paid_from_cash') {
+      return sum + Number(s.service_cost_kurus || 0);
+    }
+    return sum;
+  }, 0);
+
+  const { data: expToday } = await supabase
+    .from('kasa_expenses')
+    .select('amount_kurus')
+    .eq('kasa_day_id', todayDayId)
+    .neq('status', 'cancelled');
+
+  const today_active_expenses_kurus = (expToday || []).reduce((sum, e) => sum + Number(e.amount_kurus || 0), 0);
+
+  const { data: credToday } = await supabase
+    .from('kasa_credit_payments')
+    .select('cash_paid_kurus')
+    .eq('kasa_day_id', todayDayId);
+
+  const today_cash_credit_collections_kurus = (credToday || []).reduce((sum, c) => sum + Number(c.cash_paid_kurus || 0), 0);
+
+  const { data: bankToday } = await supabase
+    .from('kasa_bank_deposits')
+    .select('amount_kurus')
+    .eq('kasa_day_id', todayDayId);
+
+  const today_bank_deposits_kurus = (bankToday || []).reduce((sum, b) => sum + Number(b.amount_kurus || 0), 0);
+
+  const { data: fxToday } = await supabase
+    .from('kasa_fx_transactions')
+    .select('tl_equivalent_kurus')
+    .eq('kasa_day_id', todayDayId)
+    .eq('transaction_type', 'fx_conversion_to_try');
+
+  const today_fx_try_kurus = (fxToday || []).reduce((sum, f) => sum + Number(f.tl_equivalent_kurus || 0), 0);
+
+  const { data: tsMovToday } = await supabase
+    .from('kasa_movements')
+    .select('cash_portion_kurus')
+    .eq('kasa_day_id', todayDayId)
+    .in('movement_type', ['ts_cost_cash_payment', 'ts_cost_cash_refund']);
+
+  const today_ts_net_movement_cash = (tsMovToday || []).reduce((sum, m) => sum + Number(m.cash_portion_kurus || 0), 0);
+
+  const today_capital_injected_kurus = Number(todayDay.capital_injected_kurus || 0);
+  const today_owner_withdrawn_kurus = Number(todayDay.owner_withdrawn_kurus || 0);
+
+  const today_net_cash_kurus =
+    today_capital_injected_kurus -
+    today_owner_withdrawn_kurus +
+    today_cash_sales_kurus +
+    today_cash_credit_collections_kurus +
+    today_fx_try_kurus +
+    today_ts_net_movement_cash -
+    today_active_expenses_kurus -
+    today_ts_cash_costs_kurus -
+    today_bank_deposits_kurus;
 
   // Kendisinden eski en yakın kasa gününü bul (status bağımsız)
   const { data: prevDays } = await supabase
@@ -1905,10 +1973,26 @@ export async function getDashboardCarryoverInfo(todayDay: KasaDay): Promise<Dash
 
   const prevDay = prevDays && prevDays.length > 0 ? prevDays[0] : null;
 
+  const baseBreakdown = {
+    today_net_cash_kurus,
+    today_cash_sales_kurus,
+    today_cash_credit_collections_kurus,
+    today_active_expenses_kurus,
+    today_ts_cash_costs_kurus,
+    today_bank_deposits_kurus,
+    today_owner_withdrawn_kurus,
+    today_capital_injected_kurus,
+  };
+
   if (!prevDay) {
+    const opening = Number(todayDay.opening_balance_kurus || 0);
+    const confirmedCash = opening + today_net_cash_kurus;
     return {
-      opening_balance_kurus: Number(todayDay.opening_balance_kurus || 0),
-      displayed_carryover_kurus: Number(todayDay.opening_balance_kurus || 0),
+      opening_balance_kurus: opening,
+      displayed_carryover_kurus: opening,
+      displayed_expected_cash_kurus: confirmedCash,
+      confirmed_physical_cash_kurus: confirmedCash,
+      ...baseBreakdown,
       carryover_status: 'first_day',
       carryover_source_day_id: null,
       carryover_source_date: null,
@@ -1919,9 +2003,16 @@ export async function getDashboardCarryoverInfo(todayDay: KasaDay): Promise<Dash
   // Önceki gün açık mı?
   if (prevDay.status === 'open') {
     const prevDayCash = await calculatePhysicalCashForDay(prevDay.id);
+    const opening = Number(todayDay.opening_balance_kurus || 0);
+    const confirmedCash = opening + today_net_cash_kurus;
+    const displayedExpected = prevDayCash + today_net_cash_kurus;
+
     return {
-      opening_balance_kurus: Number(todayDay.opening_balance_kurus || 0),
+      opening_balance_kurus: opening,
       displayed_carryover_kurus: prevDayCash,
+      displayed_expected_cash_kurus: displayedExpected,
+      confirmed_physical_cash_kurus: confirmedCash,
+      ...baseBreakdown,
       carryover_status: 'pending_previous_close',
       carryover_source_day_id: prevDay.id,
       carryover_source_date: prevDay.date_val,
@@ -1932,11 +2023,15 @@ export async function getDashboardCarryoverInfo(todayDay: KasaDay): Promise<Dash
   // Önceki gün kapalı
   const prevCounted = Number(prevDay.counted_cash_kurus || 0);
   const targetOpening = Number(todayDay.opening_balance_kurus || 0);
+  const confirmedCash = targetOpening + today_net_cash_kurus;
 
   if (targetOpening === prevCounted) {
     return {
       opening_balance_kurus: targetOpening,
       displayed_carryover_kurus: targetOpening,
+      displayed_expected_cash_kurus: confirmedCash,
+      confirmed_physical_cash_kurus: confirmedCash,
+      ...baseBreakdown,
       carryover_status: 'confirmed',
       carryover_source_day_id: prevDay.id,
       carryover_source_date: prevDay.date_val,
@@ -1947,6 +2042,9 @@ export async function getDashboardCarryoverInfo(todayDay: KasaDay): Promise<Dash
   return {
     opening_balance_kurus: targetOpening,
     displayed_carryover_kurus: prevCounted,
+    displayed_expected_cash_kurus: prevCounted + today_net_cash_kurus,
+    confirmed_physical_cash_kurus: confirmedCash,
+    ...baseBreakdown,
     carryover_status: 'repair_required',
     carryover_source_day_id: prevDay.id,
     carryover_source_date: prevDay.date_val,

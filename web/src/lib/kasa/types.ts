@@ -21,6 +21,16 @@ export interface KasaUser {
 export interface DashboardCarryoverInfo {
   opening_balance_kurus: number;
   displayed_carryover_kurus: number;
+  displayed_expected_cash_kurus: number;
+  confirmed_physical_cash_kurus: number;
+  today_net_cash_kurus: number;
+  today_cash_sales_kurus: number;
+  today_cash_credit_collections_kurus: number;
+  today_active_expenses_kurus: number;
+  today_ts_cash_costs_kurus: number;
+  today_bank_deposits_kurus: number;
+  today_owner_withdrawn_kurus: number;
+  today_capital_injected_kurus: number;
   carryover_status: 'confirmed' | 'pending_previous_close' | 'repair_required' | 'first_day';
   carryover_source_day_id: string | null;
   carryover_source_date: string | null;

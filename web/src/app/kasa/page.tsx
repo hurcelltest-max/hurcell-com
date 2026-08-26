@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   PieChart,
+  Coins,
 } from 'lucide-react';
 import { DashboardCarryoverInfo, KasaMonthlyReport } from '@/lib/kasa/types';
 
@@ -693,16 +694,27 @@ export default function KasaMainDashboardPage() {
 
           <div
             onClick={() => setShowPhysicalCashModal(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl border border-emerald-700 shadow-md space-y-1 cursor-pointer transition-all group"
+            className={`p-4 rounded-2xl border shadow-md space-y-1 cursor-pointer transition-all group ${
+              carryoverInfo?.carryover_status === 'pending_previous_close'
+                ? 'bg-amber-950 hover:bg-amber-900 border-amber-400 text-white'
+                : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-700 text-white'
+            }`}
           >
             <span className="text-xs font-semibold uppercase tracking-wider block text-emerald-100 flex items-center justify-between">
-              <span className="flex items-center gap-1"><DollarSign size={14} /> Beklenen Fiziksel Kasa</span>
+              <span className="flex items-center gap-1">
+                {carryoverInfo?.carryover_status === 'pending_previous_close' && <AlertTriangle size={14} className="text-amber-400" />}
+                {carryoverInfo?.carryover_status === 'pending_previous_close' ? 'TAHMİNİ BEKLENEN FİZİKSEL KASA' : 'BEKLENEN FİZİKSEL KASA'}
+              </span>
               <span className="text-[10px] text-emerald-200 group-hover:underline">Hesap Dökümü &gt;</span>
             </span>
             <div className="text-2xl font-extrabold text-white">
-              {formatTL(metrics?.expected_cash_kurus || 0)}
+              {formatTL(carryoverInfo?.displayed_expected_cash_kurus || metrics?.expected_cash_kurus || 0)}
             </div>
-            <p className="text-[11px] text-emerald-100/80">Kasada olması gereken net fiziki nakit (Tıklayın)</p>
+            <p className="text-[11px] opacity-90">
+              {carryoverInfo?.carryover_status === 'pending_previous_close'
+                ? `${formatTL(carryoverInfo.displayed_carryover_kurus)} bekleyen devir + ${formatTL(carryoverInfo.today_net_cash_kurus)} bugünkü net nakit`
+                : 'Kasada olması gereken net fiziki nakit (Tıklayın)'}
+            </p>
           </div>
         </div>
 
@@ -1129,8 +1141,8 @@ export default function KasaMainDashboardPage() {
                 <tbody className="divide-y divide-slate-100 text-xs font-medium">
                   {dailyExpenses.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">
-                        Bugün henüz kaydedilmiş bir gider bulunmamaktadır.
+                      <td colSpan={8} className="py-8 text-center text-slate-500 font-semibold">
+                        Bugün henüz genel kasa gideri kaydedilmedi.
                       </td>
                     </tr>
                   ) : (
@@ -1484,43 +1496,84 @@ export default function KasaMainDashboardPage() {
       {/* BEKLENEN FİZİKSEL KASA HESAP DÖKÜMÜ MODALI */}
       {showPhysicalCashModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
-            <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-              <DollarSign size={20} className="text-emerald-600" /> Fiziksel Kasa Hesap Dökümü
-            </h3>
+          <div className="bg-white max-w-lg w-full rounded-3xl shadow-2xl border border-slate-100 p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                  <Coins size={20} className="text-emerald-600" />
+                  Fiziksel Kasa Hesap Dökümü
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {carryoverInfo?.carryover_status === 'pending_previous_close'
+                    ? 'Devir onayı bekleyen tahmini bakiye detayları'
+                    : 'Onaylanmış açılış ve bugünkü nakit hareketleri'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPhysicalCashModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
 
-            <p className="text-xs text-slate-500">
-              Fiziki kasada bulunması gereken TL nakit mevcudunun adım adım detaylı formül hesaplaması:
-            </p>
+            <div className="space-y-2.5 text-xs font-semibold">
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Onaylı Açılış Bakiyesi</span>
+                <span className="font-bold text-slate-900">{formatTL(carryoverInfo?.opening_balance_kurus || 0)}</span>
+              </div>
 
-            <div className="space-y-2 text-xs font-semibold divide-y divide-slate-100">
-              <div className="flex justify-between py-1.5">
-                <span className="text-slate-600">Önceki Gün Devri (+)</span>
-                <span className="font-bold text-slate-900">{formatTL(metrics?.opening_balance_kurus || 0)}</span>
+              {carryoverInfo?.carryover_status === 'pending_previous_close' && (
+                <div className="flex justify-between items-center py-1.5 border-b border-amber-100 bg-amber-50/60 px-2 rounded-lg">
+                  <span className="text-amber-900 font-bold">Onay Bekleyen Devir ({carryoverInfo.carryover_source_date || 'Önceki Gün'})</span>
+                  <span className="font-black text-amber-900">{formatTL(carryoverInfo.displayed_carryover_kurus)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-emerald-700 font-medium">+ Bugünkü Nakit Satışlar</span>
+                <span className="font-extrabold text-emerald-800">+{formatTL(carryoverInfo?.today_cash_sales_kurus || 0)}</span>
               </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-emerald-700">Nakit Satışlar (+)</span>
-                <span className="font-bold text-emerald-700">{formatTL(metrics?.cash_collection_kurus || 0)}</span>
+
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-emerald-700 font-medium">+ Bugünkü Nakit Cari Tahsilatı</span>
+                <span className="font-extrabold text-emerald-800">+{formatTL(carryoverInfo?.today_cash_credit_collections_kurus || 0)}</span>
               </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-indigo-700">Sermaye Girişleri (+)</span>
-                <span className="font-bold text-indigo-700">{formatTL(metrics?.capital_injected_kurus || 0)}</span>
+
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-emerald-700 font-medium">+ Bugünkü Sermaye Girişi</span>
+                <span className="font-extrabold text-emerald-800">+{formatTL(carryoverInfo?.today_capital_injected_kurus || 0)}</span>
               </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-rose-600">Nakit Gider Ödemeleri (-)</span>
-                <span className="font-bold text-rose-600">-{formatTL(metrics?.expenses_total_kurus || 0)}</span>
+
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-rose-700 font-medium">- Bugünkü Aktif Genel Giderler</span>
+                <span className="font-extrabold text-rose-800">-{formatTL(carryoverInfo?.today_active_expenses_kurus || 0)}</span>
               </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-slate-600">Bankaya Yatırılan Nakit (-)</span>
-                <span className="font-bold text-slate-600">-{formatTL(metrics?.bank_deposits_total_kurus || 0)}</span>
+
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-rose-700 font-medium">- Kasadan Ödenen Teknik Servis Maliyeti</span>
+                <span className="font-extrabold text-rose-800">-{formatTL(carryoverInfo?.today_ts_cash_costs_kurus || 0)}</span>
               </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-amber-800">Patron Çekimleri (-)</span>
-                <span className="font-bold text-amber-800">-{formatTL(metrics?.owner_withdrawn_kurus || 0)}</span>
+
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-rose-700 font-medium">- Bugünkü Bankaya Yatırılan</span>
+                <span className="font-extrabold text-rose-800">-{formatTL(carryoverInfo?.today_bank_deposits_kurus || 0)}</span>
               </div>
-              <div className="flex justify-between py-2 pt-3 text-sm font-extrabold border-t-2 border-slate-900 bg-emerald-50 p-2 rounded-xl text-emerald-950">
-                <span>BEKLENEN FİZİKSEL KASA</span>
-                <span>{formatTL(metrics?.expected_cash_kurus || 0)}</span>
+
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-amber-800 font-medium">- Bugünkü Patron Çekimi</span>
+                <span className="font-extrabold text-amber-900">-{formatTL(carryoverInfo?.today_owner_withdrawn_kurus || 0)}</span>
+              </div>
+
+              <div className="flex justify-between items-center pt-3 border-t-2 border-slate-900 text-sm">
+                <span className="font-extrabold text-slate-900">
+                  {carryoverInfo?.carryover_status === 'pending_previous_close'
+                    ? 'Tahmini Beklenen Fiziki Kasa'
+                    : 'Onaylı Fiziki Kasa'}
+                </span>
+                <span className="font-black text-emerald-600 text-base">
+                  {formatTL(carryoverInfo?.displayed_expected_cash_kurus || metrics?.expected_cash_kurus || 0)}
+                </span>
               </div>
             </div>
 
@@ -1528,9 +1581,9 @@ export default function KasaMainDashboardPage() {
               <button
                 type="button"
                 onClick={() => setShowPhysicalCashModal(false)}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition"
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition"
               >
-                Tamam
+                Kapat
               </button>
             </div>
           </div>

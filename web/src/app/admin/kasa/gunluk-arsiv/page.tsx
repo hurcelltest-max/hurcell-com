@@ -544,12 +544,21 @@ export default function AdminGunlukArsivPage() {
                     <span className="text-[10px] font-bold text-amber-800 uppercase">Patron Çekimi</span>
                     <div className="text-sm font-extrabold text-amber-900">{formatTL(dayDetail?.day?.owner_withdrawn_kurus ?? selectedDay.owner_withdrawn_kurus ?? 0)}</div>
                   </div>
-                  <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
-                    <span className="text-[10px] font-bold text-blue-700 uppercase">Kapanış / Sayılan</span>
-                    <div className="text-sm font-extrabold text-blue-900">
-                      {formatTL(dayDetail?.day?.counted_cash_kurus ?? dayDetail?.day?.calculated_physical_cash_kurus ?? selectedDay.counted_cash_kurus ?? selectedDay.expected_cash_kurus ?? 0)}
+                  {selectedDay.status === 'open' && (dayDetail?.day?.counted_cash_kurus == null && selectedDay.counted_cash_kurus == null) ? (
+                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
+                      <span className="text-[10px] font-bold text-blue-700 uppercase">HESAPLANAN FİZİKİ KASA</span>
+                      <div className="text-sm font-extrabold text-blue-900">
+                        {formatTL(dayDetail?.day?.calculated_physical_cash_kurus ?? selectedDay.calculated_physical_cash_kurus ?? selectedDay.expected_cash_kurus ?? 0)}
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-200">
+                      <span className="text-[10px] font-bold text-indigo-700 uppercase">KAPANIŞTA SAYILAN</span>
+                      <div className="text-sm font-extrabold text-indigo-900">
+                        {formatTL(dayDetail?.day?.counted_cash_kurus ?? selectedDay.counted_cash_kurus ?? 0)}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* --- BÖLÜM 1: DÜZENLENEBİLİR KAYITLAR --- */}

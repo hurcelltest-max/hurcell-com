@@ -14,7 +14,7 @@ import {
   CreditCard,
   ShieldAlert,
 } from 'lucide-react';
-import { KasaDashboardMetrics } from '@/lib/kasa/types';
+import { DashboardCarryoverInfo, KasaDashboardMetrics } from '@/lib/kasa/types';
 
 function formatTL(kurus: number): string {
   return new Intl.NumberFormat('tr-TR', {
@@ -30,6 +30,7 @@ function formatFX(cents: number, symbol: string): string {
 
 export function KasaHeaderWidget() {
   const [metrics, setMetrics] = useState<KasaDashboardMetrics | null>(null);
+  const [carryoverInfo, setCarryoverInfo] = useState<DashboardCarryoverInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export function KasaHeaderWidget() {
       if (!res.ok) throw new Error('Kasa verisi alınamadı.');
       const data = await res.json();
       setMetrics(data.metrics);
+      setCarryoverInfo(data.carryoverInfo || null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -100,15 +102,27 @@ export function KasaHeaderWidget() {
           {/* SOL TARAFA SABİTLENMİŞ KASA NAKİT, CARİ & DÖVİZ VARLIKLARI */}
           <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
             {/* FİZİKSEL TL KASA */}
-            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 text-white px-3 py-1.5 rounded-xl shadow-inner">
-              <Banknote size={16} className="text-emerald-400 shrink-0" />
-              <div className="flex flex-col">
-                <span className="text-[9px] uppercase tracking-wider text-slate-400">Fiziksel TL Kasa</span>
-                <span className="text-sm font-black text-emerald-400">
-                  {formatTL(metrics.expected_cash_kurus)}
-                </span>
+            {carryoverInfo?.carryover_status === 'pending_previous_close' ? (
+              <div className="flex items-center gap-2 bg-amber-950/90 border border-amber-500/50 text-amber-300 px-3 py-1.5 rounded-xl shadow-inner" title="Önceki gün kapanışı bekleniyor (Devir Onayı Bekliyor)">
+                <AlertTriangle size={16} className="text-amber-400 shrink-0" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] uppercase tracking-wider text-amber-400 font-extrabold">TAHMİNİ FİZİKSEL KASA</span>
+                  <span className="text-sm font-black text-amber-300">
+                    {formatTL(carryoverInfo.displayed_carryover_kurus)}
+                  </span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 text-white px-3 py-1.5 rounded-xl shadow-inner">
+                <Banknote size={16} className="text-emerald-400 shrink-0" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-400">Fiziksel TL Kasa</span>
+                  <span className="text-sm font-black text-emerald-400">
+                    {formatTL(metrics.expected_cash_kurus)}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* DÖVİZ KASALARI */}
             {(usdCents > 0 || eurCents > 0) && (

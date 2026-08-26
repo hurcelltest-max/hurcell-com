@@ -465,7 +465,9 @@ export default function AdminGunlukArsivPage() {
                         </span>
                       )}
                       <div className="text-xs font-bold text-slate-700 mt-1">
-                        {formatTL(d.counted_cash_kurus ?? d.calculated_physical_cash_kurus ?? d.expected_cash_kurus ?? 0)}
+                        {d.status === 'open' && d.counted_cash_kurus == null
+                          ? formatTL(d.calculated_physical_cash_kurus ?? d.expected_cash_kurus ?? 0)
+                          : formatTL(d.counted_cash_kurus ?? d.calculated_physical_cash_kurus ?? d.expected_cash_kurus ?? 0)}
                       </div>
                     </div>
                   </button>

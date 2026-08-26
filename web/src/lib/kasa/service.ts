@@ -1499,12 +1499,13 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
   const credit_payments_collected_kurus = (creditPayments || []).reduce((sum, c) => sum + Number(c.amount_kurus || 0), 0);
 
   // 3. Expenses in month (active only!)
+  const { data: expCatList } = await supabase.from('kasa_expense_categories').select('id, name, is_salary_category');
+  const expCatMap = new Map<string, { name: string; is_salary_category: boolean }>();
+  (expCatList || []).forEach((c: any) => expCatMap.set(c.id, { name: c.name, is_salary_category: !!c.is_salary_category }));
+
   const { data: expenses } = await supabase
     .from('kasa_expenses')
-    .select(`
-      amount_kurus,
-      category:kasa_expense_categories(name, is_salary_category)
-    `)
+    .select('amount_kurus, expense_category_id, status')
     .gte('created_at', startISO)
     .lte('created_at', endISO)
     .neq('status', 'cancelled');
@@ -1513,7 +1514,7 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
   let salary_expenses_kurus = 0;
 
   for (const e of expenses || []) {
-    const expCatObj: any = Array.isArray(e.category) ? e.category[0] : e.category;
+    const expCatObj = expCatMap.get(e.expense_category_id);
     if (expCatObj?.is_salary_category || expCatObj?.name === 'Personel Maaşı') {
       salary_expenses_kurus += Number(e.amount_kurus || 0);
     } else {

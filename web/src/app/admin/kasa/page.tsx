@@ -19,7 +19,7 @@ import {
   UserCheck,
   AlertTriangle,
 } from 'lucide-react';
-import { KasaDashboardMetrics } from '@/lib/kasa/types';
+import { DashboardCarryoverInfo, KasaDashboardMetrics } from '@/lib/kasa/types';
 
 interface ExpenseCategory {
   id: string;
@@ -73,6 +73,8 @@ export default function AdminKasaOverviewPage() {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const [carryoverInfo, setCarryoverInfo] = useState<DashboardCarryoverInfo | null>(null);
+
   const checkBootstrap = async () => {
     try {
       setLoading(true);
@@ -99,6 +101,7 @@ export default function AdminKasaOverviewPage() {
       if (dashRes.ok) {
         const dashData = await dashRes.json();
         setMetrics(dashData.metrics || null);
+        setCarryoverInfo(dashData.carryoverInfo || null);
       }
     } catch {
       setHasManager(true);
@@ -219,6 +222,9 @@ export default function AdminKasaOverviewPage() {
         if (!res.ok) throw new Error(data.error || 'Gider kaydı eklenemedi.');
         setActionSuccess('Gider/Maaş kaydı başarıyla eklendi.');
       } else if (modalType === 'bank_deposit') {
+        if (carryoverInfo?.carryover_status === 'pending_previous_close') {
+          return setActionError('Önceki kasa günleri kapatılıp bugünün devri onaylanana kadar bankaya para yatırma işlemi yapılamaz.');
+        }
         if (!amountTL || Number(amountTL) <= 0) return setActionError('Lütfen geçerli bir tutar girin.');
         const res = await fetch('/api/admin/kasa/bank-deposits', {
           method: 'POST',
@@ -392,6 +398,39 @@ export default function AdminKasaOverviewPage() {
         </div>
       )}
 
+      {/* DEVİR ONAYI BEKLİYOR YÖNETİCİ UYARISI BANNER'I */}
+      {carryoverInfo?.carryover_status === 'pending_previous_close' && (
+        <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 space-y-2 shadow-sm">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-amber-500 text-white rounded-xl shrink-0 shadow-md">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <div className="font-extrabold text-base text-amber-950 uppercase tracking-wide">
+                  DEVİR ONAYI BEKLİYOR
+                </div>
+                <div className="text-sm font-black text-amber-900 mt-0.5">
+                  Tahmini Fiziki TL Kasa: {formatTL(carryoverInfo.displayed_carryover_kurus)}
+                </div>
+                <div className="text-xs font-semibold text-amber-800 mt-0.5">
+                  Kaynak Gün: {carryoverInfo.carryover_source_date || 'Önceki Gün'} — Önceki gün kapanışı ve devir onarımı bekleniyor.
+                </div>
+              </div>
+            </div>
+            <Link
+              href="/admin/kasa/gunluk-arsiv"
+              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-md flex items-center gap-1.5"
+            >
+              Günlük Arşive Git →
+            </Link>
+          </div>
+          <p className="text-xs text-amber-900/90 font-medium border-t border-amber-200/80 pt-2">
+            <strong>Kapanış Sırası Talimatı:</strong> Önce 23 Ağustos, ardından 25 Ağustos kasa gününü kapatın; sonra 26 Ağustos devrini onaylayın.
+          </p>
+        </div>
+      )}
+
       {/* BUGÜNKÜ KASA VE TAHSİLAT ÖZETİ */}
       {metrics && (
         <div className="space-y-3">
@@ -421,13 +460,25 @@ export default function AdminKasaOverviewPage() {
               <p className="text-[10px] text-purple-700/80 font-medium">Banka transfer tahsilatları</p>
             </div>
 
-            <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-sm space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider block text-slate-400">
-                Fiziki Nakit Kasa
-              </span>
-              <div className="text-lg font-black text-emerald-400">{formatTL(metrics.expected_cash_kurus)}</div>
-              <p className="text-[10px] text-slate-400">Kasada bulunan fiziki TL</p>
-            </div>
+            {carryoverInfo?.carryover_status === 'pending_previous_close' ? (
+              <div className="bg-amber-950 text-white p-4 rounded-2xl border-2 border-amber-400 shadow-sm space-y-1">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider block text-amber-300 flex items-center gap-1">
+                  <AlertTriangle size={12} /> FİZİKİ KASA (TAHMİNİ)
+                </span>
+                <div className="text-lg font-black text-amber-300">
+                  {formatTL(carryoverInfo.displayed_carryover_kurus)}
+                </div>
+                <p className="text-[10px] text-amber-200/90 font-medium">Devir onayı bekleniyor</p>
+              </div>
+            ) : (
+              <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-sm space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider block text-slate-400">
+                  Fiziki Nakit Kasa
+                </span>
+                <div className="text-lg font-black text-emerald-400">{formatTL(metrics.expected_cash_kurus)}</div>
+                <p className="text-[10px] text-slate-400">Kasada bulunan fiziki TL</p>
+              </div>
+            )}
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
               <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">

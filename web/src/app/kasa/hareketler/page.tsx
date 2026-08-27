@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, RefreshCw, AlertCircle, Edit3, XCircle, Wrench } from 'lucide-react';
 import { KasaUnifiedMovement } from '@/lib/kasa/types';
+import { canEditSale, canCancelSale } from '@/lib/kasa/pure_utils';
 
 interface User {
   id: string;
@@ -28,6 +29,7 @@ export default function KasaHareketlerPage() {
 
   // Satış Düzeltme Modal State'leri
   const [editingMovement, setEditingMovement] = useState<KasaUnifiedMovement | null>(null);
+  const [loadingSaleDetail, setLoadingSaleDetail] = useState(false);
   const [editCategoryId, setEditCategoryId] = useState('');
   const [editProductName, setEditProductName] = useState('');
   const [editQuantity, setEditQuantity] = useState('1');
@@ -110,37 +112,47 @@ export default function KasaHareketlerPage() {
   const totalCard = filteredMovements.reduce((sum, m) => sum + (m.card_portion_kurus > 0 ? m.card_portion_kurus : 0), 0);
   const totalBankTransfer = filteredMovements.reduce((sum, m) => sum + (m.bank_transfer_portion_kurus > 0 ? m.bank_transfer_portion_kurus : 0), 0);
 
-  // Satış Düzeltme Modalı Aç
-  const openEditSaleModal = (m: KasaUnifiedMovement) => {
+  // Satış Düzeltme Modalı Aç (Gerçek GET /api/kasa/sales/[id] ile satış ayrıntılarını yükle)
+  const openEditSaleModal = async (m: KasaUnifiedMovement) => {
+    if (!m.sale_id) return;
     setEditingMovement(m);
-    setEditCategoryId('');
-    setEditProductName(m.description ? m.description.replace(/^Satış \([^)]+\):\s*/, '') : '');
-    setEditQuantity('1');
-    setEditUnitPriceTL('');
-    setEditCashPaidTL((m.cash_in_kurus / 100).toFixed(2));
-    setEditCardPaidTL((m.card_portion_kurus / 100).toFixed(2));
-    setEditBankPaidTL((m.bank_transfer_portion_kurus / 100).toFixed(2));
-    setEditBankRef('');
-    setEditCreditPaidTL((Number(m.credit_amount_kurus || 0) / 100).toFixed(2));
-    setEditCostPriceTL('');
-    setEditServiceCostTL('');
-    setEditServiceCostStatus('previously_paid_or_stock');
-    setEditCustomerName(m.customer_name || '');
-    setEditSerialImei(m.serial_imei || '');
-    setEditDescription(m.description || '');
-    setEditJustification('');
+    setLoadingSaleDetail(true);
     setEditError(null);
+    setEditProductName('');
 
-    // Kategori eşleştir
-    if (m.category_name && categories.length > 0) {
-      const found = categories.find((c) => c.name === m.category_name);
-      if (found) setEditCategoryId(found.id);
+    try {
+      const res = await fetch(`/api/kasa/sales/${m.sale_id}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Satış ayrıntıları yüklenemedi.');
+      }
+
+      setEditCategoryId(data.category_id || '');
+      setEditProductName(data.product_name || '');
+      setEditQuantity(String(data.quantity || 1));
+      setEditUnitPriceTL((data.unit_price_kurus / 100).toFixed(2));
+      setEditCashPaidTL((data.cash_paid_kurus / 100).toFixed(2));
+      setEditCardPaidTL((data.card_paid_kurus / 100).toFixed(2));
+      setEditBankPaidTL((data.bank_transfer_paid_kurus / 100).toFixed(2));
+      setEditBankRef(data.bank_transfer_reference || '');
+      setEditCreditPaidTL((data.credit_paid_kurus / 100).toFixed(2));
+      setEditCostPriceTL(data.unit_cost_kurus > 0 ? (data.unit_cost_kurus / 100).toFixed(2) : '');
+      setEditServiceCostTL(data.service_cost_kurus > 0 ? (data.service_cost_kurus / 100).toFixed(2) : '');
+      setEditServiceCostStatus(data.service_cost_payment_status || 'previously_paid_or_stock');
+      setEditCustomerName(data.customer_name || '');
+      setEditSerialImei(data.serial_imei || '');
+      setEditDescription(data.notes || '');
+      setEditJustification('');
+    } catch (err: any) {
+      setEditError(err.message || 'Satış ayrıntıları yüklenemedi.');
+    } finally {
+      setLoadingSaleDetail(false);
     }
   };
 
   const handleSaleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingMovement || !editingMovement.sale_id) return;
+    if (!editingMovement || !editingMovement.sale_id || loadingSaleDetail) return;
 
     const trimmedJustification = editJustification.trim();
     if (!trimmedJustification || trimmedJustification.length < 3) {
@@ -359,15 +371,23 @@ export default function KasaHareketlerPage() {
                 <tbody className="divide-y divide-slate-100">
                   {filteredMovements.map((m) => {
                     const isCancelOrReverse = ['satis_duzeltme_iptal', 'gider_duzeltme_iptal', 'gider_iptal', 'iptal'].includes(m.movement_type);
-                    const isSaleMovement = Boolean(m.sale_id && ['satis', 'satis_duzeltme_yeni'].includes(m.movement_type));
-                    const isSaleCompleted = m.sale_status === 'completed';
-                    const isDayOpen = m.kasa_day_status === 'open';
 
-                    const isManager = user?.role === 'yonetici';
-                    const isOwnSale = (m.sale_created_by_user_id === user?.id) || (m.created_by_user_id === user?.id);
+                    // Canonical Action Authority Checks
+                    const canEdit = canEditSale({
+                      role: user?.role,
+                      currentUserId: user?.id,
+                      saleCreatedByUserId: m.sale_created_by_user_id || m.created_by_user_id,
+                      saleStatus: m.sale_status,
+                      dayStatus: m.kasa_day_status,
+                      movementType: m.movement_type,
+                    });
 
-                    const canEdit = isDayOpen && isSaleCompleted && isSaleMovement && (isManager || isOwnSale);
-                    const canCancel = isDayOpen && isSaleCompleted && isSaleMovement && isManager;
+                    const canCancel = canCancelSale({
+                      role: user?.role,
+                      saleStatus: m.sale_status,
+                      dayStatus: m.kasa_day_status,
+                      movementType: m.movement_type,
+                    });
 
                     const isTs = m.category_name === 'Teknik Servis';
 
@@ -481,160 +501,164 @@ export default function KasaHareketlerPage() {
                 </div>
               )}
 
-              <form onSubmit={handleSaleUpdateSubmit} className="space-y-3 text-xs">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Ürün / Hizmet Adı *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editProductName}
-                    onChange={(e) => setEditProductName(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    Müşteri Adı Soyadı {editingMovement.category_name === 'Teknik Servis' ? '(Zorunlu) *' : '(Opsiyonel)'}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder={editingMovement.category_name === 'Teknik Servis' ? 'Örn: Hür BaySEL (Zorunlu)' : 'Örn: Hür BaySEL (Opsiyonel)'}
-                    value={editCustomerName}
-                    onChange={(e) => setEditCustomerName(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+              {loadingSaleDetail ? (
+                <div className="p-8 text-center text-xs font-semibold text-slate-500">Satış ayrıntıları yükleniyor...</div>
+              ) : (
+                <form onSubmit={handleSaleUpdateSubmit} className="space-y-3 text-xs">
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1">Adet *</label>
+                    <label className="block text-slate-700 font-bold mb-1">Ürün / Hizmet Adı *</label>
                     <input
-                      type="number"
-                      min="1"
+                      type="text"
                       required
-                      value={editQuantity}
-                      onChange={(e) => setEditQuantity(e.target.value)}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">Birim Fiyat (TL) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      value={editUnitPriceTL}
-                      onChange={(e) => setEditUnitPriceTL(e.target.value)}
+                      value={editProductName}
+                      onChange={(e) => setEditProductName(e.target.value)}
                       className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold"
                     />
                   </div>
-                </div>
 
-                <div className="border-t border-slate-100 pt-3">
-                  <label className="block text-slate-700 font-bold mb-2">Ödeme Dağılımı (TL)</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Müşteri Adı Soyadı {editingMovement.category_name === 'Teknik Servis' ? '(Zorunlu) *' : '(Opsiyonel)'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={editingMovement.category_name === 'Teknik Servis' ? 'Örn: Hür BaySEL (Zorunlu)' : 'Örn: Hür BaySEL (Opsiyonel)'}
+                      value={editCustomerName}
+                      onChange={(e) => setEditCustomerName(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <span className="text-[10px] text-slate-500 font-bold">Nakit TL</span>
+                      <label className="block text-slate-700 font-bold mb-1">Adet *</label>
                       <input
                         type="number"
-                        step="0.01"
-                        value={editCashPaidTL}
-                        onChange={(e) => setEditCashPaidTL(e.target.value)}
-                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                        min="1"
+                        required
+                        value={editQuantity}
+                        onChange={(e) => setEditQuantity(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 font-bold">Kredi Kartı TL</span>
+                      <label className="block text-slate-700 font-bold mb-1">Birim Fiyat (TL) *</label>
                       <input
                         type="number"
                         step="0.01"
-                        value={editCardPaidTL}
-                        onChange={(e) => setEditCardPaidTL(e.target.value)}
-                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 font-bold">Havale / EFT TL</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={editBankPaidTL}
-                        onChange={(e) => setEditBankPaidTL(e.target.value)}
-                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                        required
+                        value={editUnitPriceTL}
+                        onChange={(e) => setEditUnitPriceTL(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold"
                       />
                     </div>
                   </div>
-                </div>
 
-                {editingMovement.category_name === 'Teknik Servis' && (
-                  <div className="border-t border-slate-100 pt-3 space-y-2">
-                    <label className="block text-slate-700 font-bold flex items-center gap-1">
-                      <Wrench size={14} className="text-purple-600" /> Teknik Servis Maliyet Yönetimi
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
+                  <div className="border-t border-slate-100 pt-3">
+                    <label className="block text-slate-700 font-bold mb-2">Ödeme Dağılımı (TL)</label>
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <span className="text-[10px] text-slate-500 font-bold">Maliyet Ödeme Durumu *</span>
-                        <select
-                          value={editServiceCostStatus}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setEditServiceCostStatus(val);
-                            if (val === 'no_cost') setEditServiceCostTL('0');
-                          }}
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
-                        >
-                          <option value="paid_from_cash">Kasadan Ödendi (Nakit Düşer)</option>
-                          <option value="previously_paid_or_stock">Önceden Ödendi / Stoktan</option>
-                          <option value="unpaid">Henüz Ödenmedi (Borç Kaydı)</option>
-                          <option value="no_cost">Maliyet Yok (0 TL)</option>
-                        </select>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 font-bold">Maliyet Tutarı (TL) *</span>
+                        <span className="text-[10px] text-slate-500 font-bold">Nakit TL</span>
                         <input
                           type="number"
                           step="0.01"
-                          disabled={editServiceCostStatus === 'no_cost'}
-                          value={editServiceCostTL}
-                          onChange={(e) => setEditServiceCostTL(e.target.value)}
-                          placeholder="0.00"
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold disabled:opacity-50"
+                          value={editCashPaidTL}
+                          onChange={(e) => setEditCashPaidTL(e.target.value)}
+                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-bold">Kredi Kartı TL</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editCardPaidTL}
+                          onChange={(e) => setEditCardPaidTL(e.target.value)}
+                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-bold">Havale / EFT TL</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editBankPaidTL}
+                          onChange={(e) => setEditBankPaidTL(e.target.value)}
+                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                         />
                       </div>
                     </div>
                   </div>
-                )}
 
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Düzeltme Gerekçesi (Zorunlu) *</label>
-                  <textarea
-                    rows={2}
-                    required
-                    placeholder="Örn: Ödeme türü yanlış seçilmişti, Nakit olarak düzeltildi."
-                    value={editJustification}
-                    onChange={(e) => setEditJustification(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                  />
-                </div>
+                  {editingMovement.category_name === 'Teknik Servis' && (
+                    <div className="border-t border-slate-100 pt-3 space-y-2">
+                      <label className="block text-slate-700 font-bold flex items-center gap-1">
+                        <Wrench size={14} className="text-purple-600" /> Teknik Servis Maliyet Yönetimi
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] text-slate-500 font-bold">Maliyet Ödeme Durumu *</span>
+                          <select
+                            value={editServiceCostStatus}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditServiceCostStatus(val);
+                              if (val === 'no_cost') setEditServiceCostTL('0');
+                            }}
+                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
+                          >
+                            <option value="paid_from_cash">Kasadan Ödendi (Nakit Düşer)</option>
+                            <option value="previously_paid_or_stock">Önceden Ödendi / Stoktan</option>
+                            <option value="unpaid">Henüz Ödenmedi (Borç Kaydı)</option>
+                            <option value="no_cost">Maliyet Yok (0 TL)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 font-bold">Maliyet Tutarı (TL) *</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            disabled={editServiceCostStatus === 'no_cost'}
+                            value={editServiceCostTL}
+                            onChange={(e) => setEditServiceCostTL(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingMovement(null)}
-                    className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs"
-                  >
-                    Vazgeç
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={editSubmitting}
-                    className="w-1/2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-600/20 disabled:opacity-50"
-                  >
-                    {editSubmitting ? 'Kaydediliyor...' : 'Düzeltmeyi Kaydet'}
-                  </button>
-                </div>
-              </form>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Düzeltme Gerekçesi (Zorunlu) *</label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Örn: Ödeme türü yanlış seçilmişti, Nakit olarak düzeltildi."
+                      value={editJustification}
+                      onChange={(e) => setEditJustification(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingMovement(null)}
+                      className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs"
+                    >
+                      Vazgeç
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={editSubmitting || loadingSaleDetail || Boolean(editError && !editProductName)}
+                      className="w-1/2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-600/20 disabled:opacity-50"
+                    >
+                      {editSubmitting ? 'Kaydediliyor...' : 'Düzeltmeyi Kaydet'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}

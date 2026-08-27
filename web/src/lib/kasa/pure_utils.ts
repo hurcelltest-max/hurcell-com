@@ -185,3 +185,31 @@ export function simulate3DayRegression(): {
     day3Opening,
   };
 }
+
+export function canEditSale(input: {
+  role?: 'yonetici' | 'personel';
+  currentUserId?: string;
+  saleCreatedByUserId?: string;
+  saleStatus?: string;
+  dayStatus?: string;
+  movementType?: string;
+}): boolean {
+  if (input.movementType !== 'satis') return false;
+  if (input.saleStatus !== 'completed') return false;
+  if (input.dayStatus !== 'open') return false;
+  if (!input.role || !input.currentUserId) return false;
+  if (input.role === 'yonetici') return true;
+  return input.saleCreatedByUserId === input.currentUserId;
+}
+
+export function canCancelSale(input: {
+  role?: 'yonetici' | 'personel';
+  saleStatus?: string;
+  dayStatus?: string;
+  movementType?: string;
+}): boolean {
+  if (input.movementType !== 'satis') return false;
+  if (input.saleStatus !== 'completed') return false;
+  if (input.dayStatus !== 'open') return false;
+  return input.role === 'yonetici';
+}

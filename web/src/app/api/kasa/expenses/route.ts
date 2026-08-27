@@ -1,16 +1,39 @@
 import { NextResponse } from 'next/server';
-import { requireKasaAuth, requireManagerAuth } from '@/lib/kasa/auth';
-import { createExpense, getOrCreateTodayDay, listDailyExpenses, getKasaExpenseCategories } from '@/lib/kasa/service';
+import { requireKasaAuth } from '@/lib/kasa/auth';
+import {
+  createExpense,
+  getOrCreateTodayDay,
+  listDailyExpenses,
+  listAllExpenses,
+  getKasaExpenseCategories,
+} from '@/lib/kasa/service';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const auth = await requireKasaAuth();
-    const todayDay = await getOrCreateTodayDay(auth.user.id);
-    const expenses = await listDailyExpenses(todayDay.id, auth.user.role);
+    const { searchParams } = new URL(req.url);
+    const scope = searchParams.get('scope') || 'all';
+    const statusFilter = (searchParams.get('status') || 'all') as 'all' | 'active' | 'cancelled';
+    const categoryId = searchParams.get('category_id') || undefined;
+
+    if (scope === 'today_only') {
+      const todayDay = await getOrCreateTodayDay(auth.user.id);
+      const expenses = await listDailyExpenses(todayDay.id, auth.user.role);
+      return NextResponse.json({ expenses });
+    }
+
+    const expenses = await listAllExpenses({
+      statusFilter,
+      categoryId,
+      actorRole: auth.user.role,
+    });
 
     return NextResponse.json({ expenses });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Yetkisiz erişim.' }, { status: 401 });
+    if (error.message?.startsWith('FORBIDDEN') || error.message?.includes('YETKİSİZ')) {
+      return NextResponse.json({ error: 'Yetkisiz erişim.' }, { status: 401 });
+    }
+    return NextResponse.json({ error: error.message || 'Gider listesi veritabanından alınamadı.' }, { status: 500 });
   }
 }
 

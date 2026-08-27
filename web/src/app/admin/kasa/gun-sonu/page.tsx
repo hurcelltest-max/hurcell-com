@@ -40,29 +40,40 @@ export default function AdminGunSonuPage() {
   const [countedEur, setCountedEur] = useState('');
   const [closingNote, setClosingNote] = useState('');
 
+  const [openDays, setOpenDays] = useState<any[]>([]);
+  const [firstDayToClose, setFirstDayToClose] = useState<any | null>(null);
+  const [displayedDay, setDisplayedDay] = useState<any | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        const res = await fetch('/api/kasa/dashboard');
-        if (!res.ok) throw new Error('Dashboard verisi yüklenemedi.');
-        const data = await res.json();
-        setMetrics(data.metrics);
-        if (data.metrics) {
-          setCountedCashTL((data.metrics.expected_cash_kurus / 100).toString());
-          setCountedUsd((data.metrics.usd_balance_cents / 100).toString());
-          setCountedEur((data.metrics.eur_balance_cents / 100).toString());
-        }
-      } catch (err: any) {
-        setError(err.message || 'Veriler alınırken hata oluştu.');
-      } finally {
-        setLoading(false);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch('/api/kasa/dashboard');
+      if (!res.ok) throw new Error('Dashboard verisi yüklenemedi.');
+      const data = await res.json();
+      setMetrics(data.metrics);
+      setOpenDays(data.open_days || []);
+      setFirstDayToClose(data.first_day_requiring_close || null);
+      setDisplayedDay(data.day || null);
+
+      if (data.metrics) {
+        setCountedCashTL((data.metrics.expected_cash_kurus / 100).toString());
+        setCountedUsd((data.metrics.usd_balance_cents / 100).toString());
+        setCountedEur((data.metrics.eur_balance_cents / 100).toString());
       }
+    } catch (err: any) {
+      setError(err.message || 'Veriler alınırken hata oluştu.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -78,21 +89,44 @@ export default function AdminGunSonuPage() {
   const countedEurNum = Number(countedEur) || 0;
   const eurDifferenceNum = countedEurNum - expectedEurNum;
 
-  const handleCloseDay = async (e: React.FormEvent) => {
+  const hasDifference =
+    Math.abs(cashDifferenceTL) > 0.009 ||
+    Math.abs(usdDifferenceNum) > 0.009 ||
+    Math.abs(eurDifferenceNum) > 0.009;
+
+  const isLockedForClosing =
+    firstDayToClose && displayedDay && firstDayToClose.id !== displayedDay.id;
+
+  const handleOpenConfirmModal = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (isLockedForClosing) {
+      return setError(`Önce ${firstDayToClose.date_val} tarihli kasa gününü kapatmalısınız.`);
+    }
 
     if (countedCashTL === '' || isNaN(countedCashNum) || countedCashNum < 0) {
       return setError('Lütfen geçerli bir fiziki TL nakit sayımı girin.');
     }
 
+    if (hasDifference && !closingNote.trim()) {
+      return setError('Fiziksel nakit veya döviz kasasında fark bulunduğu için kapanış notu / gerekçesi belirtilmesi zorunludur.');
+    }
+
+    setShowConfirmModal(true);
+  };
+
+  const executeCloseDay = async () => {
+    setShowConfirmModal(false);
     try {
       setSubmitting(true);
+      setError(null);
       const res = await fetch('/api/kasa/closing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          kasa_day_id: displayedDay?.id,
           counted_cash_tl: countedCashNum,
           counted_usd: countedUsd !== '' ? Number(countedUsd) : undefined,
           counted_eur: countedEur !== '' ? Number(countedEur) : undefined,
@@ -109,7 +143,7 @@ export default function AdminGunSonuPage() {
       }
 
       setTimeout(() => {
-        router.push('/admin/kasa/raporlar');
+        router.push('/kasa');
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Gün kapatılırken hata oluştu.');
@@ -192,7 +226,7 @@ export default function AdminGunSonuPage() {
         </div>
       )}
 
-      <form onSubmit={handleCloseDay} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+      <form onSubmit={handleOpenConfirmModal} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
 
         {/* BEKLENEN VE SAYILAN FİZİKSEL TL KASA */}
         <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-3">
@@ -212,9 +246,10 @@ export default function AdminGunSonuPage() {
               step="0.01"
               min="0"
               required
+              disabled={isLockedForClosing}
               value={countedCashTL}
               onChange={(e) => setCountedCashTL(e.target.value)}
-              className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-xl font-black text-white"
+              className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-xl font-black text-white disabled:opacity-50"
             />
           </div>
 
@@ -245,9 +280,10 @@ export default function AdminGunSonuPage() {
                   step="0.01"
                   min="0"
                   placeholder="0.00"
+                  disabled={isLockedForClosing}
                   value={countedUsd}
                   onChange={(e) => setCountedUsd(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm disabled:opacity-50"
                 />
               </div>
               {Math.abs(usdDifferenceNum) > 0.009 && (
@@ -269,9 +305,10 @@ export default function AdminGunSonuPage() {
                   step="0.01"
                   min="0"
                   placeholder="0.00"
+                  disabled={isLockedForClosing}
                   value={countedEur}
                   onChange={(e) => setCountedEur(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm disabled:opacity-50"
                 />
               </div>
               {Math.abs(eurDifferenceNum) > 0.009 && (
@@ -285,25 +322,70 @@ export default function AdminGunSonuPage() {
 
         {/* GÜN SONU NOTU */}
         <div>
-          <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Kapanış Notu (Opsiyonel)</label>
+          <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+            Kapanış Notu / Gerekçesi {hasDifference ? '(Fark Nedeniyle Zorunlu *)' : '(Opsiyonel)'}
+          </label>
           <textarea
             rows={2}
-            placeholder="Nakit/döviz/cari veresiye sayımı veya kasa farkı açıklaması..."
+            disabled={isLockedForClosing}
+            placeholder={hasDifference ? "Kasada nakit/döviz farkı oluştu. Lütfen gerekçesini detaylı yazınız..." : "Kapanış notu ekleyin..."}
             value={closingNote}
             onChange={(e) => setClosingNote(e.target.value)}
-            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm disabled:opacity-50"
           />
         </div>
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || isLockedForClosing}
           className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-sm shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
         >
           <Lock size={18} /> {submitting ? 'Kasa Kapatılıyor...' : 'Gün Sonunu Onayla ve Kasayı Kapat'}
         </button>
 
       </form>
+
+      {/* KAPANIS ONAY MODALI */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex items-center gap-3 text-amber-600">
+              <AlertTriangle size={28} className="shrink-0" />
+              <h3 className="font-extrabold text-slate-900 text-base">Gün Sonu Kapanış Onayı</h3>
+            </div>
+
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950 font-medium space-y-2">
+              <p className="font-bold">
+                Bu işlem <strong>{displayedDay?.date_val}</strong> tarihli kasa gününü kapatır ve daha sonra değiştirilemez veya geri alınamaz.
+              </p>
+              <div className="border-t border-amber-200 pt-2 space-y-1 text-[11px]">
+                <div>• Sayılan Nakit TL: <strong>{formatTL(countedCashNum * 100)}</strong> (Beklenen: {formatTL(metrics?.expected_cash_kurus || 0)})</div>
+                {hasDifference && (
+                  <div className="text-red-700 font-bold">• Kasa Farkı Gerekçesi Girildi</div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={executeCloseDay}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1.5"
+              >
+                <Lock size={16} /> {submitting ? 'Kapatılıyor...' : 'Kapatmayı Onayla'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

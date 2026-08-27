@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { requireManagerAuth } from '@/lib/kasa/auth';
+import { requireKasaAuth } from '@/lib/kasa/auth';
 import { closeDayTransaction, getOrCreateTodayDay } from '@/lib/kasa/service';
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireManagerAuth();
+    const auth = await requireKasaAuth();
     const body = await req.json();
 
     const { kasa_day_id, counted_cash_tl, closing_note, counted_usd, counted_eur } = body;

@@ -24,6 +24,7 @@ import {
   ChevronRight,
   PieChart,
   Coins,
+  RefreshCw,
 } from 'lucide-react';
 import { DashboardCarryoverInfo, KasaMonthlyReport } from '@/lib/kasa/types';
 
@@ -69,6 +70,7 @@ interface UserData {
 interface ExpenseItem {
   id: string;
   kasa_day_id: string;
+  kasa_day_date?: string;
   expense_category_id: string;
   category_name?: string;
   amount_kurus: number;
@@ -77,8 +79,10 @@ interface ExpenseItem {
   status?: 'active' | 'cancelled';
   cancelled_at?: string;
   cancel_reason?: string;
+  cancel_justification?: string;
   created_by_user_id: string;
   created_by_name?: string;
+  cancelled_by_name?: string;
   created_at: string;
 }
 
@@ -233,16 +237,21 @@ export default function KasaMainDashboardPage() {
     loadMonthlyReportData(selectedMonthISO);
   }, [selectedMonthISO]);
 
-  const loadDailyExpenses = async () => {
+  const [expenseListError, setExpenseListError] = useState<string | null>(null);
+  const [expenseStatusFilter, setExpenseStatusFilter] = useState<'all' | 'active' | 'cancelled'>('all');
+
+  const loadDailyExpenses = async (statusF: 'all' | 'active' | 'cancelled' = expenseStatusFilter) => {
     try {
       setExpenseListLoading(true);
-      const res = await fetch('/api/kasa/expenses');
-      if (res.ok) {
-        const data = await res.json();
-        setDailyExpenses(data.expenses || []);
+      setExpenseListError(null);
+      const res = await fetch(`/api/kasa/expenses?scope=all&status=${statusF}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Gider listesi veritabanından çekilemedi.');
       }
-    } catch (err) {
-      console.error(err);
+      setDailyExpenses(data.expenses || []);
+    } catch (err: any) {
+      setExpenseListError(err.message || 'Gider verileri yüklenirken hata oluştu.');
     } finally {
       setExpenseListLoading(false);
     }
@@ -250,7 +259,7 @@ export default function KasaMainDashboardPage() {
 
   const openExpenseListModal = async () => {
     setShowExpenseListModal(true);
-    await loadDailyExpenses();
+    await loadDailyExpenses('all');
   };
 
   const handleLogout = async () => {
@@ -522,14 +531,12 @@ export default function KasaMainDashboardPage() {
               <List size={18} /> Kasa Hareketleri
             </Link>
 
-            {user?.role === 'yonetici' && (
-              <Link
-                href="/admin/kasa/gun-sonu"
-                className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
-              >
-                Gün Sonu
-              </Link>
-            )}
+            <Link
+              href="/admin/kasa/gun-sonu"
+              className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
+            >
+              Gün Sonu
+            </Link>
 
             <Link
               href="/admin/kasa/gunluk-arsiv"
@@ -1201,14 +1208,17 @@ export default function KasaMainDashboardPage() {
         </div>
       )}
 
-      {/* GÜNLÜK GİDER LİSTESİ MODALI */}
+      {/* KASA GİDER LİSTESİ MODALI */}
       {showExpenseListModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white max-w-4xl w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4 my-8">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                <MinusCircle className="text-rose-600" size={22} /> Günlük Gider Listesi
-              </h3>
+          <div className="bg-white max-w-5xl w-full rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                  <MinusCircle className="text-rose-600" size={22} /> Kasa Gider Geçmişi ve Listesi
+                </h3>
+                <p className="text-xs text-slate-500">Tüm tarihsel aktif ve iptal edilen kasa giderlerinin ayrıntılı dökümü</p>
+              </div>
               <button
                 onClick={() => setShowExpenseListModal(false)}
                 className="text-slate-400 hover:text-slate-600 font-bold text-sm"
@@ -1217,25 +1227,82 @@ export default function KasaMainDashboardPage() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Filtre Tabları */}
+            <div className="flex items-center justify-between flex-wrap gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-600">Durum Filtresi:</span>
+                {[
+                  { id: 'all', label: 'Tüm Giderler' },
+                  { id: 'active', label: 'Aktif Giderler' },
+                  { id: 'cancelled', label: 'İptal Edilenler' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setExpenseStatusFilter(t.id as any);
+                      loadDailyExpenses(t.id as any);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      expenseStatusFilter === t.id
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => loadDailyExpenses(expenseStatusFilter)}
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5"
+              >
+                <RefreshCw size={14} className={expenseListLoading ? 'animate-spin' : ''} /> Yenile
+              </button>
+            </div>
+
+            {expenseListError && (
+              <div className="p-4 rounded-xl bg-red-50 border border-red-300 text-red-800 text-xs font-bold flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={18} className="text-red-600 shrink-0" />
+                  <span>{expenseListError}</span>
+                </div>
+                <button
+                  onClick={() => loadDailyExpenses(expenseStatusFilter)}
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs shrink-0"
+                >
+                  Yeniden Dene
+                </button>
+              </div>
+            )}
+
+            <div className="overflow-x-auto border border-slate-200 rounded-xl">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 text-[11px] font-extrabold uppercase tracking-wider">
                     <th className="py-3 px-3">Tarih / Saat</th>
+                    <th className="py-3 px-3">Kasa Günü</th>
                     <th className="py-3 px-3">Kategori</th>
                     <th className="py-3 px-3">Açıklama</th>
                     <th className="py-3 px-3">Alıcı / Firma</th>
-                    <th className="py-3 px-3 text-right">Tutar</th>
-                    <th className="py-3 px-3 text-center">Ekleyen</th>
+                    <th className="py-3 px-3 text-right">Brüt Tutar</th>
+                    <th className="py-3 px-3 text-right">Net Mali Etki</th>
+                    <th className="py-3 px-3 text-center">Ekleyen / İptal Eden</th>
                     <th className="py-3 px-3 text-center">Durum</th>
                     <th className="py-3 px-3 text-center">İşlem</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs font-medium">
-                  {dailyExpenses.length === 0 ? (
+                  {expenseListLoading ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-500 font-semibold">
-                        Bugün henüz genel kasa gideri kaydedilmedi.
+                      <td colSpan={10} className="py-8 text-center text-slate-400 font-semibold">
+                        Gider listesi yükleniyor...
+                      </td>
+                    </tr>
+                  ) : dailyExpenses.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-8 text-center text-slate-500 font-semibold">
+                        Seçilen kriterlere uygun gider kaydı bulunamadı.
                       </td>
                     </tr>
                   ) : (
@@ -1243,42 +1310,63 @@ export default function KasaMainDashboardPage() {
                       const isManager = user?.role === 'yonetici';
                       const isOwnExpense = exp.created_by_user_id === user?.id;
                       const isSalary = exp.category_name === 'Personel Maaşı';
+                      const isCancelled = exp.status === 'cancelled';
 
                       const canEdit =
-                        exp.status !== 'cancelled' &&
+                        !isCancelled &&
                         dayStatus === 'open' &&
                         (isManager || (isOwnExpense && !isSalary));
-                      const canCancel = exp.status !== 'cancelled' && dayStatus === 'open' && isManager;
+                      const canCancel = !isCancelled && dayStatus === 'open' && isManager;
 
                       return (
-                        <tr key={exp.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3 px-3 text-slate-500">
-                            {new Date(exp.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                        <tr key={exp.id} className={`hover:bg-slate-50/80 transition-colors ${isCancelled ? 'bg-amber-50/30' : ''}`}>
+                          <td className="py-3 px-3 text-slate-500 whitespace-nowrap">
+                            {new Date(exp.created_at).toLocaleDateString('tr-TR')} {new Date(exp.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                           </td>
-                          <td className="py-3 px-3 font-semibold text-slate-800">{exp.category_name}</td>
-                          <td className="py-3 px-3 text-slate-900">{exp.description}</td>
+                          <td className="py-3 px-3 text-slate-600 font-semibold whitespace-nowrap">{exp.kasa_day_date || '-'}</td>
+                          <td className="py-3 px-3 font-semibold text-slate-800 whitespace-nowrap">{exp.category_name}</td>
+                          <td className="py-3 px-3 text-slate-900 max-w-xs">
+                            <div>{exp.description}</div>
+                            {isCancelled && exp.cancel_justification && (
+                              <div className="text-[10px] text-red-700 italic mt-0.5 font-bold">
+                                İptal Gerekçesi: {exp.cancel_justification}
+                              </div>
+                            )}
+                          </td>
                           <td className="py-3 px-3 text-slate-600">{exp.recipient_name || '-'}</td>
-                          <td className="py-3 px-3 text-right font-extrabold text-rose-600">
+                          <td className="py-3 px-3 text-right font-extrabold text-slate-900 whitespace-nowrap">
                             {formatTL(exp.amount_kurus)}
                           </td>
-                          <td className="py-3 px-3 text-center text-slate-600">{exp.created_by_name}</td>
-                          <td className="py-3 px-3 text-center">
-                            {exp.status === 'cancelled' ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800">
+                          <td className="py-3 px-3 text-right font-extrabold whitespace-nowrap">
+                            {isCancelled ? (
+                              <span className="text-slate-400">₺0,00</span>
+                            ) : (
+                              <span className="text-rose-600">-{formatTL(exp.amount_kurus)}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-center text-slate-600 whitespace-nowrap">
+                            <div>{exp.created_by_name}</div>
+                            {isCancelled && exp.cancelled_by_name && (
+                              <div className="text-[10px] text-red-600 font-semibold">İptal: {exp.cancelled_by_name}</div>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            {isCancelled ? (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200">
                                 İptal Edildi
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                 Aktif
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
                               {canEdit && (
                                 <button
                                   onClick={() => openEditExpenseModal(exp)}
-                                  className="px-2 py-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1"
+                                  className="px-2 py-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors flex items-center gap-1"
                                 >
                                   <Edit3 size={12} /> Düzelt
                                 </button>
@@ -1286,12 +1374,12 @@ export default function KasaMainDashboardPage() {
                               {canCancel && (
                                 <button
                                   onClick={() => setCancellingExpense(exp)}
-                                  className="px-2 py-1 text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                                  className="px-2 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
                                 >
                                   İptal Et
                                 </button>
                               )}
-                              {!canEdit && !canCancel && <span className="text-slate-400 text-[11px]">-</span>}
+                              {!canEdit && !canCancel && <span className="text-slate-400 text-[11px] italic">Kilitli / Salt Okunur</span>}
                             </div>
                           </td>
                         </tr>
@@ -1306,7 +1394,7 @@ export default function KasaMainDashboardPage() {
               <button
                 type="button"
                 onClick={() => setShowExpenseListModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs"
+                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition"
               >
                 Kapat
               </button>

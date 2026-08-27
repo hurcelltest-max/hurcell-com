@@ -1179,6 +1179,119 @@ export async function listDailyExpenses(dayId: string, actorRole?: KasaUserRole)
     })) as KasaExpense[];
 }
 
+export interface ExpenseListOptions {
+  startDate?: string;
+  endDate?: string;
+  categoryId?: string;
+  statusFilter?: 'all' | 'active' | 'cancelled';
+  createdById?: string;
+  actorRole?: KasaUserRole;
+}
+
+export async function listAllExpenses(options: ExpenseListOptions = {}): Promise<any[]> {
+  const supabase = getSupabaseAdmin();
+
+  let query = supabase
+    .from('kasa_expenses')
+    .select(`
+      *,
+      category:kasa_expense_categories(id, name, is_salary_category),
+      user:kasa_users!created_by_user_id(id, full_name),
+      canceller:kasa_users!cancelled_by_user_id(id, full_name),
+      kasa_day:kasa_days(date_val)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (options.statusFilter && options.statusFilter !== 'all') {
+    query = query.eq('status', options.statusFilter);
+  }
+
+  if (options.categoryId) {
+    query = query.eq('expense_category_id', options.categoryId);
+  }
+
+  if (options.createdById) {
+    query = query.eq('created_by_user_id', options.createdById);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    // If join fails, fall back to safe manual join via separate queries
+    const { data: rawExpenses, error: rawError } = await supabase
+      .from('kasa_expenses')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (rawError || !rawExpenses) {
+      throw new Error(`Gider listesi veritabanından alınamadı: ${error?.message || rawError?.message}`);
+    }
+
+    const { data: categories } = await supabase.from('kasa_expense_categories').select('id, name, is_salary_category');
+    const { data: users } = await supabase.from('kasa_users').select('id, full_name');
+    const { data: days } = await supabase.from('kasa_days').select('id, date_val');
+
+    const catMap = new Map((categories || []).map((c) => [c.id, c]));
+    const userMap = new Map((users || []).map((u) => [u.id, u.full_name]));
+    const dayMap = new Map((days || []).map((d) => [d.id, d.date_val]));
+
+    return rawExpenses
+      .filter((item) => {
+        const cat = catMap.get(item.expense_category_id);
+        if (options.actorRole === 'personel' && (cat?.is_salary_category || cat?.name === 'Personel Maaşı')) {
+          return false;
+        }
+        if (options.statusFilter && options.statusFilter !== 'all' && item.status !== options.statusFilter) {
+          return false;
+        }
+        if (options.categoryId && item.expense_category_id !== options.categoryId) {
+          return false;
+        }
+        if (options.createdById && item.created_by_user_id !== options.createdById) {
+          return false;
+        }
+        return true;
+      })
+      .map((item) => {
+        const cat = catMap.get(item.expense_category_id);
+        const isActive = item.status === 'active';
+        return {
+          ...item,
+          category_name: cat?.name || 'Gider',
+          created_by_name: userMap.get(item.created_by_user_id) || 'Personel',
+          cancelled_by_name: item.cancelled_by_user_id ? userMap.get(item.cancelled_by_user_id) || 'Yönetici' : null,
+          kasa_day_date: dayMap.get(item.kasa_day_id) || item.created_at.split('T')[0],
+          net_financial_effect_kurus: isActive ? -Number(item.amount_kurus || 0) : 0,
+        };
+      });
+  }
+
+  return (data || [])
+    .filter((item) => {
+      const cat = Array.isArray(item.category) ? item.category[0] : item.category;
+      if (options.actorRole === 'personel' && (cat?.is_salary_category || cat?.name === 'Personel Maaşı')) {
+        return false;
+      }
+      return true;
+    })
+    .map((item) => {
+      const cat = Array.isArray(item.category) ? item.category[0] : item.category;
+      const creator = Array.isArray(item.user) ? item.user[0] : item.user;
+      const canceller = Array.isArray(item.canceller) ? item.canceller[0] : item.canceller;
+      const day = Array.isArray(item.kasa_day) ? item.kasa_day[0] : item.kasa_day;
+      const isActive = item.status === 'active';
+
+      return {
+        ...item,
+        category_name: cat?.name || 'Gider',
+        created_by_name: creator?.full_name || 'Personel',
+        cancelled_by_name: canceller?.full_name || null,
+        kasa_day_date: day?.date_val || item.created_at.split('T')[0],
+        net_financial_effect_kurus: isActive ? -Number(item.amount_kurus || 0) : 0,
+      };
+    });
+}
+
 export async function closeDayTransaction(
   actorUserId: string,
   dayId: string,

@@ -145,6 +145,10 @@ export default function KasaMainDashboardPage() {
   const [repairSubmitting, setRepairSubmitting] = useState(false);
   const [repairError, setRepairError] = useState<string | null>(null);
 
+  // Önceki Gün Kapatılmama Uyarısı State'leri
+  const [isPreviousDayUnclosed, setIsPreviousDayUnclosed] = useState(false);
+  const [unclosedDayDate, setUnclosedDayDate] = useState<string | null>(null);
+
   // Aylık Bilanço State'leri
   const [selectedMonthISO, setSelectedMonthISO] = useState<string>(() => {
     const d = new Date();
@@ -168,6 +172,7 @@ export default function KasaMainDashboardPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const meRes = await fetch('/api/kasa/auth/me');
       if (!meRes.ok) {
         router.push('/kasa/giris');
@@ -177,11 +182,15 @@ export default function KasaMainDashboardPage() {
       setUser(meData.user);
 
       const dashRes = await fetch('/api/kasa/dashboard');
-      if (!dashRes.ok) throw new Error('Kasa özet verisi yüklenemedi.');
       const dashData = await dashRes.json();
+      if (!dashRes.ok) throw new Error(dashData.error || 'Kasa özet verisi yüklenemedi.');
+
       setMetrics(dashData.metrics);
       setCategories(dashData.categorySummary || []);
       setCarryoverInfo(dashData.carryoverInfo || null);
+      setIsPreviousDayUnclosed(Boolean(dashData.is_previous_day_unclosed));
+      setUnclosedDayDate(dashData.unclosed_day_date || null);
+
       if (dashData.day) {
         setDayStatus(dashData.day.status);
         setDateStr(dashData.day.date_val);
@@ -545,8 +554,45 @@ export default function KasaMainDashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
         {error && (
-          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold">
-            {error}
+          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm font-semibold flex items-center justify-between flex-wrap gap-3 shadow-sm">
+            <div>
+              <div className="font-extrabold text-red-950">Kasa Özet Verisi Yüklenemedi</div>
+              <p className="text-xs text-red-700 mt-0.5">{error}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadData}
+                className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition shadow-sm"
+              >
+                Yeniden Dene
+              </button>
+              <Link
+                href="/admin/kasa/gunluk-arsiv"
+                className="px-3.5 py-2 bg-white border border-red-300 text-red-800 hover:bg-red-50 text-xs font-bold rounded-xl transition shadow-sm"
+              >
+                Günlük Arşive Git →
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {isPreviousDayUnclosed && (
+          <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 flex items-center justify-between flex-wrap gap-3 shadow-md">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={24} className="text-amber-600 shrink-0" />
+              <div>
+                <div className="font-extrabold text-sm text-amber-950 uppercase tracking-wide">ÖNCEKİ KASA GÜNÜ HENÜZ KAPATILMADI ({dateStr})</div>
+                <p className="text-xs text-amber-900 font-medium mt-0.5">
+                  Önceki kasa gününün sayımı yapılmadan yeni gün başlatılamaz. Ekranda gördüğünüz veriler <strong>{dateStr}</strong> tarihli aktif açık güne aittir.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin/kasa/gunluk-arsiv"
+              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5"
+            >
+              Günlük Arşive Git →
+            </Link>
           </div>
         )}
 
@@ -974,23 +1020,42 @@ export default function KasaMainDashboardPage() {
               </div>
 
               {/* GRUP 4: NET SONUÇ */}
-              <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center justify-between flex-wrap gap-4 shadow-md">
+              <div className={`p-4 text-white rounded-2xl flex items-center justify-between flex-wrap gap-4 shadow-md ${
+                monthlyReport.missing_cost_warning ? 'bg-amber-950 border border-amber-500/40' : 'bg-slate-900'
+              }`}>
                 <div className="flex items-center gap-6">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Brüt Kâr</span>
-                    <div className="text-lg font-bold text-slate-200">{formatTL(monthlyReport.gross_profit_kurus)}</div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {monthlyReport.missing_cost_warning ? 'Brüt Satış Cirosu' : 'Brüt Kâr'}
+                    </span>
+                    <div className="text-lg font-bold text-slate-200">
+                      {formatTL(monthlyReport.missing_cost_warning ? monthlyReport.gross_sales_kurus : monthlyReport.gross_profit_kurus)}
+                    </div>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Net Kâr / Zarar</span>
-                    <div className={`text-2xl font-black ${monthlyReport.net_profit_kurus >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {monthlyReport.missing_cost_warning ? 'Tahmini Ara Sonuç (Maliyet Eksik)' : 'Net Kâr / Zarar'}
+                    </span>
+                    <div className={`text-2xl font-black ${
+                      monthlyReport.missing_cost_warning ? 'text-amber-300' : monthlyReport.net_profit_kurus >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}>
                       {formatTL(monthlyReport.net_profit_kurus)}
                     </div>
+                    {monthlyReport.missing_cost_warning && (
+                      <div className="text-[11px] text-amber-300/90 font-semibold mt-0.5">
+                        {monthlyReport.missing_cost_sales_count} satışın maliyet bilgisi eksik; kesin net kâr hesaplanamaz.
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {monthlyReport.net_profit_kurus >= 0 ? (
+                  {monthlyReport.missing_cost_warning ? (
+                    <span className="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-xs font-bold uppercase tracking-wide">
+                      Maliyet Eksik — Net Kâr Kesin Değil
+                    </span>
+                  ) : monthlyReport.net_profit_kurus >= 0 ? (
                     <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-xs font-bold uppercase tracking-wide">
                       AYLIK KÂR
                     </span>

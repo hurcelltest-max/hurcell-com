@@ -33,6 +33,7 @@ export async function POST(
       description,
       cost_price_tl,
       service_cost_tl,
+      service_cost_payment_status,
     } = body;
 
     if (!justification || !String(justification).trim()) {
@@ -90,6 +91,7 @@ export async function POST(
       description: description ? String(description).trim() : undefined,
       cost_price_kurus: costPriceKurus,
       service_cost_kurus: serviceCostKurus,
+      service_cost_payment_status: service_cost_payment_status ? String(service_cost_payment_status) as any : undefined,
     });
 
     return NextResponse.json({ success: true, sale: updatedSale });

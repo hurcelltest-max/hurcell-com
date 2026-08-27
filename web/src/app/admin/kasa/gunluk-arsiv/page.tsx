@@ -68,6 +68,8 @@ export default function AdminGunlukArsivPage() {
   const [editSaleBankPaidTL, setEditSaleBankPaidTL] = useState('');
   const [editSaleCostPriceTL, setEditSaleCostPriceTL] = useState('');
   const [editSaleJustification, setEditSaleJustification] = useState('');
+  const [editSaleServiceCostTL, setEditSaleServiceCostTL] = useState('');
+  const [editSaleServiceCostStatus, setEditSaleServiceCostStatus] = useState<string>('previously_paid_or_stock');
   const [editSaleSubmitting, setEditSaleSubmitting] = useState(false);
   const [editSaleError, setEditSaleError] = useState<string | null>(null);
 
@@ -177,6 +179,8 @@ export default function AdminGunlukArsivPage() {
     setEditSaleCardPaidTL((sale.card_paid_kurus / 100).toFixed(2));
     setEditSaleBankPaidTL((sale.bank_transfer_paid_kurus / 100).toFixed(2));
     setEditSaleCostPriceTL(sale.cost_price_kurus ? (sale.cost_price_kurus / 100).toFixed(2) : '');
+    setEditSaleServiceCostTL(sale.service_cost_kurus ? (sale.service_cost_kurus / 100).toFixed(2) : '');
+    setEditSaleServiceCostStatus(sale.service_cost_payment_status || 'previously_paid_or_stock');
     setEditSaleJustification('');
     setEditSaleError(null);
   };
@@ -202,6 +206,8 @@ export default function AdminGunlukArsivPage() {
           card_paid_tl: Number(editSaleCardPaidTL),
           bank_transfer_paid_tl: Number(editSaleBankPaidTL),
           cost_price_tl: editSaleCostPriceTL ? Number(editSaleCostPriceTL) : undefined,
+          service_cost_tl: editSaleServiceCostTL ? Number(editSaleServiceCostTL) : undefined,
+          service_cost_payment_status: editSaleServiceCostStatus,
           justification: editSaleJustification.trim(),
         }),
       });
@@ -636,7 +642,14 @@ export default function AdminGunlukArsivPage() {
                                   </td>
                                   <td className="p-2.5 whitespace-nowrap">
                                     {s.status === 'completed' ? (
-                                      <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-md">Tamamlandı</span>
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-md">Tamamlandı</span>
+                                        {(s.category_name === 'Teknik Servis' || s.service_cost_payment_status === 'legacy_unspecified') && (s.service_cost_payment_status === 'legacy_unspecified' || !s.service_cost_payment_status) && (
+                                          <span className="px-2 py-0.5 text-[10px] font-extrabold bg-amber-500 text-white rounded-md">
+                                            Maliyet Bilgisi Eksik / Düzeltilmeli
+                                          </span>
+                                        )}
+                                      </div>
                                     ) : (
                                       <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-800 rounded-md">İptal/İade</span>
                                     )}
@@ -904,6 +917,43 @@ export default function AdminGunlukArsivPage() {
                   </div>
                 </div>
               </div>
+
+              {salesCategories.find((c) => c.id === editSaleCatId)?.name === 'Teknik Servis' && (
+                <div className="border-t border-slate-100 pt-3 space-y-2">
+                  <label className="block text-slate-700 font-bold">Teknik Servis Doğrudan Maliyet Yönetimi</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[10px] text-slate-500 font-bold">Maliyet Ödeme Durumu *</span>
+                      <select
+                        value={editSaleServiceCostStatus}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditSaleServiceCostStatus(val);
+                          if (val === 'no_cost') setEditSaleServiceCostTL('0');
+                        }}
+                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
+                      >
+                        <option value="paid_from_cash">Kasadan Ödendi (Nakit Düşer)</option>
+                        <option value="previously_paid_or_stock">Önceden Ödendi / Stoktan</option>
+                        <option value="unpaid">Henüz Ödenmedi (Borç Kaydı)</option>
+                        <option value="no_cost">Maliyet Yok (0 TL)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 font-bold">Maliyet Tutarı (TL) *</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        disabled={editSaleServiceCostStatus === 'no_cost'}
+                        value={editSaleServiceCostTL}
+                        onChange={(e) => setEditSaleServiceCostTL(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-slate-700 mb-1">Düzeltme Gerekçesi (Zorunlu) *</label>

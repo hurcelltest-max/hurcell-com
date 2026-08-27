@@ -20,6 +20,9 @@ export async function GET() {
       metrics,
       categorySummary,
       carryoverInfo,
+      is_previous_day_unclosed: Boolean(todayDay.is_previous_day_unclosed),
+      unclosed_day_date: todayDay.unclosed_day_date || null,
+      dashboard_status: todayDay.is_previous_day_unclosed ? 'previous_days_require_closing' : 'ok',
     });
   } catch (error: any) {
     if (error.message?.startsWith('FORBIDDEN') || error.message?.includes('YETKİSİZ')) {

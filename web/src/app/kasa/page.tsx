@@ -148,6 +148,9 @@ export default function KasaMainDashboardPage() {
   // Önceki Gün Kapatılmama Uyarısı State'leri
   const [isPreviousDayUnclosed, setIsPreviousDayUnclosed] = useState(false);
   const [unclosedDayDate, setUnclosedDayDate] = useState<string | null>(null);
+  const [openDaysList, setOpenDaysList] = useState<any[]>([]);
+  const [firstDayToClose, setFirstDayToClose] = useState<any | null>(null);
+  const [actionBlockReason, setActionBlockReason] = useState<string | null>(null);
 
   // Aylık Bilanço State'leri
   const [selectedMonthISO, setSelectedMonthISO] = useState<string>(() => {
@@ -190,6 +193,9 @@ export default function KasaMainDashboardPage() {
       setCarryoverInfo(dashData.carryoverInfo || null);
       setIsPreviousDayUnclosed(Boolean(dashData.is_previous_day_unclosed));
       setUnclosedDayDate(dashData.unclosed_day_date || null);
+      setOpenDaysList(dashData.open_days || []);
+      setFirstDayToClose(dashData.first_day_requiring_close || null);
+      setActionBlockReason(dashData.action_block_reason || null);
 
       if (dashData.day) {
         setDayStatus(dashData.day.status);
@@ -577,22 +583,44 @@ export default function KasaMainDashboardPage() {
         )}
 
         {isPreviousDayUnclosed && (
-          <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 flex items-center justify-between flex-wrap gap-3 shadow-md">
-            <div className="flex items-center gap-3">
-              <AlertTriangle size={24} className="text-amber-600 shrink-0" />
-              <div>
-                <div className="font-extrabold text-sm text-amber-950 uppercase tracking-wide">ÖNCEKİ KASA GÜNÜ HENÜZ KAPATILMADI ({dateStr})</div>
-                <p className="text-xs text-amber-900 font-medium mt-0.5">
-                  Önceki kasa gününün sayımı yapılmadan yeni gün başlatılamaz. Ekranda gördüğünüz veriler <strong>{dateStr}</strong> tarihli aktif açık güne aittir.
-                </p>
+          <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 space-y-3 shadow-md">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <AlertTriangle size={24} className="text-amber-600 shrink-0" />
+                <div>
+                  <div className="font-extrabold text-sm text-amber-950 uppercase tracking-wide">
+                    ÖNCEKİ KASA GÜNLERİ KAPATILMALI
+                  </div>
+                  <p className="text-xs text-amber-900 font-medium mt-0.5">
+                    {actionBlockReason || `Önceki günlerin sayımı yapılmadan yeni gün başlatılamaz. Ekranda gördüğünüz veriler ${dateStr} tarihli açık güne aittir.`}
+                  </p>
+                </div>
               </div>
+              <Link
+                href="/admin/kasa/gunluk-arsiv"
+                className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5 shrink-0"
+              >
+                Günlük Arşive Git →
+              </Link>
             </div>
-            <Link
-              href="/admin/kasa/gunluk-arsiv"
-              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5"
-            >
-              Günlük Arşive Git →
-            </Link>
+
+            {openDaysList.length > 0 && (
+              <div className="text-[11px] text-amber-950 font-semibold border-t border-amber-200/80 pt-2 flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-amber-900">Açık Kasa Günleri:</span>
+                {openDaysList.map((d: any, idx: number) => (
+                  <span
+                    key={d.id}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                      idx === 0
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-amber-200/80 text-amber-900 border border-amber-300'
+                    }`}
+                  >
+                    {d.date_val} {idx === 0 ? '(İLK KAPATILACAK GÜN)' : '(KİLİTLİ)'}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

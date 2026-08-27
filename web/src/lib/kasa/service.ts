@@ -4,6 +4,12 @@ import { hashPassword } from './crypto';
 import { calculateOverdueDays, calculatePrudentResult } from './math';
 import { getTCMBExchangeRates } from './tcmb';
 import {
+  isSaleCostMissing,
+  evaluateOpenDaysChain,
+  OpenDaysChainResult,
+} from './pure_utils';
+export { isSaleCostMissing, evaluateOpenDaysChain, type OpenDaysChainResult };
+import {
   DashboardCarryoverInfo,
   KasaBankDeposit,
   KasaCategory,
@@ -218,6 +224,23 @@ export async function getKasaExpenseCategories(): Promise<KasaExpenseCategory[]>
 
   if (error || !data) return [];
   return data as KasaExpenseCategory[];
+}
+
+
+
+export async function getOpenDaysChain(actorUserId: string): Promise<OpenDaysChainResult> {
+  const supabase = getSupabaseAdmin();
+
+  const { data: openDaysRaw } = await supabase
+    .from('kasa_days')
+    .select('*')
+    .eq('status', 'open')
+    .order('date_val', { ascending: true });
+
+  const openDays = (openDaysRaw || []) as KasaDay[];
+  const todayIso = new Date().toISOString().split('T')[0];
+
+  return evaluateOpenDaysChain(openDays, todayIso);
 }
 
 export async function getOrCreateTodayDay(actorUserId: string): Promise<KasaDay & { is_previous_day_unclosed?: boolean; unclosed_day_date?: string }> {

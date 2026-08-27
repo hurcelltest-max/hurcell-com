@@ -5,24 +5,32 @@ import {
   getDashboardMetrics,
   getOrCreateTodayDay,
   getDashboardCarryoverInfo,
+  getOpenDaysChain,
 } from '@/lib/kasa/service';
 
 export async function GET() {
   try {
     const auth = await requireKasaAuth();
     const todayDay = await getOrCreateTodayDay(auth.user.id);
-    const categorySummary = await getDailyCategorySummary(todayDay.id);
-    const metrics = await getDashboardMetrics(todayDay.id, auth.user.role);
-    const carryoverInfo = await getDashboardCarryoverInfo(todayDay);
+    const chain = await getOpenDaysChain(auth.user.id);
+
+    const targetDay = todayDay;
+    const categorySummary = await getDailyCategorySummary(targetDay.id);
+    const metrics = await getDashboardMetrics(targetDay.id, auth.user.role);
+    const carryoverInfo = await getDashboardCarryoverInfo(targetDay);
 
     return NextResponse.json({
-      day: todayDay,
+      day: targetDay,
       metrics,
       categorySummary,
       carryoverInfo,
-      is_previous_day_unclosed: Boolean(todayDay.is_previous_day_unclosed),
-      unclosed_day_date: todayDay.unclosed_day_date || null,
-      dashboard_status: todayDay.is_previous_day_unclosed ? 'previous_days_require_closing' : 'ok',
+      open_days: chain.openDays,
+      first_day_requiring_close: chain.firstDayRequiringClose,
+      displayed_day: targetDay,
+      dashboard_status: chain.dashboardStatus,
+      action_block_reason: chain.actionBlockReason,
+      is_previous_day_unclosed: chain.isPreviousDaysUnclosed,
+      unclosed_day_date: chain.firstDayRequiringClose?.date_val || targetDay.date_val,
     });
   } catch (error: any) {
     if (error.message?.startsWith('FORBIDDEN') || error.message?.includes('YETKİSİZ')) {

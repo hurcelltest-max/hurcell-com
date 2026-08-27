@@ -1929,9 +1929,9 @@ export async function getUnifiedDailyMovements(params: {
     .select(`
       id, kasa_day_id, movement_type, sale_id, amount_kurus, cash_portion_kurus,
       card_portion_kurus, bank_transfer_portion_kurus, description, created_by_user_id, created_at,
-      kasa_days!inner(date_val),
+      kasa_days!inner(date_val, status),
       created_by:kasa_users(full_name),
-      sale:kasa_sales(receipt_no, status, credit_customer_id, category:kasa_categories(name))
+      sale:kasa_sales(receipt_no, status, created_by_user_id, credit_customer_id, credit_paid_kurus, usd_tl_equivalent_kurus, eur_tl_equivalent_kurus, customer_name, serial_imei, category:kasa_categories(name))
     `, { count: 'exact' });
 
   if (params.kasaDayId) {
@@ -2016,22 +2016,33 @@ export async function getUnifiedDailyMovements(params: {
 
     const movement_label = labelMap[m.movement_type] || m.movement_type;
     const date_val = (m.kasa_days as any)?.date_val || new Date(m.created_at).toISOString().split('T')[0];
+    const kasaDayStatus = (m.kasa_days as any)?.status || 'closed';
     const created_by_name = (m.created_by as any)?.full_name || 'Sistem';
-    const receipt_no = (m.sale as any)?.receipt_no || undefined;
-    const category_name = (m.sale as any)?.category?.name || undefined;
+    const saleObj = (m.sale as any);
+    const receipt_no = saleObj?.receipt_no || undefined;
+    const category_name = saleObj?.category?.name || undefined;
 
     items.push({
       id: m.id,
       kasa_day_id: m.kasa_day_id,
+      kasa_day_status: kasaDayStatus,
       date_val,
       movement_type: m.movement_type,
       movement_label,
+      sale_id: m.sale_id || undefined,
+      sale_status: saleObj?.status || undefined,
+      sale_created_by_user_id: saleObj?.created_by_user_id || undefined,
       category_name,
       description: m.description,
       cash_in_kurus,
       cash_out_kurus,
       card_portion_kurus: cardPortion,
       bank_transfer_portion_kurus: bankTransferPortion,
+      credit_amount_kurus: Number(saleObj?.credit_paid_kurus || 0),
+      usd_tl_equivalent_kurus: Number(saleObj?.usd_tl_equivalent_kurus || 0),
+      eur_tl_equivalent_kurus: Number(saleObj?.eur_tl_equivalent_kurus || 0),
+      customer_name: saleObj?.customer_name || undefined,
+      serial_imei: saleObj?.serial_imei || undefined,
       created_by_user_id: m.created_by_user_id,
       created_by_name,
       created_at: m.created_at,

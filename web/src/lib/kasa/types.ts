@@ -358,9 +358,13 @@ export interface KasaExpenseCategorySummary {
 export interface KasaUnifiedMovement {
   id: string;
   kasa_day_id: string;
+  kasa_day_status?: 'open' | 'closed';
   date_val: string;
   movement_type: string;
   movement_label: string;
+  sale_id?: string;
+  sale_status?: 'completed' | 'returned' | 'cancelled';
+  sale_created_by_user_id?: string;
   category_name?: string;
   description: string;
   cash_in_kurus: number;
@@ -368,8 +372,12 @@ export interface KasaUnifiedMovement {
   card_portion_kurus: number;
   bank_transfer_portion_kurus: number;
   usd_amount_cents?: number;
+  usd_tl_equivalent_kurus?: number;
   eur_amount_cents?: number;
+  eur_tl_equivalent_kurus?: number;
   credit_amount_kurus?: number;
+  customer_name?: string;
+  serial_imei?: string;
   created_by_user_id: string;
   created_by_name: string;
   created_at: string;

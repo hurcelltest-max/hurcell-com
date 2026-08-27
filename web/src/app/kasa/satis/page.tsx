@@ -52,6 +52,8 @@ export default function KasaSatisPage() {
   const [usdPaid, setUsdPaid] = useState('');
   const [eurPaid, setEurPaid] = useState('');
   const [creditPaidTL, setCreditPaidTL] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
 
   // Cari Müşteri Arama & Seçim State
   const [creditCustomerSearch, setCreditCustomerSearch] = useState('');
@@ -160,6 +162,7 @@ export default function KasaSatisPage() {
       return;
     }
     setSelectedCreditCustomer(customer);
+    setCustomerName(customer.full_name);
     setShowCustomerModal(false);
   };
 
@@ -174,6 +177,13 @@ export default function KasaSatisPage() {
 
     if (Math.abs(paymentDiff) > 0.05) {
       return setError(`Girilen ödemeler toplamı (${totalPaymentsEntered.toFixed(2)} TL), satış toplamından (${totalPriceNum.toFixed(2)} TL) farklıdır. Fark: ${paymentDiff.toFixed(2)} TL`);
+    }
+
+    const trimmedCustomerName = customerName.trim();
+    if (isTechnicalService) {
+      if (!trimmedCustomerName || trimmedCustomerName.length < 2 || trimmedCustomerName.length > 120) {
+        return setError('Teknik servis işlemlerinde müşteri adı soyadı zorunludur.');
+      }
     }
 
     if (creditNum > 0) {
@@ -209,6 +219,8 @@ export default function KasaSatisPage() {
           eur_paid: eurPaidNum > 0 ? eurPaidNum : undefined,
           credit_paid_tl: creditNum > 0 ? creditNum : undefined,
           credit_customer_id: creditNum > 0 ? selectedCreditCustomer?.id : undefined,
+          customer_name: trimmedCustomerName || undefined,
+          customer_phone: customerPhone.trim() || undefined,
           serial_imei: serialImei.trim() || undefined,
           description: description.trim() || undefined,
           idempotency_key: `sale_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -232,6 +244,8 @@ export default function KasaSatisPage() {
       setUnitPriceTL('');
       setCostPriceTL('');
       setDescription('');
+      setCustomerName('');
+      setCustomerPhone('');
       setSerialImei('');
       setCashPaidTL('');
       setCardPaidTL('');
@@ -549,31 +563,55 @@ export default function KasaSatisPage() {
 
         {/* MÜŞTERİ BİLGİLERİ & DETAYLAR */}
         <div className="space-y-4 pt-2">
-          <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2">3. Müşteri & Seri No (Opsiyonel)</h2>
+          <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2 flex items-center justify-between">
+            <span>3. Müşteri & Seri No {isTechnicalService ? '(Teknik Serviste Zorunlu)' : '(Opsiyonel)'}</span>
+            {isTechnicalService && (
+              <span className="text-[11px] text-amber-800 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                * Teknik Serviste Müşteri Adı Zorunludur
+              </span>
+            )}
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <input
-              type="text"
-              placeholder="Müşteri Adı Soyadı"
-              value={selectedCreditCustomer ? selectedCreditCustomer.full_name : ''}
-              onChange={(e) => {
-                if (!selectedCreditCustomer) setProductName(e.target.value);
-              }}
-              className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-            />
-            <input
-              type="text"
-              placeholder="IMEI / Seri No"
-              value={serialImei}
-              onChange={(e) => setSerialImei(e.target.value)}
-              className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono"
-            />
-            <input
-              type="text"
-              placeholder="Satış Notı / Açıklama"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-            />
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">
+                Müşteri Adı Soyadı {isTechnicalService && <span className="text-red-500">*</span>}
+              </label>
+              <input
+                type="text"
+                placeholder={isTechnicalService ? "Müşteri Adı Soyadı * (Zorunlu)" : "Müşteri Adı Soyadı (Opsiyonel)"}
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className={`w-full p-3 bg-slate-50 border rounded-xl text-sm ${
+                  isTechnicalService && !customerName.trim()
+                    ? 'border-amber-400 focus:border-amber-600 focus:ring-1 focus:ring-amber-200'
+                    : 'border-slate-200 focus:border-blue-500'
+                }`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">
+                IMEI / Seri No
+              </label>
+              <input
+                type="text"
+                placeholder="IMEI / Seri No"
+                value={serialImei}
+                onChange={(e) => setSerialImei(e.target.value)}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">
+                Satış Notu / Açıklama
+              </label>
+              <input
+                type="text"
+                placeholder="Satış Notu / Açıklama"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+              />
+            </div>
           </div>
         </div>
 

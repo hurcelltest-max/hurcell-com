@@ -689,6 +689,19 @@ export async function createSaleTransaction(
     }
   }
 
+  const { data: categoryObj } = await supabase
+    .from('kasa_categories')
+    .select('name')
+    .eq('id', input.category_id)
+    .single();
+
+  if (categoryObj?.name === 'Teknik Servis') {
+    const trimmedName = input.customer_name ? input.customer_name.trim() : '';
+    if (!trimmedName || trimmedName.length < 2 || trimmedName.length > 120) {
+      throw new Error('Teknik servis işlemlerinde müşteri adı soyadı zorunludur.');
+    }
+  }
+
   const { data, error } = await supabase.rpc('fn_kasa_create_sale', {
     p_actor_user_id: actorUserId,
     p_kasa_day_id: day.id,
@@ -722,7 +735,26 @@ export async function createSaleTransaction(
     throw new Error(error?.message || 'Satış kaydı oluşturulamadı.');
   }
 
-  return data as KasaSale;
+  let sale = data as KasaSale;
+
+  if (input.customer_name || input.customer_phone || input.serial_imei) {
+    const { data: updatedSale } = await supabase
+      .from('kasa_sales')
+      .update({
+        customer_name: input.customer_name ? input.customer_name.trim() : null,
+        customer_phone: input.customer_phone ? input.customer_phone.trim() : null,
+        serial_imei: input.serial_imei ? input.serial_imei.trim() : null,
+      })
+      .eq('id', sale.id)
+      .select('*')
+      .single();
+
+    if (updatedSale) {
+      sale = updatedSale as KasaSale;
+    }
+  }
+
+  return sale;
 }
 
 export async function collectCreditPaymentTransaction(
@@ -1042,6 +1074,19 @@ export async function updateSaleTransaction(
   }
 ): Promise<KasaSale> {
   const supabase = getSupabaseAdmin();
+
+  const { data: categoryObj } = await supabase
+    .from('kasa_categories')
+    .select('name')
+    .eq('id', saleData.category_id)
+    .single();
+
+  if (categoryObj?.name === 'Teknik Servis') {
+    const trimmedName = saleData.customer_name ? saleData.customer_name.trim() : '';
+    if (!trimmedName || trimmedName.length < 2 || trimmedName.length > 120) {
+      throw new Error('Teknik servis işlemlerinde müşteri adı soyadı zorunludur.');
+    }
+  }
   const { data, error } = await supabase.rpc('fn_kasa_update_sale', {
     p_actor_user_id: actorUserId,
     p_sale_id: saleId,

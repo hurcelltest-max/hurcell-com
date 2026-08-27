@@ -70,6 +70,7 @@ export default function AdminGunlukArsivPage() {
   const [editSaleJustification, setEditSaleJustification] = useState('');
   const [editSaleServiceCostTL, setEditSaleServiceCostTL] = useState('');
   const [editSaleServiceCostStatus, setEditSaleServiceCostStatus] = useState<string>('previously_paid_or_stock');
+  const [editSaleCustomerName, setEditSaleCustomerName] = useState('');
   const [editSaleSubmitting, setEditSaleSubmitting] = useState(false);
   const [editSaleError, setEditSaleError] = useState<string | null>(null);
 
@@ -173,6 +174,7 @@ export default function AdminGunlukArsivPage() {
     setEditingSale(sale);
     setEditSaleCatId(sale.category_id || '');
     setEditSaleProductName(sale.product_name || '');
+    setEditSaleCustomerName(sale.customer_name || '');
     setEditSaleQuantity(String(sale.quantity || 1));
     setEditSaleUnitPriceTL((sale.unit_price_kurus / 100).toFixed(2));
     setEditSaleCashPaidTL((sale.cash_paid_kurus / 100).toFixed(2));
@@ -191,6 +193,16 @@ export default function AdminGunlukArsivPage() {
       setEditSaleError('Lütfen düzeltme gerekçesini belirtin.');
       return;
     }
+
+    const selectedCat = salesCategories.find((c) => c.id === editSaleCatId);
+    if (selectedCat?.name === 'Teknik Servis') {
+      const trimmed = editSaleCustomerName.trim();
+      if (!trimmed || trimmed.length < 2 || trimmed.length > 120) {
+        setEditSaleError('Teknik servis işlemlerinde müşteri adı soyadı zorunludur.');
+        return;
+      }
+    }
+
     try {
       setEditSaleSubmitting(true);
       setEditSaleError(null);
@@ -200,6 +212,7 @@ export default function AdminGunlukArsivPage() {
         body: JSON.stringify({
           category_id: editSaleCatId,
           product_name: editSaleProductName.trim(),
+          customer_name: editSaleCustomerName.trim() || undefined,
           quantity: Number(editSaleQuantity),
           unit_price_tl: Number(editSaleUnitPriceTL),
           cash_paid_tl: Number(editSaleCashPaidTL),
@@ -855,6 +868,19 @@ export default function AdminGunlukArsivPage() {
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 mb-1">
+                  Müşteri Adı Soyadı {salesCategories.find((c) => c.id === editSaleCatId)?.name === 'Teknik Servis' ? '(Zorunlu) *' : '(Opsiyonel)'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={salesCategories.find((c) => c.id === editSaleCatId)?.name === 'Teknik Servis' ? 'Örn: Hür BaySEL (Zorunlu)' : 'Örn: Hür BaySEL (Opsiyonel)'}
+                  value={editSaleCustomerName}
+                  onChange={(e) => setEditSaleCustomerName(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

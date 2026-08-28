@@ -245,3 +245,95 @@ export function canCancelExpense(input: {
   if (input.isSalaryCategory) return false;
   return input.expenseCreatedByUserId === input.currentUserId;
 }
+
+export function evaluateTSAccountingScenario1(input: { totalPriceKurus: number; bankTransferPaidKurus: number }) {
+  const tsRevenue = input.totalPriceKurus;
+  const bankTransferCollection = input.bankTransferPaidKurus;
+  const grossSales = input.totalPriceKurus;
+  const cashPhysicalImpact = 0;
+
+  return {
+    tsRevenue,
+    bankTransferCollection,
+    grossSales,
+    cashPhysicalImpact,
+    isValid: tsRevenue === 500000 && bankTransferCollection === 500000 && grossSales === 500000 && cashPhysicalImpact === 0,
+  };
+}
+
+export function evaluateTSAccountingScenario2(input: {
+  totalPriceKurus: number;
+  cashPaidKurus: number;
+  cardPaidKurus: number;
+  bankTransferPaidKurus: number;
+}) {
+  const tsRevenue = input.totalPriceKurus;
+  const grossSales = input.totalPriceKurus;
+  const cashPhysicalImpact = input.cashPaidKurus;
+  const cardCollection = input.cardPaidKurus;
+  const bankTransferCollection = input.bankTransferPaidKurus;
+
+  return {
+    tsRevenue,
+    grossSales,
+    cashPhysicalImpact,
+    cardCollection,
+    bankTransferCollection,
+    isValid:
+      tsRevenue === 500000 &&
+      grossSales === 500000 &&
+      cashPhysicalImpact === 100000 &&
+      cardCollection === 150000 &&
+      bankTransferCollection === 250000,
+  };
+}
+
+export function evaluateTSAccountingScenario3(input: {
+  totalPriceKurus: number;
+  serviceCostKurus: number;
+  paymentStatus: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost';
+  cashPaidKurus: number;
+}) {
+  const tsRevenue = input.totalPriceKurus;
+  const tsDirectCost = input.serviceCostKurus;
+  const grossContribution = tsRevenue - tsDirectCost;
+  const tsCashCostOutflow = input.paymentStatus === 'paid_from_cash' ? tsDirectCost : 0;
+  const netPhysicalCashImpact = input.cashPaidKurus - tsCashCostOutflow;
+
+  return {
+    tsRevenue,
+    tsDirectCost,
+    grossContribution,
+    tsCashCostOutflow,
+    netPhysicalCashImpact,
+    isValid:
+      tsRevenue === 500000 &&
+      tsDirectCost === 120000 &&
+      grossContribution === 380000 &&
+      tsCashCostOutflow === 120000,
+  };
+}
+
+export function evaluateTSAccountingScenario4(input: {
+  oldSale: { totalPriceKurus: number; bankTransferPaidKurus: number };
+  newSale: { totalPriceKurus: number; bankTransferPaidKurus: number };
+}) {
+  const reversalMovement = {
+    amountKurus: -input.oldSale.totalPriceKurus,
+    bankTransferPortionKurus: -input.oldSale.bankTransferPaidKurus,
+  };
+  const newMovement = {
+    amountKurus: input.newSale.totalPriceKurus,
+    bankTransferPortionKurus: input.newSale.bankTransferPaidKurus,
+  };
+  const netTurnoverEffect = reversalMovement.amountKurus + newMovement.amountKurus;
+  const netBankTransferEffect = reversalMovement.bankTransferPortionKurus + newMovement.bankTransferPortionKurus;
+
+  return {
+    reversalMovement,
+    newMovement,
+    netTurnoverEffect,
+    netBankTransferEffect,
+    isValid: netTurnoverEffect === (input.newSale.totalPriceKurus - input.oldSale.totalPriceKurus),
+  };
+}

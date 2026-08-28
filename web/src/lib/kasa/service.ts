@@ -474,7 +474,8 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
     creditSalesTotal += Number(s.credit_paid_kurus || 0);
     grossSales += Number(s.total_price_kurus || 0);
 
-    const categoryName = (s.category as any)?.name;
+    const categoryObj: any = Array.isArray(s.category) ? s.category[0] : s.category;
+    const categoryName = categoryObj?.name;
 
     if (categoryName === 'Teknik Servis') {
       technicalServiceRevenue += Number(s.total_price_kurus || 0);
@@ -520,8 +521,9 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
   for (const e of expenses || []) {
     const amt = Number(e.amount_kurus || 0);
     expensesTotal += amt;
-    const catName = (e.category as any)?.name;
-    const isSalary = (e.category as any)?.is_salary_category;
+    const expCatObj: any = Array.isArray(e.category) ? e.category[0] : e.category;
+    const catName = expCatObj?.name;
+    const isSalary = expCatObj?.is_salary_category;
 
     if (isSalary || catName === 'Personel Maaşı') {
       salaryExpenses += amt;
@@ -2099,7 +2101,8 @@ export async function getUnifiedDailyMovements(params: {
     const created_by_name = (m.created_by as any)?.full_name || 'Sistem';
     const saleObj = (m.sale as any);
     const receipt_no = saleObj?.receipt_no || undefined;
-    const category_name = saleObj?.category?.name || undefined;
+    const saleCategoryObj: any = Array.isArray(saleObj?.category) ? saleObj?.category[0] : saleObj?.category;
+    const category_name = saleCategoryObj?.name || undefined;
 
     items.push({
       id: m.id,

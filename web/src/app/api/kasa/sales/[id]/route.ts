@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { requireKasaAuth } from '@/lib/kasa/auth';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
@@ -34,7 +34,8 @@ export async function GET(
     }
 
     const dayStatus = (sale.kasa_days as any)?.status || 'closed';
-    const categoryName = (sale.category as any)?.name || '';
+    const categoryObj: any = Array.isArray(sale.category) ? sale.category[0] : sale.category;
+    const categoryName = categoryObj?.name || '';
 
     return NextResponse.json({
       id: sale.id,

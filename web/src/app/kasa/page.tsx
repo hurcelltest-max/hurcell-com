@@ -35,6 +35,7 @@ interface CategorySummary {
   cash_total_kurus: number;
   card_total_kurus: number;
   bank_transfer_total_kurus?: number;
+  credit_total_kurus?: number;
   grand_total_kurus: number;
 }
 
@@ -670,14 +671,14 @@ export default function KasaMainDashboardPage() {
           </div>
         )}
 
-        {/* DÜZELTİLMİŞ İKİ BÖLÜMLÜ GÜNLÜK KASA GİDERİ ÖZET FÖYÜ */}
+        {/* BİRLEŞİK GÜNLÜK KASA ÖZET FÖYÜ */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
           <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-100 pb-3">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <MinusCircle size={18} className="text-rose-600" /> Günlük Kasa Gideri Özet Föyü ({dateStr})
+                <ShoppingBag size={18} className="text-blue-600" /> Günlük Kasa Özet Föyü ({dateStr})
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">Genel işletme giderleri ve Teknik Servis doğrudan maliyetleri ayrıştırılmış kanonik görünümü</p>
+              <p className="text-xs text-slate-500 mt-0.5">Satışlar, tahsilatlar, genel giderler ve Teknik Servis maliyetlerinin birleşik kanonik görünümü</p>
             </div>
             <button
               onClick={openExpenseListModal}
@@ -694,10 +695,68 @@ export default function KasaMainDashboardPage() {
             </div>
           )}
 
-          {/* BÖLÜM A: GENEL KASA GİDERLERİ */}
+          {/* BÖLÜM A: SATIŞLAR VE TAHSİLATLAR */}
           <div className="space-y-3">
+            <h3 className="text-xs font-extrabold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+              <span>A. SATIŞLAR VE TAHSİLATLAR</span>
+              <span className="text-[10px] text-slate-400 font-normal">(public.kasa_sales)</span>
+            </h3>
+
+            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-blue-50 text-blue-900 font-bold uppercase text-[10px] border-b border-blue-200">
+                  <tr>
+                    <th className="p-3">Satış Kategorisi</th>
+                    <th className="p-3 text-center">İşlem / Adet</th>
+                    <th className="p-3 text-right">Nakit (TL)</th>
+                    <th className="p-3 text-right">Kredi Kartı (TL)</th>
+                    <th className="p-3 text-right">Havale / EFT (TL)</th>
+                    <th className="p-3 text-right">Cari / Veresiye (TL)</th>
+                    <th className="p-3 text-right">Toplam Satış (TL)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {categories.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-4 text-center text-slate-400 font-medium italic">
+                        {dateStr} tarihinde henüz satış kaydı bulunmamaktadır.
+                      </td>
+                    </tr>
+                  ) : (
+                    categories.map((c) => (
+                      <tr key={c.category_id} className="hover:bg-blue-50/30">
+                        <td className="p-3 font-semibold text-slate-800">{c.category_name}</td>
+                        <td className="p-3 text-center font-bold text-slate-700">{c.count}</td>
+                        <td className="p-3 text-right font-bold text-emerald-600">{formatTL(c.cash_total_kurus)}</td>
+                        <td className="p-3 text-right font-bold text-blue-600">{formatTL(c.card_total_kurus)}</td>
+                        <td className="p-3 text-right font-semibold text-purple-700">{formatTL(c.bank_transfer_total_kurus || 0)}</td>
+                        <td className="p-3 text-right font-semibold text-amber-700">{formatTL(c.credit_total_kurus || 0)}</td>
+                        <td className="p-3 text-right font-black text-slate-900">{formatTL(c.grand_total_kurus)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                {categories.length > 0 && (
+                  <tfoot className="bg-blue-50/60 font-bold text-slate-900 border-t border-blue-200">
+                    <tr>
+                      <td className="p-3">SATIŞ TOPLAMLARI</td>
+                      <td className="p-3 text-center">{categories.reduce((sum, c) => sum + c.count, 0)}</td>
+                      <td className="p-3 text-right text-emerald-600">{formatTL(categories.reduce((sum, c) => sum + c.cash_total_kurus, 0))}</td>
+                      <td className="p-3 text-right text-blue-600">{formatTL(categories.reduce((sum, c) => sum + c.card_total_kurus, 0))}</td>
+                      <td className="p-3 text-right text-purple-700">{formatTL(categories.reduce((sum, c) => sum + (c.bank_transfer_total_kurus || 0), 0))}</td>
+                      <td className="p-3 text-right text-amber-700">{formatTL(categories.reduce((sum, c) => sum + (c.credit_total_kurus || 0), 0))}</td>
+                      <td className="p-3 text-right text-slate-900 text-sm">{formatTL(categories.reduce((sum, c) => sum + c.grand_total_kurus, 0))}</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+
+          {/* BÖLÜM B: GENEL KASA GİDERLERİ */}
+          <div className="space-y-3 pt-2">
             <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-              <span>A. GENEL KASA GİDERLERİ</span>
+              <span>B. GENEL KASA GİDERLERİ</span>
               <span className="text-[10px] text-slate-400 font-normal">(public.kasa_expenses)</span>
             </h3>
 
@@ -752,11 +811,11 @@ export default function KasaMainDashboardPage() {
             </div>
           </div>
 
-          {/* BÖLÜM B: TEKNİK SERVİS DOĞRUDAN MALİYETLERİ */}
+          {/* BÖLÜM C: TEKNİK SERVİS DOĞRUDAN MALİYETLERİ */}
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-extrabold text-purple-800 uppercase tracking-wider flex items-center gap-1.5">
               <Wrench size={14} className="text-purple-600" />
-              <span>B. TEKNİK SERVİS DOĞRUDAN MALİYETLERİ</span>
+              <span>C. TEKNİK SERVİS DOĞRUDAN MALİYETLERİ</span>
               <span className="text-[10px] text-slate-400 font-normal">(kasa_sales.service_cost_kurus)</span>
             </h3>
 
@@ -826,6 +885,63 @@ export default function KasaMainDashboardPage() {
                   </tfoot>
                 )}
               </table>
+            </div>
+          </div>
+
+          {/* BÖLÜM D / ANA TOPLAM SATIRI: GÜNLÜK FİNANSAL SONUÇ FÖYÜ */}
+          <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <Coins size={16} className="text-emerald-400" /> D. GÜNLÜK FİNANSAL SONUÇ ÖZETİ
+              </span>
+              <span className="text-[10px] text-slate-400">({dateStr})</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-center text-xs">
+              <div className="p-2 bg-slate-800/80 rounded-xl">
+                <div className="text-[10px] text-slate-400 font-bold uppercase">Brüt Satış</div>
+                <div className="text-sm font-black text-white">{formatTL(metrics?.gross_sales_kurus || 0)}</div>
+              </div>
+
+              <div className="p-2 bg-slate-800/80 rounded-xl">
+                <div className="text-[10px] text-emerald-400 font-bold uppercase">Nakit Tahsilat</div>
+                <div className="text-sm font-black text-emerald-400">+{formatTL(metrics?.cash_collection_kurus || 0)}</div>
+              </div>
+
+              <div className="p-2 bg-slate-800/80 rounded-xl">
+                <div className="text-[10px] text-blue-400 font-bold uppercase">Kart Tahsilatı</div>
+                <div className="text-sm font-black text-blue-400">{formatTL(metrics?.card_collection_kurus || 0)}</div>
+              </div>
+
+              <div className="p-2 bg-slate-800/80 rounded-xl">
+                <div className="text-[10px] text-purple-400 font-bold uppercase">Havale / EFT</div>
+                <div className="text-sm font-black text-purple-400">{formatTL(metrics?.bank_transfer_collection_kurus || 0)}</div>
+              </div>
+
+              <div className="p-2 bg-slate-800/80 rounded-xl">
+                <div className="text-[10px] text-rose-400 font-bold uppercase">Genel Gider</div>
+                <div className="text-sm font-black text-rose-400">-{formatTL((metrics?.expenses_total_kurus || 0) - (metrics?.ts_cost_paid_from_cash_kurus || 0))}</div>
+              </div>
+
+              <div className="p-2 bg-slate-800/80 rounded-xl">
+                <div className="text-[10px] text-purple-300 font-bold uppercase">Kasadan TS Maliyeti</div>
+                <div className="text-sm font-black text-purple-300">-{formatTL(metrics?.ts_cost_paid_from_cash_kurus || 0)}</div>
+              </div>
+
+              <div className="p-2 bg-emerald-950/80 border border-emerald-500/30 rounded-xl">
+                <div className="text-[10px] text-emerald-300 font-bold uppercase">Net Kasa Etkisi</div>
+                <div className="text-sm font-black text-emerald-400">
+                  {((metrics?.cash_collection_kurus || 0) - (metrics?.expenses_total_kurus || 0)) >= 0 ? '+' : ''}
+                  {formatTL((metrics?.cash_collection_kurus || 0) - (metrics?.expenses_total_kurus || 0))}
+                </div>
+              </div>
+
+              <div className="p-2 bg-blue-950/80 border border-blue-500/30 rounded-xl">
+                <div className="text-[10px] text-blue-300 font-bold uppercase">
+                  {metrics?.missing_cost_warning ? 'Tahmini Ara Sonuç' : 'Tahmini Kâr/Zarar'}
+                </div>
+                <div className="text-sm font-black text-blue-400">{formatTL(metrics?.estimated_profit_kurus || 0)}</div>
+              </div>
             </div>
           </div>
         </section>

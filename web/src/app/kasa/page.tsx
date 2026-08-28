@@ -164,6 +164,7 @@ export default function KasaMainDashboardPage() {
   const [expenseSummary, setExpenseSummary] = useState<ExpenseSummaryItem[]>([]);
   const [tsDirectCosts, setTsDirectCosts] = useState<TSDirectCostItem[]>([]);
   const [tsSubtotals, setTsSubtotals] = useState<any | null>(null);
+  const [expenseSummaryError, setExpenseSummaryError] = useState<string | null>(null);
 
   // Devir & Fiziksel Kasa Modalları
   const [carryoverInfo, setCarryoverInfo] = useState<DashboardCarryoverInfo | null>(null);
@@ -185,17 +186,22 @@ export default function KasaMainDashboardPage() {
   const [monthlyReport, setMonthlyReport] = useState<KasaMonthlyReport | null>(null);
   const [monthlyLoading, setMonthlyLoading] = useState<boolean>(false);
 
-  const loadExpenseSummary = async () => {
+  const loadExpenseSummary = async (dayId?: string) => {
     try {
-      const res = await fetch('/api/kasa/expense-summary');
-      if (res.ok) {
-        const data = await res.json();
-        setExpenseSummary(data.expenseSummary || []);
-        setTsDirectCosts(data.tsDirectCosts || []);
-        setTsSubtotals(data.tsSubtotals || null);
+      setExpenseSummaryError(null);
+      const activeDayId = dayId || targetDayId;
+      const url = activeDayId ? `/api/kasa/expense-summary?day_id=${encodeURIComponent(activeDayId)}` : '/api/kasa/expense-summary';
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Gider özeti veritabanından çekilemedi.');
       }
-    } catch (err) {
+      setExpenseSummary(data.expenseSummary || []);
+      setTsDirectCosts(data.tsDirectCosts || []);
+      setTsSubtotals(data.tsSubtotals || null);
+    } catch (err: any) {
       console.error(err);
+      setExpenseSummaryError(err.message || 'Gider özeti yüklenirken hata oluştu.');
     }
   };
 
@@ -227,8 +233,10 @@ export default function KasaMainDashboardPage() {
         setDayStatus(dashData.day.status);
         setDateStr(dashData.day.date_val);
         setTargetDayId(dashData.day.id);
+        await loadExpenseSummary(dashData.day.id);
+      } else {
+        await loadExpenseSummary();
       }
-      await loadExpenseSummary();
     } catch (err: any) {
       setError(err.message || 'Gider özeti yüklenemedi: ' + err.message);
     } finally {
@@ -678,6 +686,13 @@ export default function KasaMainDashboardPage() {
               Tüm Gider Listesini Gör &gt;
             </button>
           </div>
+
+          {expenseSummaryError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-bold flex items-center gap-2">
+              <AlertTriangle size={16} className="text-red-600 shrink-0" />
+              <span>Gider Özeti Hatası: {expenseSummaryError}</span>
+            </div>
+          )}
 
           {/* BÖLÜM A: GENEL KASA GİDERLERİ */}
           <div className="space-y-3">

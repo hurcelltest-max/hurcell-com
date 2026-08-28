@@ -299,7 +299,11 @@ export default function KasaMainDashboardPage() {
       const res = await fetch('/api/kasa/expense-categories');
       const data = await res.json();
       if (res.ok) {
-        const cats = data.expenseCategories || [];
+        const rawCats = data.expenseCategories || [];
+        const cats = rawCats.filter((c: any) => {
+          if (user?.role === 'personel' && c.is_salary_category) return false;
+          return true;
+        });
         setExpenseCategories(cats);
         if (cats.length > 0) setExpenseCatId(cats[0].id);
       }
@@ -313,13 +317,14 @@ export default function KasaMainDashboardPage() {
     setExpenseError(null);
     setExpenseSuccess(null);
 
-    const amt = Number(expenseAmountTL);
+    const cleanAmtStr = expenseAmountTL.replace(',', '.').trim();
+    const amt = Number(cleanAmtStr);
     if (!expenseCatId) {
       setExpenseError('Lütfen gider kategorisi seçin.');
       return;
     }
     if (isNaN(amt) || amt <= 0) {
-      setExpenseError('Geçerli bir gider tutarı girin.');
+      setExpenseError('Geçerli pozitif bir gider tutarı girin.');
       return;
     }
     if (!expenseDescription.trim()) {
@@ -347,6 +352,7 @@ export default function KasaMainDashboardPage() {
       setExpenseAmountTL('');
       setExpenseDescription('');
       setExpenseRecipient('');
+      setShowExpenseModal(false);
       await loadData();
     } catch (err: any) {
       setExpenseError(err.message || 'Gider kaydedilirken hata oluştu.');
@@ -1000,6 +1006,123 @@ export default function KasaMainDashboardPage() {
                   Kapat
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* GİDER EKLEME MODALI */}
+        {showExpenseModal && (
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowExpenseModal(false);
+            }}
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-rose-600 font-bold text-base">
+                  <MinusCircle size={20} />
+                  <span>Günlük Kasa Gideri Ekle</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowExpenseModal(false)}
+                  className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {expenseError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <AlertTriangle size={16} className="text-red-600 shrink-0" />
+                  <span>{expenseError}</span>
+                </div>
+              )}
+
+              {expenseSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <span>{expenseSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleCreateExpenseSubmit} className="space-y-4 text-xs font-semibold">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Gider Kategorisi *</label>
+                  <select
+                    required
+                    value={expenseCatId}
+                    onChange={(e) => setExpenseCatId(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  >
+                    {expenseCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Gider Tutarı (TL) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="0,00"
+                    value={expenseAmountTL}
+                    onChange={(e) => setExpenseAmountTL(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-slate-900 focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Açıklama *</label>
+                  <textarea
+                    required
+                    rows={2}
+                    placeholder="Gider detay açıklaması..."
+                    value={expenseDescription}
+                    onChange={(e) => setExpenseDescription(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Ödeme Yapılan Kişi / Kurum (Opsiyonel)</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: Aras Kargo / Ahmet Bey"
+                    value={expenseRecipient}
+                    onChange={(e) => setExpenseRecipient(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowExpenseModal(false)}
+                    className="w-1/3 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={expenseSubmitting}
+                    className="w-2/3 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {expenseSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Kaydediliyor...</span>
+                      </>
+                    ) : (
+                      'Gideri Kaydet'
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

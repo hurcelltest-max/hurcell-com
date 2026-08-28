@@ -564,20 +564,23 @@ export default function KasaSatisPage() {
         {/* MÜŞTERİ BİLGİLERİ & DETAYLAR */}
         <div className="space-y-4 pt-2">
           <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2 flex items-center justify-between">
-            <span>3. Müşteri & Seri No {isTechnicalService ? '(Teknik Serviste Zorunlu)' : '(Opsiyonel)'}</span>
+            <span>3. MÜŞTERİ & CİHAZ BİLGİLERİ</span>
             {isTechnicalService && (
-              <span className="text-[11px] text-amber-800 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                * Teknik Serviste Müşteri Adı Zorunludur
+              <span className="text-[11px] text-amber-800 font-bold bg-amber-100 px-2.5 py-0.5 rounded border border-amber-300">
+                * Teknik Serviste Müşteri Adı Soyadı Zorunludur
               </span>
             )}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1">
-                Müşteri Adı Soyadı {isTechnicalService && <span className="text-red-500">*</span>}
+                Müşteri Adı Soyadı {isTechnicalService ? <span className="text-red-500 font-extrabold">*</span> : <span className="text-slate-400 font-normal">(Opsiyonel)</span>}
               </label>
               <input
                 type="text"
+                required={isTechnicalService}
+                minLength={isTechnicalService ? 2 : undefined}
+                maxLength={120}
                 placeholder={isTechnicalService ? "Müşteri Adı Soyadı * (Zorunlu)" : "Müşteri Adı Soyadı (Opsiyonel)"}
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}

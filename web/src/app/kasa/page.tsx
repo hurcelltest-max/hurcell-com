@@ -133,6 +133,7 @@ export default function KasaMainDashboardPage() {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseCategories, setExpenseCategories] = useState<{ id: string; name: string; is_salary_category: boolean }[]>([]);
   const [expenseCatId, setExpenseCatId] = useState('');
+  const [expenseCategoriesLoading, setExpenseCategoriesLoading] = useState(false);
   const [expenseAmountTL, setExpenseAmountTL] = useState('');
   const [expenseDescription, setExpenseDescription] = useState('');
   const [expenseRecipient, setExpenseRecipient] = useState('');
@@ -295,20 +296,32 @@ export default function KasaMainDashboardPage() {
     setExpenseAmountTL('');
     setExpenseDescription('');
     setExpenseRecipient('');
+    setExpenseCategoriesLoading(true);
+
     try {
       const res = await fetch('/api/kasa/expense-categories');
       const data = await res.json();
-      if (res.ok) {
-        const rawCats = data.expenseCategories || [];
-        const cats = rawCats.filter((c: any) => {
-          if (user?.role === 'personel' && c.is_salary_category) return false;
-          return true;
-        });
-        setExpenseCategories(cats);
-        if (cats.length > 0) setExpenseCatId(cats[0].id);
+      if (!res.ok) {
+        throw new Error(data.error || 'Gider kategorileri yüklenemedi. Lütfen tekrar deneyin.');
       }
-    } catch (err) {
-      console.error(err);
+      const rawCats = data.items || data.categories || data.expenseCategories || [];
+      const validItems = rawCats.filter((c: any) => {
+        if (user?.role === 'personel' && c.is_salary_category) return false;
+        return true;
+      });
+      setExpenseCategories(validItems);
+      if (validItems.length > 0) {
+        setExpenseCatId(validItems[0].id);
+      } else {
+        setExpenseCatId('');
+        setExpenseError('Aktif gider kategorisi bulunamadı. Lütfen tekrar deneyin.');
+      }
+    } catch (err: any) {
+      setExpenseError(err.message || 'Gider kategorileri yüklenemedi. Lütfen tekrar deneyin.');
+      setExpenseCategories([]);
+      setExpenseCatId('');
+    } finally {
+      setExpenseCategoriesLoading(false);
     }
   };
 
@@ -1034,9 +1047,18 @@ export default function KasaMainDashboardPage() {
               </div>
 
               {expenseError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-bold flex items-center gap-2">
-                  <AlertTriangle size={16} className="text-red-600 shrink-0" />
-                  <span>{expenseError}</span>
+                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-bold flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-red-600 shrink-0" />
+                    <span>{expenseError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openExpenseModal}
+                    className="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-900 rounded-lg text-[11px] font-extrabold transition shrink-0"
+                  >
+                    Tekrar Dene
+                  </button>
                 </div>
               )}
 
@@ -1052,16 +1074,26 @@ export default function KasaMainDashboardPage() {
                   <label className="block text-slate-700 font-bold mb-1">Gider Kategorisi *</label>
                   <select
                     required
+                    disabled={expenseCategoriesLoading || expenseCategories.length === 0}
                     value={expenseCatId}
                     onChange={(e) => setExpenseCatId(e.target.value)}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-rose-500 focus:border-transparent disabled:opacity-60"
                   >
-                    {expenseCategories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
+                    {expenseCategoriesLoading ? (
+                      <option value="">Kategoriler yükleniyor...</option>
+                    ) : expenseCategories.length === 0 ? (
+                      <option value="">Gider kategorileri bulunamadı</option>
+                    ) : (
+                      expenseCategories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))
+                    )}
                   </select>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    💡 Satış fişine bağlı parça/doğrudan maliyeti ayrıca günlük gider olarak tekrar girmeyin.
+                  </p>
                 </div>
 
                 <div>
@@ -1109,7 +1141,7 @@ export default function KasaMainDashboardPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={expenseSubmitting}
+                    disabled={expenseSubmitting || expenseCategoriesLoading || expenseCategories.length === 0 || !expenseCatId}
                     className="w-2/3 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {expenseSubmitting ? (

@@ -53,7 +53,15 @@ export async function POST(req: Request) {
     const categories = await getKasaExpenseCategories();
     const selectedCategory = categories.find((c) => c.id === String(expense_category_id));
 
-    if (selectedCategory?.is_salary_category && auth.user.role !== 'yonetici') {
+    if (!selectedCategory) {
+      return NextResponse.json({ error: 'Geçersiz veya bulunamayan gider kategorisi.' }, { status: 400 });
+    }
+
+    if (!selectedCategory.is_active) {
+      return NextResponse.json({ error: 'Seçilen gider kategorisi pasiftir, kullanılamaz.' }, { status: 400 });
+    }
+
+    if (selectedCategory.is_salary_category && auth.user.role !== 'yonetici') {
       return NextResponse.json(
         { error: 'Personel maaşı kaydı yalnızca yöneticiler tarafından eklenebilir.' },
         { status: 403 }

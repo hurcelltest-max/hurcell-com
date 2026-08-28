@@ -213,3 +213,35 @@ export function canCancelSale(input: {
   if (input.dayStatus !== 'open') return false;
   return input.role === 'yonetici';
 }
+
+export function canEditExpense(input: {
+  role?: 'yonetici' | 'personel';
+  currentUserId?: string;
+  expenseCreatedByUserId?: string;
+  expenseStatus?: string;
+  dayStatus?: string;
+  isSalaryCategory?: boolean;
+}): boolean {
+  if (input.expenseStatus !== 'active') return false;
+  if (input.dayStatus !== 'open') return false;
+  if (!input.role || !input.currentUserId) return false;
+  if (input.role === 'yonetici') return true;
+  if (input.isSalaryCategory) return false;
+  return input.expenseCreatedByUserId === input.currentUserId;
+}
+
+export function canCancelExpense(input: {
+  role?: 'yonetici' | 'personel';
+  currentUserId?: string;
+  expenseCreatedByUserId?: string;
+  expenseStatus?: string;
+  dayStatus?: string;
+  isSalaryCategory?: boolean;
+}): boolean {
+  if (input.expenseStatus !== 'active') return false;
+  if (input.dayStatus !== 'open') return false;
+  if (!input.role || !input.currentUserId) return false;
+  if (input.role === 'yonetici') return true;
+  if (input.isSalaryCategory) return false;
+  return input.expenseCreatedByUserId === input.currentUserId;
+}

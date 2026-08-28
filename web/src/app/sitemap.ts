@@ -65,8 +65,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic products
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) {
-    console.warn('Sitemap: Supabase env variables missing, returning static pages only.')
+  if (!url || !key || !url.startsWith('http')) {
+    console.warn('Sitemap: Supabase env variables missing or non-HTTP placeholder, returning static pages only.')
     return staticPages
   }
 

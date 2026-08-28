@@ -1900,6 +1900,85 @@ export async function getDailyExpenseCategorySummary(
   return result;
 }
 
+export interface TSDirectCostItem {
+  id: string;
+  receipt_no: string;
+  customer_name: string;
+  product_name: string;
+  service_cost_kurus: number;
+  service_cost_payment_status: string;
+  paid_from_cash_kurus: number;
+  unpaid_kurus: number;
+  stock_kurus: number;
+  status: string;
+}
+
+export async function getDailyTSDirectCosts(kasaDayId: string): Promise<{
+  items: TSDirectCostItem[];
+  subtotals: {
+    total_ts_cost_kurus: number;
+    paid_from_cash_ts_cost_kurus: number;
+    unpaid_ts_cost_kurus: number;
+    stock_ts_cost_kurus: number;
+  };
+}> {
+  const supabase = getSupabaseAdmin();
+  const { data: sales } = await supabase
+    .from('kasa_sales')
+    .select(`
+      id, receipt_no, customer_name, product_name, service_cost_kurus, service_cost_payment_status, status,
+      category:kasa_categories(name)
+    `)
+    .eq('kasa_day_id', kasaDayId)
+    .eq('status', 'completed');
+
+  const tsSales = (sales || []).filter((s) => {
+    const catObj: any = Array.isArray(s.category) ? s.category[0] : s.category;
+    return catObj?.name === 'Teknik Servis';
+  });
+
+  let totalCost = 0;
+  let paidCashCost = 0;
+  let unpaidCost = 0;
+  let stockCost = 0;
+
+  const items: TSDirectCostItem[] = tsSales.map((s) => {
+    const cost = Number(s.service_cost_kurus || 0);
+    const st = s.service_cost_payment_status || 'previously_paid_or_stock';
+    const paidCash = st === 'paid_from_cash' ? cost : 0;
+    const unpaid = st === 'unpaid' ? cost : 0;
+    const stock = (st === 'previously_paid_or_stock' || st === 'legacy_unspecified') ? cost : 0;
+
+    totalCost += cost;
+    paidCashCost += paidCash;
+    unpaidCost += unpaid;
+    stockCost += stock;
+
+    return {
+      id: s.id,
+      receipt_no: s.receipt_no || '-',
+      customer_name: s.customer_name || 'Müşteri Belirtilmemiş',
+      product_name: s.product_name,
+      service_cost_kurus: cost,
+      service_cost_payment_status: st,
+      paid_from_cash_kurus: paidCash,
+      unpaid_kurus: unpaid,
+      stock_kurus: stock,
+      status: s.status,
+    };
+  });
+
+  return {
+    items,
+    subtotals: {
+      total_ts_cost_kurus: totalCost,
+      paid_from_cash_ts_cost_kurus: paidCashCost,
+      unpaid_ts_cost_kurus: unpaidCost,
+      stock_ts_cost_kurus: stockCost,
+    },
+  };
+}
+
 export interface KasaUnifiedMovementsResponse {
   items: KasaUnifiedMovement[];
   page: number;

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireManagerAuth } from '@/lib/kasa/auth';
+import { requireKasaAuth } from '@/lib/kasa/auth';
 import { cancelExpenseTransaction } from '@/lib/kasa/service';
 
 export async function POST(
@@ -7,7 +7,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requireManagerAuth();
+    const auth = await requireKasaAuth();
     const { id: expenseId } = await params;
     const body = await req.json();
 

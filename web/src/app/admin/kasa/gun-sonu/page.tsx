@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CalendarCheck,
   CheckCircle,
@@ -27,8 +27,23 @@ function formatFX(cents: number, symbol: string): string {
   return `${new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(cents / 100)} ${symbol}`;
 }
 
-export default function AdminGunSonuPage() {
+function formatKasaDate(dateVal: string): string {
+  if (!dateVal) return '';
+  const [year, month, day] = dateVal.split('-').map(Number);
+  return new Intl.DateTimeFormat('tr-TR', {
+    timeZone: 'Europe/Istanbul',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    weekday: 'long',
+  }).format(new Date(Date.UTC(year, month - 1, day, 12, 0, 0)));
+}
+
+function AdminGunSonuForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedDayId = searchParams.get('day_id') || searchParams.get('kasa_day_id');
+
   const [metrics, setMetrics] = useState<KasaDashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +68,8 @@ export default function AdminGunSonuPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/kasa/dashboard');
+      const apiUrl = requestedDayId ? `/api/kasa/dashboard?day_id=${requestedDayId}` : '/api/kasa/dashboard';
+      const res = await fetch(apiUrl);
       if (!res.ok) throw new Error('Dashboard verisi yüklenemedi.');
       const data = await res.json();
       setMetrics(data.metrics);
@@ -75,7 +91,9 @@ export default function AdminGunSonuPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [requestedDayId]);
+
+  const targetDayToClose = firstDayToClose || displayedDay;
 
   const expectedCashTL = (metrics?.expected_cash_kurus || 0) / 100;
   const countedCashNum = Number(countedCashTL) || 0;
@@ -126,7 +144,7 @@ export default function AdminGunSonuPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          kasa_day_id: displayedDay?.id,
+          kasa_day_id: targetDayToClose?.id || displayedDay?.id,
           counted_cash_tl: countedCashNum,
           counted_usd: countedUsd !== '' ? Number(countedUsd) : undefined,
           counted_eur: countedEur !== '' ? Number(countedEur) : undefined,
@@ -172,6 +190,28 @@ export default function AdminGunSonuPage() {
           <p className="text-xs text-slate-500">Fiziksel Nakit TL, USD/EUR Döviz ve Gün Sonu Cari Veresiye Sayım Özeti</p>
         </div>
       </div>
+
+      {/* KAPATILACAK KASA GÜNÜ BİLGİ KARTI */}
+      {targetDayToClose && targetDayToClose.date_val && (
+        <div className="bg-emerald-900 text-white p-5 rounded-2xl shadow-md border border-emerald-800 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+              <CalendarCheck size={16} className="text-emerald-400" /> KAPATILACAK KASA GÜNÜ
+            </span>
+            <span className="text-xs font-mono font-bold bg-emerald-800/80 px-2.5 py-1 rounded-lg text-emerald-200 border border-emerald-700">
+              Kasa Günü: {targetDayToClose.date_val}
+            </span>
+          </div>
+          <div className="text-2xl font-black text-white">
+            {formatKasaDate(targetDayToClose.date_val)}
+          </div>
+          {firstDayToClose && displayedDay && firstDayToClose.id !== displayedDay.id && (
+            <p className="text-xs text-amber-300 font-semibold pt-1 border-t border-emerald-800">
+              ⚠️ Önceki günlerden kapatılmamış kasa günü ({firstDayToClose.date_val}) bulunmaktadır. Kronolojik kapanış kuralı gereği ilk olarak bu gün kapatılacaktır.
+            </p>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-800 text-sm font-semibold rounded-2xl">
@@ -232,7 +272,7 @@ export default function AdminGunSonuPage() {
         <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase text-slate-400 flex items-center gap-1.5">
-              <Banknote size={16} className="text-emerald-400" /> Sistem Beklenen Fiziki TL Nakit:
+              <Banknote size={16} className="text-emerald-400" /> Sistem Beklenen Fiziki TL Nakit ({targetDayToClose?.date_val}):
             </span>
             <span className="text-xl font-extrabold text-emerald-400">{formatTL(metrics?.expected_cash_kurus || 0)}</span>
           </div>
@@ -356,7 +396,7 @@ export default function AdminGunSonuPage() {
 
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950 font-medium space-y-2">
               <p className="font-bold">
-                Bu işlem <strong>{displayedDay?.date_val}</strong> tarihli kasa gününü kapatır ve daha sonra değiştirilemez veya geri alınamaz.
+                Bu işlem <strong>{formatKasaDate(targetDayToClose?.date_val)} ({targetDayToClose?.date_val})</strong> tarihli kasa gününü kapatır ve daha sonra değiştirilemez veya geri alınamaz.
               </p>
               <div className="border-t border-amber-200 pt-2 space-y-1 text-[11px]">
                 <div>• Sayılan Nakit TL: <strong>{formatTL(countedCashNum * 100)}</strong> (Beklenen: {formatTL(metrics?.expected_cash_kurus || 0)})</div>
@@ -387,5 +427,13 @@ export default function AdminGunSonuPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminGunSonuPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-500 font-medium">Kasa gün sonu ekranı yükleniyor...</div>}>
+      <AdminGunSonuForm />
+    </Suspense>
   );
 }

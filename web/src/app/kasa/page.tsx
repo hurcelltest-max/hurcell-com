@@ -547,7 +547,7 @@ export default function KasaMainDashboardPage() {
                 </div>
               </div>
               <Link
-                href="/admin/kasa/gun-sonu"
+                href={firstDayToClose ? `/admin/kasa/gun-sonu?day_id=${firstDayToClose.id}` : '/admin/kasa/gun-sonu'}
                 className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition"
               >
                 Günü Kapat →

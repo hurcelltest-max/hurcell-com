@@ -104,7 +104,9 @@ export interface KasaSale {
   total_price_kurus: number;
   cost_price_kurus?: number;
   service_cost_kurus?: number;
-  service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost' | 'legacy_unspecified';
+  service_cost_payment_status?: 'paid_from_cash' | 'paid_from_bank' | 'used_from_stock' | 'previously_paid' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost' | 'legacy_unspecified';
+  service_cost_payment_source?: 'cash' | 'bank' | 'stock' | 'previously_paid' | 'none' | null;
+  service_cost_bank_account_id?: string | null;
   service_cost_paid_at?: string;
   service_cost_paid_by_user_id?: string;
   cost_refunded_on_cancel?: boolean;
@@ -384,4 +386,136 @@ export interface KasaUnifiedMovement {
   status?: string;
   ref_id?: string;
   receipt_no?: string;
+}
+
+export interface KasaBankAccount {
+  id: string;
+  account_name: string;
+  bank_name: string;
+  account_no?: string | null;
+  iban?: string | null;
+  iban_masked?: string | null;
+  currency_code: string;
+  opening_balance_kurus: number;
+  current_balance_kurus: number;
+  formatted_balance?: string;
+  is_active: boolean;
+  display_order: number;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KasaBankTransaction {
+  id: string;
+  bank_account_id: string;
+  account_name?: string;
+  bank_account_name?: string;
+  bank_name?: string;
+  transaction_type: 'opening_balance' | 'capital_injection' | 'owner_withdrawal' | 'pos_settlement' | 'bank_expense' | 'ts_cost_payment' | 'bank_transfer_in' | 'bank_transfer_out' | 'bank_to_cash_withdrawal' | 'cash_to_bank_deposit' | 'bank_adjustment';
+  direction: 'in' | 'out';
+  amount_kurus: number;
+  amount_minor?: number;
+  formatted_amount?: string;
+  transaction_date: string;
+  description?: string | null;
+  justification?: string | null;
+  reference_no?: string | null;
+  related_expense_id?: string | null;
+  related_sale_id?: string | null;
+  related_transfer_id?: string | null;
+  status: 'active' | 'cancelled';
+  created_by_user_id: string;
+  created_by_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KasaBankSettings {
+  id: string;
+  pos_tracking_start_at: string;
+  opening_pos_receivable_kurus: number;
+  pos_bank_account_id?: string | null;
+  updated_at: string;
+  updated_by_user_id?: string | null;
+}
+
+export interface KasaBalanceSheetReport {
+  as_of_date: string;
+  cash_assets_kurus?: number;
+  bank_assets_kurus?: number;
+  pos_receivables_kurus?: number;
+  customer_credit_receivables_kurus?: number;
+  inventory_value_kurus?: number;
+  total_assets_kurus?: number;
+  short_term_liabilities_kurus?: number;
+  unpaid_ts_costs_kurus?: number;
+  total_liabilities_kurus?: number;
+  net_equity_kurus?: number;
+  owner_capital_injected_kurus?: number;
+  owner_capital_withdrawn_kurus?: number;
+  net_retained_earnings_kurus?: number;
+  financial_status?: {
+    physical_cash_tl: number;
+    usd_cash_cents: number;
+    eur_cash_cents: number;
+    bank_balances_try: number;
+    pending_pos_receivables_try: number;
+    open_credit_receivables_try: number;
+    total_liquid_assets_try: number;
+    total_financial_assets_try: number;
+    unpaid_ts_costs_try: number;
+    total_liabilities_try: number;
+    net_financial_assets_try: number;
+    liabilities_status_note: string;
+  };
+  income_statement?: {
+    month_label: string;
+    gross_turnover_tl: number;
+    product_sales_cost_tl: number;
+    ts_direct_cost_tl: number;
+    gross_profit_tl: number;
+    general_operating_expenses_tl: number;
+    bank_operating_expenses_tl: number;
+    salary_expenses_tl: number;
+    realized_fx_diff_tl: number;
+    net_profit_tl: number;
+    missing_cost_sales_count: number;
+    missing_cost_warning: boolean;
+  };
+  reconciliation_table?: Array<{
+    channel: string;
+    gross_collection_tl: number;
+    refunds_tl: number;
+    net_collection_tl: number;
+    reflected_destination: string;
+  }>;
+}
+
+export interface KasaMonthToDateCollections {
+  month_label?: string;
+  period_label?: string;
+  start_date: string;
+  end_date: string;
+  total_sales_tl?: number;
+  cash_collections_tl?: number;
+  card_collections_tl?: number;
+  bank_transfer_collections_tl?: number;
+  usd_collections_tl_eq?: number;
+  eur_collections_tl_eq?: number;
+  credit_collections_tl?: number;
+  total_collected_tl?: number;
+  uncollected_credit_tl?: number;
+  cash_sales_collections_minor?: number;
+  card_sales_collections_minor?: number;
+  bank_transfer_sales_collections_minor?: number;
+  credit_collections_by_cash_minor?: number;
+  credit_collections_by_card_minor?: number;
+  credit_collections_by_bank_minor?: number;
+  refunds_by_channel_minor?: number;
+  net_cash_collections_minor?: number;
+  net_card_collections_minor?: number;
+  net_bank_transfer_collections_minor?: number;
+  net_credit_collections_minor?: number;
+  net_collections_minor?: number;
 }

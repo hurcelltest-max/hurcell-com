@@ -214,6 +214,31 @@ export async function getKasaCategories(): Promise<KasaCategory[]> {
   return data as KasaCategory[];
 }
 
+
+export async function getSaleById(saleId: string): Promise<KasaSale | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('kasa_sales')
+    .select('*')
+    .eq('id', saleId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as KasaSale;
+}
+
+export async function getKasaCategoryById(id: string): Promise<KasaCategory | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('kasa_categories')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as KasaCategory;
+}
+
 export async function getKasaExpenseCategories(): Promise<KasaExpenseCategory[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -657,7 +682,9 @@ export async function createSaleTransaction(
     serial_imei?: string;
     cost_price_kurus?: number;
     service_cost_kurus?: number;
-    service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'legacy_unspecified';
+    service_cost_payment_status?: 'paid_from_cash' | 'paid_from_bank' | 'used_from_stock' | 'previously_paid' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost' | 'legacy_unspecified';
+    service_cost_payment_source?: string;
+    service_cost_bank_account_id?: string;
     technical_service_details?: TechnicalServiceDetails;
     idempotency_key?: string;
   }
@@ -708,29 +735,34 @@ export async function createSaleTransaction(
     p_actor_user_id: actorUserId,
     p_kasa_day_id: day.id,
     p_category_id: input.category_id,
-    p_product_name: input.product_name,
     p_quantity: input.quantity,
     p_unit_price_kurus: input.unit_price_kurus,
+    p_total_price_kurus: input.quantity * input.unit_price_kurus,
     p_cost_price_kurus: input.cost_price_kurus || 0,
+    p_service_cost_kurus: input.service_cost_kurus || 0,
     p_cash_paid_kurus: input.cash_paid_kurus || 0,
     p_card_paid_kurus: input.card_paid_kurus || 0,
+    p_bank_transfer_paid_kurus: input.bank_transfer_paid_kurus || 0,
+    p_bank_transfer_reference: input.bank_transfer_reference || null,
     p_usd_paid_cents: input.usd_paid_cents || 0,
     p_usd_rate: input.usd_rate || null,
     p_usd_tl_equivalent_kurus: input.usd_tl_equivalent_kurus || 0,
     p_eur_paid_cents: input.eur_paid_cents || 0,
     p_eur_rate: input.eur_rate || null,
     p_eur_tl_equivalent_kurus: input.eur_tl_equivalent_kurus || 0,
-    p_credit_paid_kurus: creditPaidKurus,
     p_credit_customer_id: input.credit_customer_id || null,
-    p_brand: input.brand || null,
-    p_model: input.model || null,
-    p_product_code: input.product_code || null,
+    p_credit_paid_kurus: creditPaidKurus,
+    p_uncollected_credit_kurus: 0,
+    p_uncollected_cost_kurus: 0,
     p_description: input.description || null,
+    p_customer_name: input.customer_name || null,
+    p_customer_phone: input.customer_phone || null,
+    p_serial_imei: input.serial_imei || null,
+    p_technical_service_details: input.technical_service_details || null,
+    p_service_cost_payment_status: input.service_cost_payment_status ?? null,
+    p_service_cost_payment_source: input.service_cost_payment_source ?? null,
+    p_service_cost_bank_account_id: input.service_cost_bank_account_id ?? null,
     p_idempotency_key: input.idempotency_key || null,
-    p_bank_transfer_paid_kurus: input.bank_transfer_paid_kurus || 0,
-    p_bank_transfer_reference: input.bank_transfer_reference || null,
-    p_service_cost_kurus: input.service_cost_kurus || 0,
-    p_service_cost_payment_status: input.service_cost_payment_status || 'previously_paid_or_stock',
   });
 
   if (error || !data) {
@@ -1072,7 +1104,10 @@ export async function updateSaleTransaction(
     description?: string;
     cost_price_kurus?: number;
     service_cost_kurus?: number;
-    service_cost_payment_status?: 'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost' | 'legacy_unspecified';
+    service_cost_payment_status?: 'paid_from_cash' | 'paid_from_bank' | 'used_from_stock' | 'previously_paid' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost' | 'legacy_unspecified';
+    service_cost_payment_source?: string;
+    service_cost_bank_account_id?: string;
+    idempotency_key?: string;
   }
 ): Promise<KasaSale> {
   const supabase = getSupabaseAdmin();
@@ -1089,6 +1124,7 @@ export async function updateSaleTransaction(
       throw new Error('Teknik servis işlemlerinde müşteri adı soyadı zorunludur.');
     }
   }
+
   const { data, error } = await supabase.rpc('fn_kasa_update_sale', {
     p_actor_user_id: actorUserId,
     p_sale_id: saleId,
@@ -1096,6 +1132,9 @@ export async function updateSaleTransaction(
     p_product_name: saleData.product_name,
     p_quantity: saleData.quantity,
     p_unit_price_kurus: saleData.unit_price_kurus,
+    p_total_price_kurus: saleData.quantity * saleData.unit_price_kurus,
+    p_cost_price_kurus: saleData.cost_price_kurus || 0,
+    p_service_cost_kurus: saleData.service_cost_kurus || 0,
     p_cash_paid_kurus: saleData.cash_paid_kurus || 0,
     p_card_paid_kurus: saleData.card_paid_kurus || 0,
     p_bank_transfer_paid_kurus: saleData.bank_transfer_paid_kurus || 0,
@@ -1106,16 +1145,19 @@ export async function updateSaleTransaction(
     p_eur_paid_cents: saleData.eur_paid_cents || 0,
     p_eur_rate: saleData.eur_rate || null,
     p_eur_tl_equivalent_kurus: saleData.eur_tl_equivalent_kurus || 0,
-    p_credit_paid_kurus: saleData.credit_paid_kurus || 0,
     p_credit_customer_id: saleData.credit_customer_id || null,
+    p_credit_paid_kurus: saleData.credit_paid_kurus || 0,
+    p_uncollected_credit_kurus: 0,
+    p_uncollected_cost_kurus: 0,
     p_justification: saleData.justification,
     p_customer_name: saleData.customer_name || null,
     p_customer_phone: saleData.customer_phone || null,
     p_serial_imei: saleData.serial_imei || null,
     p_description: saleData.description || null,
-    p_cost_price_kurus: saleData.cost_price_kurus || null,
-    p_service_cost_kurus: saleData.service_cost_kurus || null,
     p_service_cost_payment_status: saleData.service_cost_payment_status || null,
+    p_service_cost_payment_source: saleData.service_cost_payment_source || (saleData.service_cost_payment_status === 'paid_from_bank' ? 'bank' : null),
+    p_service_cost_bank_account_id: saleData.service_cost_bank_account_id || null,
+    p_idempotency_key: saleData.idempotency_key || null,
   });
 
   if (error || !data) {
@@ -1946,10 +1988,10 @@ export async function getDailyTSDirectCosts(kasaDayId: string): Promise<{
 
   const items: TSDirectCostItem[] = tsSales.map((s) => {
     const cost = Number(s.service_cost_kurus || 0);
-    const st = s.service_cost_payment_status || 'previously_paid_or_stock';
+    const st = s.service_cost_payment_status || null;
     const paidCash = st === 'paid_from_cash' ? cost : 0;
     const unpaid = st === 'unpaid' ? cost : 0;
-    const stock = (st === 'previously_paid_or_stock' || st === 'legacy_unspecified') ? cost : 0;
+    const stock = (st === 'used_from_stock' || st === 'previously_paid' || st === 'previously_paid_or_stock' || st === 'legacy_unspecified') ? cost : 0;
 
     totalCost += cost;
     paidCashCost += paidCash;
@@ -2352,5 +2394,78 @@ export async function getDashboardCarryoverInfo(todayDay: KasaDay): Promise<Dash
     carryover_source_day_id: prevDay.id,
     carryover_source_date: prevDay.date_val,
     carryover_block_reason: 'Açılış bakiyesi ile önceki gün kapanış sayımı uyuşmuyor. Devir onarımı gereklidir.',
+  };
+}
+
+export async function getMonthToDateCollections() {
+  const supabase = getSupabaseAdmin();
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+
+  const startDateStr = `${year}-${month}-01`;
+  const endDateStr = `${year}-${month}-${day}`;
+  const startISO = `${startDateStr}T00:00:00.000Z`;
+  const endISO = `${endDateStr}T23:59:59.999Z`;
+
+  const { data: sales } = await supabase
+    .from('kasa_sales')
+    .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus, status')
+    .gte('created_at', startISO)
+    .lte('created_at', endISO)
+    .eq('status', 'completed');
+
+  let cashSalesMinor = 0;
+  let cardSalesMinor = 0;
+  let bankTransferSalesMinor = 0;
+
+  (sales || []).forEach((s) => {
+    cashSalesMinor += Number(s.cash_paid_kurus || 0);
+    cardSalesMinor += Number(s.card_paid_kurus || 0);
+    bankTransferSalesMinor += Number(s.bank_transfer_paid_kurus || 0);
+  });
+
+  const { data: creditPayments } = await supabase
+    .from('kasa_credit_payments')
+    .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus')
+    .gte('created_at', startISO)
+    .lte('created_at', endISO);
+
+  let creditCashMinor = 0;
+  let creditCardMinor = 0;
+  let creditBankMinor = 0;
+
+  (creditPayments || []).forEach((cp) => {
+    creditCashMinor += Number(cp.cash_paid_kurus || 0);
+    creditCardMinor += Number(cp.card_paid_kurus || 0);
+    creditBankMinor += Number(cp.bank_transfer_paid_kurus || 0);
+  });
+
+  const netCashMinor = cashSalesMinor + creditCashMinor;
+  const netCardMinor = cardSalesMinor + creditCardMinor;
+  const netBankTransferMinor = bankTransferSalesMinor + creditBankMinor;
+  const netCreditMinor = creditCashMinor + creditCardMinor + creditBankMinor;
+  const netCollectionsMinor = netCashMinor + netCardMinor + netBankTransferMinor;
+
+  const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  const periodLabel = `1–${today.getDate()} ${monthNames[today.getMonth()]} ${year}`;
+
+  return {
+    period_label: periodLabel,
+    start_date: startDateStr,
+    end_date: endDateStr,
+    cash_sales_collections_minor: cashSalesMinor,
+    card_sales_collections_minor: cardSalesMinor,
+    bank_transfer_sales_collections_minor: bankTransferSalesMinor,
+    credit_collections_by_cash_minor: creditCashMinor,
+    credit_collections_by_card_minor: creditCardMinor,
+    credit_collections_by_bank_minor: creditBankMinor,
+    refunds_by_channel_minor: 0,
+    net_cash_collections_minor: netCashMinor,
+    net_card_collections_minor: netCardMinor,
+    net_bank_transfer_collections_minor: netBankTransferMinor,
+    net_credit_collections_minor: netCreditMinor,
+    net_collections_minor: netCollectionsMinor,
   };
 }

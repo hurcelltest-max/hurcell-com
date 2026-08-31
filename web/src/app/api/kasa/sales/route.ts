@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireKasaAuth } from '@/lib/kasa/auth';
-import { createSaleTransaction, listDailySales, getOrCreateTodayDay } from '@/lib/kasa/service';
+import { createSaleTransaction, listDailySales, getOrCreateTodayDay, getKasaCategoryById } from '@/lib/kasa/service';
 
 function sanitizeReference(ref: unknown): string | undefined {
   if (!ref) return undefined;
@@ -62,15 +62,64 @@ export async function POST(req: Request) {
       cost_price_tl,
       service_cost_tl,
       service_cost_payment_status,
+      service_cost_payment_source,
+      service_cost_bank_account_id,
       technical_service_details,
       idempotency_key,
     } = body;
+
+    if (!idempotency_key || typeof idempotency_key !== 'string' || !idempotency_key.trim()) {
+      return NextResponse.json({ error: 'EKSİK_İDEMPOTENCY_KEY: İşlem güvenliği için geçerli idempotency_key zorunludur.' }, { status: 400 });
+    }
 
     if (!category_id || !product_name || !quantity || !unit_price_tl) {
       return NextResponse.json(
         { error: 'Kategori, Ürün Adı, Miktar ve Birim Fiyat zorunludur.' },
         { status: 400 }
       );
+    }
+
+    // Verify category from DB (server-side lookup)
+    const category = await getKasaCategoryById(category_id);
+    if (!category) {
+      return NextResponse.json({ error: 'GEÇERSİZ_KATEGORİ: Seçilen kategori bulunamadı.' }, { status: 400 });
+    }
+    if (!category.is_active) {
+      return NextResponse.json({ error: 'PASİF_KATEGORİ: Seçilen kategori aktif değildir.' }, { status: 400 });
+    }
+
+    const isTechnicalService = category.name === 'Teknik Servis';
+
+    let finalPaymentStatus = service_cost_payment_status;
+    let finalPaymentSource = service_cost_payment_source;
+    let finalBankAccountId = service_cost_bank_account_id;
+
+    if (isTechnicalService) {
+      if (!finalPaymentStatus) {
+        return NextResponse.json({ error: 'Teknik Servis maliyetinin nasıl karşılandığını seçiniz.' }, { status: 400 });
+      }
+      if (finalPaymentStatus === 'previously_paid_or_stock' || finalPaymentStatus === 'legacy_unspecified') {
+        return NextResponse.json({ error: 'Yeni Teknik Servis satışında birleşik/belirsiz maliyet statüsü kullanılamaz.' }, { status: 400 });
+      }
+      if (finalPaymentStatus === 'paid_from_bank') {
+        if (auth.user.role !== 'yonetici') {
+          return NextResponse.json({ error: 'BANKA_ÖDEMESİ_YETKİSİZ: Bankadan maliyet ödemesi yalnız yönetici yetkisindedir.' }, { status: 403 });
+        }
+        if (!finalBankAccountId) {
+          return NextResponse.json({ error: 'Bankadan ödenen Teknik Servis maliyeti için aktif bir TRY banka hesabı seçiniz.' }, { status: 400 });
+        }
+      }
+      finalPaymentSource = finalPaymentStatus === 'paid_from_bank' ? 'bank'
+                           : finalPaymentStatus === 'paid_from_cash' ? 'cash'
+                           : finalPaymentStatus === 'used_from_stock' ? 'stock'
+                           : finalPaymentStatus === 'previously_paid' ? 'previously_paid'
+                           : finalPaymentStatus === 'no_cost' ? 'none'
+                           : undefined;
+    } else {
+      // Normal sales: clear TS-specific fields
+      finalPaymentStatus = undefined;
+      finalPaymentSource = undefined;
+      finalBankAccountId = undefined;
     }
 
     const unitPriceKurus = Math.round(Number(unit_price_tl) * 100);
@@ -88,7 +137,7 @@ export async function POST(req: Request) {
     const eurTLEquivalentKurus = eurPaidCents > 0 && eurRateNum ? Math.round((eurPaidCents / 100.0) * eurRateNum * 100) : 0;
 
     const costPriceKurus = cost_price_tl ? Math.round(Number(cost_price_tl) * 100) : undefined;
-    const serviceCostKurus = service_cost_tl ? Math.round(Number(service_cost_tl) * 100) : undefined;
+    const serviceCostKurus = isTechnicalService && service_cost_tl ? Math.round(Number(service_cost_tl) * 100) : undefined;
 
     const sale = await createSaleTransaction(auth.user.id, {
       category_id,
@@ -116,13 +165,15 @@ export async function POST(req: Request) {
       serial_imei: serial_imei ? String(serial_imei).trim() : undefined,
       cost_price_kurus: costPriceKurus,
       service_cost_kurus: serviceCostKurus,
-      service_cost_payment_status: service_cost_payment_status || 'previously_paid_or_stock',
-      technical_service_details,
+      service_cost_payment_status: finalPaymentStatus ? String(finalPaymentStatus) as any : undefined,
+      service_cost_payment_source: finalPaymentSource ? String(finalPaymentSource) as any : undefined,
+      service_cost_bank_account_id: finalBankAccountId,
+      technical_service_details: isTechnicalService ? technical_service_details : undefined,
       idempotency_key: idempotency_key ? String(idempotency_key) : undefined,
     });
 
     return NextResponse.json({ success: true, sale });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Satış kaydı oluşturulamadı.' }, { status: 400 });
+    return NextResponse.json({ error: error.message || 'Satış oluşturulamadı.' }, { status: 400 });
   }
 }

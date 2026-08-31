@@ -41,7 +41,9 @@ export default function KasaHareketlerPage() {
   const [editCreditPaidTL, setEditCreditPaidTL] = useState('');
   const [editCostPriceTL, setEditCostPriceTL] = useState('');
   const [editServiceCostTL, setEditServiceCostTL] = useState('');
-  const [editServiceCostStatus, setEditServiceCostStatus] = useState<string>('previously_paid_or_stock');
+  const [editServiceCostStatus, setEditServiceCostStatus] = useState<string>('');
+  const [editServiceCostBankAccountId, setEditServiceCostBankAccountId] = useState('');
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [editCustomerName, setEditCustomerName] = useState('');
   const [editSerialImei, setEditSerialImei] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -61,10 +63,11 @@ export default function KasaHareketlerPage() {
       setLoading(true);
       setError(null);
 
-      const [meRes, movRes, catRes] = await Promise.all([
+      const [meRes, movRes, catRes, bankRes] = await Promise.all([
         fetch('/api/kasa/auth/me'),
         fetch('/api/kasa/movements?page_size=200'),
         fetch('/api/kasa/categories'),
+        fetch('/api/admin/kasa/bank-accounts'),
       ]);
 
       if (meRes.ok) {
@@ -75,6 +78,13 @@ export default function KasaHareketlerPage() {
       if (catRes.ok) {
         const catData = await catRes.json();
         setCategories(catData.categories || []);
+      }
+
+      if (bankRes?.ok) {
+        const bData = await bankRes.json();
+        const activeBanks = (bData.accounts || []).filter((a: any) => a.is_active || a.status === 'active');
+        setBankAccounts(activeBanks);
+        if (activeBanks.length > 0) setEditServiceCostBankAccountId(activeBanks[0].id);
       }
 
       const data = await movRes.json();
@@ -138,7 +148,7 @@ export default function KasaHareketlerPage() {
       setEditCreditPaidTL((data.credit_paid_kurus / 100).toFixed(2));
       setEditCostPriceTL(data.unit_cost_kurus > 0 ? (data.unit_cost_kurus / 100).toFixed(2) : '');
       setEditServiceCostTL(data.service_cost_kurus > 0 ? (data.service_cost_kurus / 100).toFixed(2) : '');
-      setEditServiceCostStatus(data.service_cost_payment_status || 'previously_paid_or_stock');
+      setEditServiceCostStatus(data.service_cost_payment_status || '');
       setEditCustomerName(data.customer_name || '');
       setEditSerialImei(data.serial_imei || '');
       setEditDescription(data.notes || '');
@@ -209,10 +219,12 @@ export default function KasaHareketlerPage() {
           cost_price_tl: editCostPriceTL ? Number(editCostPriceTL) : undefined,
           service_cost_tl: editServiceCostTL ? Number(editServiceCostTL) : undefined,
           service_cost_payment_status: isTs ? editServiceCostStatus : undefined,
+          service_cost_bank_account_id: isTs && editServiceCostStatus === 'paid_from_bank' ? editServiceCostBankAccountId : undefined,
           customer_name: editCustomerName.trim() || undefined,
           serial_imei: editSerialImei.trim() || undefined,
           description: editDescription.trim() || undefined,
           justification: trimmedJustification,
+          idempotency_key: `sale_update_${editingMovement.sale_id}_${Date.now()}`,
         }),
       });
 
@@ -608,7 +620,9 @@ export default function KasaHareketlerPage() {
                             className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
                           >
                             <option value="paid_from_cash">Kasadan Ödendi (Nakit Düşer)</option>
-                            <option value="previously_paid_or_stock">Önceden Ödendi / Stoktan</option>
+                            <option value="used_from_stock">Stoktan Kullanıldı (Kasayı Etkilemez)</option>
+                            <option value="previously_paid">Önceden Ödendi (Kasayı Etkilemez)</option>
+                            <option value="previously_paid_or_stock">Önceden Ödendi / Stoktan (Eski Kayıt)</option>
                             <option value="unpaid">Henüz Ödenmedi (Borç Kaydı)</option>
                             <option value="no_cost">Maliyet Yok (0 TL)</option>
                           </select>

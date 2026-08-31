@@ -40,7 +40,9 @@ export default function KasaSatisPage() {
   const [quantity, setQuantity] = useState('1');
   const [unitPriceTL, setUnitPriceTL] = useState('');
   const [costPriceTL, setCostPriceTL] = useState('');
-  const [serviceCostPaymentStatus, setServiceCostPaymentStatus] = useState<'paid_from_cash' | 'previously_paid_or_stock' | 'unpaid'>('previously_paid_or_stock');
+  const [serviceCostPaymentStatus, setServiceCostPaymentStatus] = useState<string>('');
+  const [serviceCostBankAccountId, setServiceCostBankAccountId] = useState('');
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [description, setDescription] = useState('');
   const [serialImei, setSerialImei] = useState('');
 
@@ -69,14 +71,32 @@ export default function KasaSatisPage() {
   const selectedCategoryObj = categories.find((c) => c.id === categoryId);
   const isTechnicalService = selectedCategoryObj?.name === 'Teknik Servis';
 
+  const [userRole, setUserRole] = useState<'yonetici' | 'personel'>('personel');
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sale_${Date.now()}`));
+
   useEffect(() => {
     async function loadInitialData() {
       try {
         setLoading(true);
-        const [catRes, rateRes] = await Promise.all([
+        const [meRes, catRes, rateRes] = await Promise.all([
+          fetch('/api/kasa/auth/me'),
           fetch('/api/kasa/categories'),
           fetch('/api/kasa/rates'),
         ]);
+
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          setUserRole(meData.user?.role || 'personel');
+
+          if (meData.user?.role === 'yonetici') {
+            const bankRes = await fetch('/api/kasa/bank-account-options');
+            if (bankRes.ok) {
+              const bData = await bankRes.json();
+              setBankAccounts(bData.items || []);
+              if (bData.items?.length > 0) setServiceCostBankAccountId(bData.items[0].id);
+            }
+          }
+        }
 
         if (catRes.ok) {
           const cData = await catRes.json();
@@ -211,6 +231,7 @@ export default function KasaSatisPage() {
           cost_price_tl: isTechnicalService ? undefined : (costPriceTL ? Number(costPriceTL) : undefined),
           service_cost_tl: isTechnicalService ? (costPriceTL ? Number(costPriceTL) : undefined) : undefined,
           service_cost_payment_status: isTechnicalService ? serviceCostPaymentStatus : undefined,
+          service_cost_bank_account_id: isTechnicalService && serviceCostPaymentStatus === 'paid_from_bank' ? serviceCostBankAccountId : undefined,
           cash_paid_tl: cashNum,
           card_paid_tl: cardNum,
           bank_transfer_paid_tl: bankTransferNum,
@@ -223,7 +244,7 @@ export default function KasaSatisPage() {
           customer_phone: customerPhone.trim() || undefined,
           serial_imei: serialImei.trim() || undefined,
           description: description.trim() || undefined,
-          idempotency_key: `sale_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          idempotency_key: idempotencyKey,
         }),
       });
 
@@ -231,6 +252,7 @@ export default function KasaSatisPage() {
       if (!res.ok) throw new Error(data.error || 'Satış kaydı gerçekleştirilemedi.');
 
       setSuccess(`Satış Kaydı Oluşturuldu! Fiş No: ${data.sale.receipt_no}`);
+      setIdempotencyKey(typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sale_${Date.now()}`);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('kasa-updated'));
       }
@@ -387,18 +409,42 @@ export default function KasaSatisPage() {
                     const val = e.target.value;
                     if (val === 'no_cost') {
                       setCostPriceTL('0');
-                      setServiceCostPaymentStatus('previously_paid_or_stock');
-                    } else {
-                      setServiceCostPaymentStatus(val as any);
                     }
+                    setServiceCostPaymentStatus(val);
                   }}
                   className="w-full p-3 bg-purple-50 border border-purple-300 rounded-xl text-xs font-bold text-purple-950 focus:ring-2 focus:ring-purple-500"
                 >
+                  <option value="">-- Teknik Servis Maliyet Karşılama Şeklini Seçiniz * --</option>
                   <option value="paid_from_cash">Şimdi TL kasadan ödendi (Kasadan nakit düşer)</option>
-                  <option value="previously_paid_or_stock">Önceden ödendi / stoktan kullanıldı (Bugünkü kasayı etkilemez)</option>
+                  {userRole === 'yonetici' && (
+                    <option value="paid_from_bank">Şimdi Bankadan ödendi (Seçilen banka hesabından düşer - Yönetici Özel)</option>
+                  )}
+                  <option value="used_from_stock">Stoktan kullanıldı (Kasayı/Bankayı etkilemez, maliyete girer)</option>
+                  <option value="previously_paid">Önceden ödendi (Kasayı/Bankayı etkilemez, maliyete girer)</option>
                   <option value="unpaid">Henüz ödenmedi (Ödenmemiş Maliyet Borcu)</option>
                   <option value="no_cost">Bu işlemde maliyet yok (0 TL Maliyet)</option>
                 </select>
+
+                {serviceCostPaymentStatus === 'paid_from_bank' && (
+                  <div className="mt-2 space-y-1">
+                    <label className="block text-xs font-bold text-purple-900">Ödeme Yapılacak Banka Hesabı</label>
+                    <select
+                      value={serviceCostBankAccountId}
+                      onChange={(e) => setServiceCostBankAccountId(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-purple-300 rounded-xl text-xs font-bold text-purple-950 focus:ring-2 focus:ring-purple-500"
+                    >
+                      {bankAccounts.length === 0 ? (
+                        <option value="">Aktif TRY banka hesabı bulunamadı!</option>
+                      ) : (
+                        bankAccounts.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.account_name} - {b.bank_name || 'Banka'} ({b.currency_code}) [Bakiye: {((b.current_balance_kurus || b.balance_minor || 0) / 100).toFixed(2)} TL]
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 

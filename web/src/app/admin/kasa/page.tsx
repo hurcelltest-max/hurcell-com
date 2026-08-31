@@ -12,6 +12,7 @@ import {
   Banknote,
   MinusCircle,
   Landmark,
+  Scale,
   Settings,
   Coins,
   Globe,
@@ -635,6 +636,32 @@ export default function AdminKasaOverviewPage() {
           <h3 className="font-bold text-lg text-slate-900">Gün Sonu Kapanışı</h3>
           <p className="text-xs text-slate-500">
             Fiziksel TL, USD/EUR döviz ve gün sonu cari veresiye sayım özetini inceleyin.
+          </p>
+        </Link>
+
+        <Link
+          href="/admin/kasa/banka"
+          className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all space-y-3 group"
+        >
+          <div className="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+            <Landmark size={24} />
+          </div>
+          <h3 className="font-bold text-lg text-slate-900">Banka Hesap Yönetimi</h3>
+          <p className="text-xs text-slate-500">
+            Banka hesap bakiyelerini, virmanları ve banka çıkış hareketlerini yönetin.
+          </p>
+        </Link>
+
+        <Link
+          href="/admin/kasa/bilanco"
+          className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all space-y-3 group"
+        >
+          <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
+            <Scale size={24} />
+          </div>
+          <h3 className="font-bold text-lg text-slate-900">Finansal Durum & Bilanço</h3>
+          <p className="text-xs text-slate-500">
+            İşletme net varlıklarını, likit varlıkları ve dönem kâr-zararını inceleyin.
           </p>
         </Link>
 

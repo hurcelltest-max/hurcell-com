@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import { requireKasaAuth } from '@/lib/kasa/auth';
-import { updateSaleTransaction } from '@/lib/kasa/service';
+import { updateSaleTransaction, getKasaCategoryById, getSaleById } from '@/lib/kasa/service';
+
+const ALLOWED_NEW_TS_STATUSES = [
+  'paid_from_cash',
+  'paid_from_bank',
+  'used_from_stock',
+  'previously_paid',
+  'unpaid',
+  'no_cost',
+];
 
 export async function POST(
   req: Request,
@@ -34,7 +43,14 @@ export async function POST(
       cost_price_tl,
       service_cost_tl,
       service_cost_payment_status,
+      service_cost_payment_source,
+      service_cost_bank_account_id,
+      idempotency_key,
     } = body;
+
+    if (!idempotency_key || typeof idempotency_key !== 'string' || !idempotency_key.trim()) {
+      return NextResponse.json({ error: 'EKSİK_İDEMPOTENCY_KEY: İşlem güvenliği için geçerli idempotency_key zorunludur.' }, { status: 400 });
+    }
 
     if (!justification || !String(justification).trim()) {
       return NextResponse.json(
@@ -48,6 +64,82 @@ export async function POST(
         { error: 'Kategori, Ürün Adı, Miktar ve Birim Fiyat zorunludur.' },
         { status: 400 }
       );
+    }
+
+    // Verify existing sale in DB
+    const existingSale = await getSaleById(saleId);
+    if (!existingSale) {
+      return NextResponse.json({ error: 'GEÇERSİZ_SATIŞ: Güncellenecek satış bulunamadı.' }, { status: 404 });
+    }
+
+    // Verify category from DB (server-side lookup)
+    const category = await getKasaCategoryById(category_id);
+    if (!category) {
+      return NextResponse.json({ error: 'GEÇERSİZ_KATEGORİ: Seçilen kategori bulunamadı.' }, { status: 400 });
+    }
+    if (!category.is_active) {
+      return NextResponse.json({ error: 'PASİF_KATEGORİ: Seçilen kategori aktif değildir.' }, { status: 400 });
+    }
+
+    const isTechnicalService = category.name === 'Teknik Servis';
+
+    let finalPaymentStatus = service_cost_payment_status;
+    let finalPaymentSource = service_cost_payment_source;
+    let finalBankAccountId = service_cost_bank_account_id;
+
+    if (isTechnicalService) {
+      if (!finalPaymentStatus) {
+        return NextResponse.json({ error: 'Teknik Servis maliyetinin nasıl karşılandığını seçiniz.' }, { status: 400 });
+      }
+
+      const isLegacyStatus = finalPaymentStatus === 'previously_paid_or_stock' || finalPaymentStatus === 'legacy_unspecified';
+
+      if (isLegacyStatus) {
+        // Only allowed if existing sale in DB was ALREADY the exact same legacy status AND cost fields remain unchanged
+        const wasExistingLegacy = existingSale.service_cost_payment_status === finalPaymentStatus;
+        const newCostKurus = service_cost_tl ? Math.round(Number(service_cost_tl) * 100) : 0;
+        const oldCostKurus = existingSale.service_cost_kurus || 0;
+        const costChanged = newCostKurus !== oldCostKurus;
+        const categoryChanged = category_id !== existingSale.category_id;
+        const sourceChanged = (finalPaymentSource || null) !== (existingSale.service_cost_payment_source || null);
+        const bankChanged = (finalBankAccountId || null) !== (existingSale.service_cost_bank_account_id || null);
+
+        if (!wasExistingLegacy || costChanged || categoryChanged || sourceChanged || bankChanged) {
+          return NextResponse.json(
+            { error: 'Legacy Teknik Servis maliyet bilgisi değiştirilemez. Düzeltme için açık bir maliyet karşılama yöntemi seçiniz.' },
+            { status: 400 }
+          );
+        }
+        finalPaymentSource = undefined;
+        finalBankAccountId = undefined;
+      } else {
+        if (!ALLOWED_NEW_TS_STATUSES.includes(finalPaymentStatus)) {
+          return NextResponse.json({ error: 'Geçersiz Teknik Servis maliyet ödeme durumu.' }, { status: 400 });
+        }
+
+        if (finalPaymentStatus === 'paid_from_bank') {
+          if (auth.user.role !== 'yonetici') {
+            return NextResponse.json(
+              { error: 'BANKA_ÖDEMESİ_YETKİSİZ: Bankadan maliyet ödemesi yalnız yönetici yetkisindedir.' },
+              { status: 403 }
+            );
+          }
+          if (!finalBankAccountId) {
+            return NextResponse.json({ error: 'Bankadan ödenen Teknik Servis maliyeti için aktif bir TRY banka hesabı seçiniz.' }, { status: 400 });
+          }
+        }
+        finalPaymentSource = finalPaymentStatus === 'paid_from_bank' ? 'bank'
+                             : finalPaymentStatus === 'paid_from_cash' ? 'cash'
+                             : finalPaymentStatus === 'used_from_stock' ? 'stock'
+                             : finalPaymentStatus === 'previously_paid' ? 'previously_paid'
+                             : finalPaymentStatus === 'no_cost' ? 'none'
+                             : undefined;
+      }
+    } else {
+      // Normal sales: clear TS-specific fields
+      finalPaymentStatus = undefined;
+      finalPaymentSource = undefined;
+      finalBankAccountId = undefined;
     }
 
     const unitPriceKurus = Math.round(Number(unit_price_tl) * 100);
@@ -65,7 +157,7 @@ export async function POST(
     const eurTLEquivalentKurus = eurPaidCents > 0 && eurRateNum ? Math.round((eurPaidCents / 100.0) * eurRateNum * 100) : 0;
 
     const costPriceKurus = cost_price_tl ? Math.round(Number(cost_price_tl) * 100) : undefined;
-    const serviceCostKurus = service_cost_tl ? Math.round(Number(service_cost_tl) * 100) : undefined;
+    const serviceCostKurus = isTechnicalService && service_cost_tl ? Math.round(Number(service_cost_tl) * 100) : undefined;
 
     const updatedSale = await updateSaleTransaction(auth.user.id, saleId, {
       category_id,
@@ -91,11 +183,14 @@ export async function POST(
       description: description ? String(description).trim() : undefined,
       cost_price_kurus: costPriceKurus,
       service_cost_kurus: serviceCostKurus,
-      service_cost_payment_status: service_cost_payment_status ? String(service_cost_payment_status) as any : undefined,
+      service_cost_payment_status: finalPaymentStatus ? String(finalPaymentStatus) as any : undefined,
+      service_cost_payment_source: finalPaymentSource ? String(finalPaymentSource) as any : undefined,
+      service_cost_bank_account_id: finalBankAccountId,
+      idempotency_key: idempotency_key ? String(idempotency_key) : undefined,
     });
 
     return NextResponse.json({ success: true, sale: updatedSale });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Satış düzeltilemedi.' }, { status: 400 });
+    return NextResponse.json({ error: error.message || 'Satış güncellenemedi.' }, { status: 400 });
   }
 }

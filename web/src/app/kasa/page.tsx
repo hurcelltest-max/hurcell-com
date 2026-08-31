@@ -15,6 +15,7 @@ import {
   RotateCcw,
   CheckCircle2,
   Calendar,
+  CalendarCheck,
   User,
   AlertTriangle,
   Wrench,
@@ -26,7 +27,7 @@ import {
   RefreshCw,
   Info,
 } from 'lucide-react';
-import { DashboardCarryoverInfo, KasaMonthlyReport } from '@/lib/kasa/types';
+import { DashboardCarryoverInfo, KasaMonthlyReport, KasaMonthToDateCollections } from '@/lib/kasa/types';
 
 interface CategorySummary {
   category_id: string;
@@ -187,6 +188,7 @@ export default function KasaMainDashboardPage() {
   });
   const [monthlyReport, setMonthlyReport] = useState<KasaMonthlyReport | null>(null);
   const [monthlyLoading, setMonthlyLoading] = useState<boolean>(false);
+  const [mtdData, setMtdData] = useState<KasaMonthToDateCollections | null>(null);
 
   const loadExpenseSummary = async (dayId?: string) => {
     try {
@@ -228,8 +230,14 @@ export default function KasaMainDashboardPage() {
       setCarryoverInfo(dashData.carryoverInfo || null);
       setIsPreviousDayUnclosed(Boolean(dashData.is_previous_day_unclosed));
       setUnclosedDayDate(dashData.unclosed_day_date || null);
-      setOpenDaysList(dashData.open_days || []);
+      setOpenDaysList(dashData.open_days_list || []);
       setFirstDayToClose(dashData.first_day_requiring_close || null);
+      setTargetDayId(dashData.day_id || null);
+
+      fetch('/api/kasa/month-to-date-collections')
+        .then((r) => r.json())
+        .then((d) => setMtdData(d.collections || null))
+        .catch(console.error);
 
       if (dashData.day) {
         setDayStatus(dashData.day.status);
@@ -560,42 +568,42 @@ export default function KasaMainDashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
             <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider block flex items-center gap-1">
-              <Banknote size={14} /> Nakit Tahsilat
+              <Banknote size={14} /> Bugünkü Nakit Tahsilat
             </span>
             <div className="text-xl font-bold text-emerald-700">
               {formatTL(metrics?.cash_collection_kurus || 0)}
             </div>
-            <p className="text-[11px] text-slate-400">Nakit satış ödemeleri</p>
+            <p className="text-[11px] text-slate-400">Bugünkü nakit satış ödemeleri</p>
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
             <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider block flex items-center gap-1">
-              <CreditCard size={14} /> Kredi Kartı Tahsilatı
+              <CreditCard size={14} /> Bugünkü POS / Kredi Kartı
             </span>
             <div className="text-xl font-bold text-blue-700">
               {formatTL(metrics?.card_collection_kurus || 0)}
             </div>
-            <p className="text-[11px] text-slate-400">POS Cihazı (Nakit kasaya girmez)</p>
+            <p className="text-[11px] text-slate-400">Bugünkü POS/kredi kartı tahsilatları</p>
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
             <span className="text-xs font-semibold text-purple-600 uppercase tracking-wider block flex items-center gap-1">
-              <Banknote size={14} /> Havale / EFT Tahsilatı
+              <Banknote size={14} /> Bugünkü Havale / EFT
             </span>
             <div className="text-xl font-bold text-purple-700">
               {formatTL(metrics?.bank_transfer_collection_kurus || 0)}
             </div>
-            <p className="text-[11px] text-slate-400">Banka transferi (Nakit kasaya girmez)</p>
+            <p className="text-[11px] text-slate-400">Bugünkü Havale/EFT tahsilatları</p>
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
             <span className="text-xs font-semibold text-purple-600 uppercase tracking-wider block flex items-center gap-1">
-              <Wrench size={14} /> Teknik Servis Geliri
+              <Wrench size={14} /> Bugünkü Teknik Servis Cirosu
             </span>
             <div className="text-xl font-bold text-purple-700">
               {formatTL(metrics?.technical_service_revenue_kurus || 0)}
             </div>
-            <p className="text-[11px] text-slate-400">Servis & tamir cirosu</p>
+            <p className="text-[11px] text-slate-400">Bugünkü Teknik Servis cirosu</p>
           </div>
 
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
@@ -658,6 +666,52 @@ export default function KasaMainDashboardPage() {
             </p>
           </div>
         </div>
+
+        {/* AYBAŞINDAN BUGÜNE TAHSİLATLAR VE BANKA HAREKETLERİ KARTI */}
+        {mtdData && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                <CalendarCheck size={18} className="text-indigo-600" /> AYBAŞINDAN BUGÜNE TAHSİLATLAR VE BANKA HAREKETLERİ
+              </h3>
+              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-200">
+                {mtdData.period_label}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Nakit Tahsilat</span>
+                <div className="text-base font-extrabold text-emerald-700">{formatTL(mtdData.net_cash_collections_minor)}</div>
+                <p className="text-[9px] text-slate-400">Satış + Cari Nakit</p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">POS / Kart Tahsilat</span>
+                <div className="text-base font-extrabold text-blue-700">{formatTL(mtdData.net_card_collections_minor)}</div>
+                <p className="text-[9px] text-slate-400">Satış + Cari Kart</p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Havale / EFT Tahsilat</span>
+                <div className="text-base font-extrabold text-purple-700">{formatTL(mtdData.net_bank_transfer_collections_minor)}</div>
+                <p className="text-[9px] text-slate-400">Banka Tahsilatları</p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Cari Tahsilat Toplamı</span>
+                <div className="text-base font-extrabold text-indigo-700">{formatTL(mtdData.net_credit_collections_minor)}</div>
+                <p className="text-[9px] text-slate-400">Önceki Alacak Tahsilatları</p>
+              </div>
+
+              <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200 col-span-2 sm:col-span-1">
+                <span className="text-[10px] font-bold text-indigo-900 uppercase">Toplam Net Tahsilat</span>
+                <div className="text-base font-black text-indigo-950">{formatTL(mtdData.net_collections_minor)}</div>
+                <p className="text-[9px] text-indigo-700">Tüm Kanallar Toplamı</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* YÖNETİCİ SERMAYE / SAHİP ÇEKİMİ BİLGİSİ */}
         {user?.role === 'yonetici' && (

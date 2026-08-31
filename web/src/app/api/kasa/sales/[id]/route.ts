@@ -48,7 +48,7 @@ export async function GET(
       unit_cost_kurus: sale.cost_price_kurus || 0,
       total_price_kurus: sale.total_price_kurus,
       service_cost_kurus: sale.service_cost_kurus || 0,
-      service_cost_payment_status: sale.service_cost_payment_status || 'previously_paid_or_stock',
+      service_cost_payment_status: sale.service_cost_payment_status || null,
       cash_paid_kurus: sale.cash_paid_kurus || 0,
       card_paid_kurus: sale.card_paid_kurus || 0,
       bank_transfer_paid_kurus: sale.bank_transfer_paid_kurus || 0,

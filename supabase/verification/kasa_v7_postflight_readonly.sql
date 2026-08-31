@@ -79,7 +79,12 @@ rpc_security_audit AS (
             JOIN pg_namespace n ON n.oid = p.pronamespace
             WHERE n.nspname = 'public'
               AND p.proname IN ('fn_kasa_create_sale', 'fn_kasa_update_sale', 'fn_kasa_cancel_sale', 'fn_kasa_create_bank_transaction', 'fn_kasa_settle_pos_to_bank', 'fn_kasa_withdraw_owner_capital_from_bank', 'fn_kasa_configure_pos_settings')
-              AND (array_to_string(p.proacl, ',') LIKE '%=X/%' OR array_to_string(p.proacl, ',') LIKE '%PUBLIC=X%')
+              AND EXISTS (
+                  SELECT 1
+                  FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
+                  WHERE acl.grantee = 0
+                    AND acl.privilege_type = 'EXECUTE'
+              )
         ) = 0 AS public_rpc_execute_revoked,
         (
             SELECT COUNT(*)

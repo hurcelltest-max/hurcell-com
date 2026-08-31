@@ -73,7 +73,27 @@ DROP FUNCTION IF EXISTS public.fn_kasa_create_bank_transaction(UUID, UUID, TEXT,
 DROP FUNCTION IF EXISTS public.fn_kasa_withdraw_owner_capital_from_bank(UUID, UUID, BIGINT, DATE, TEXT, TEXT, TEXT);
 
 -- ============================================================================
--- 3. IDEMPOTENT COLUMN ADDITIONS & SAFE LEGACY CONVERSION
+-- 3. BANK ACCOUNTS TABLE (MUST PRECEDE ALL REFERENCES)
+-- ============================================================================
+-- Table 1: Bank Accounts
+CREATE TABLE IF NOT EXISTS public.kasa_bank_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    account_name TEXT NOT NULL,
+    bank_name TEXT NOT NULL,
+    account_no TEXT,
+    iban TEXT,
+    currency_code TEXT NOT NULL DEFAULT 'TRY',
+    opening_balance_kurus BIGINT NOT NULL DEFAULT 0,
+    current_balance_kurus BIGINT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    display_order INT NOT NULL DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================================================
+-- 4. IDEMPOTENT COLUMN ADDITIONS & SAFE LEGACY CONVERSION
 -- ============================================================================
 ALTER TABLE public.kasa_sales ADD COLUMN IF NOT EXISTS service_cost_payment_source TEXT DEFAULT NULL;
 ALTER TABLE public.kasa_sales ADD COLUMN IF NOT EXISTS service_cost_bank_account_id UUID REFERENCES public.kasa_bank_accounts(id) DEFAULT NULL;
@@ -89,7 +109,7 @@ SET service_cost_payment_source = CASE
 WHERE service_cost_payment_source IS NULL;
 
 -- ============================================================================
--- 4. ENUM & CONSTRAINT ALIGNMENT
+-- 5. ENUM & CONSTRAINT ALIGNMENT
 -- ============================================================================
 
 -- A1. Add sales service cost payment source constraint
@@ -273,25 +293,8 @@ CREATE TRIGGER trg_kasa_validate_service_cost_status
     EXECUTE FUNCTION public.fn_kasa_validate_service_cost_status();
 
 -- ============================================================================
--- 5. TABLE DEFINITIONS (BANK ACCOUNTS, SETTINGS, TRANSACTIONS, IDEMPOTENCY)
+-- 6. REMAINING TABLE DEFINITIONS (SETTINGS, TRANSACTIONS, IDEMPOTENCY)
 -- ============================================================================
-
--- Table 1: Bank Accounts
-CREATE TABLE IF NOT EXISTS public.kasa_bank_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    account_name TEXT NOT NULL,
-    bank_name TEXT NOT NULL,
-    account_no TEXT,
-    iban TEXT,
-    currency_code TEXT NOT NULL DEFAULT 'TRY',
-    opening_balance_kurus BIGINT NOT NULL DEFAULT 0,
-    current_balance_kurus BIGINT NOT NULL DEFAULT 0,
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    display_order INT NOT NULL DEFAULT 0,
-    notes TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
 
 -- Table 2: Bank Settings (POS Settlement Tracking)
 CREATE TABLE IF NOT EXISTS public.kasa_bank_settings (
@@ -363,7 +366,7 @@ CREATE INDEX IF NOT EXISTS idx_kasa_bank_tx_related_sale ON public.kasa_bank_tra
 CREATE INDEX IF NOT EXISTS idx_kasa_idempotency_created ON public.kasa_idempotency_keys(created_at);
 
 -- ============================================================================
--- 6. HELPER FUNCTIONS & TRIGGERS
+-- 7. HELPER FUNCTIONS & TRIGGERS
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.fn_kasa_check_idempotency(
@@ -1262,7 +1265,7 @@ END;
 $$;
 
 -- ============================================================================
--- 9. PERMISSIONS & STRICT SECURITY HARDENING (RLS & SERVICE_ROLE ONLY)
+-- 10. PERMISSIONS & STRICT SECURITY HARDENING (RLS & SERVICE_ROLE ONLY)
 -- ============================================================================
 
 -- Table RLS & Grants

@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     // 1. Kasa Günü Bilgisi
     const { data: day, error: dayError } = await supabase
       .from('kasa_days')
-      .select('*')
+      .select('*, bank_account:kasa_bank_accounts(account_name)')
       .eq('id', dayId)
       .single();
 
@@ -199,6 +199,9 @@ export async function GET(req: Request) {
         amount_kurus: Number(e.amount_kurus || 0),
         description: e.description,
         recipient_name: e.recipient_name || '',
+        payment_method: e.payment_method || 'cash',
+        bank_account_id: e.bank_account_id || null,
+        bank_account_name: Array.isArray(e.bank_account) ? e.bank_account[0]?.account_name : e.bank_account?.account_name,
         status: e.status,
         created_at: e.created_at,
         created_by_user_id: createdByUserId,
@@ -227,7 +230,7 @@ export async function GET(req: Request) {
       nakit_tahsilat: 'Nakit Tahsilat',
       kredi_karti_tahsilat: 'Kredi Kartı Tahsilat',
       bank_transfer_tahsilat: 'Havale / EFT Tahsilat',
-      nakit_gider: 'Gider Ödemesi',
+      nakit_gider: 'Nakit Gider',
       salary_payment: 'Personel Maaş Ödemesi',
       iade: 'Satış İadesi',
       iptal: 'Satış İptali',

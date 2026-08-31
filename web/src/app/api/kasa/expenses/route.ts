@@ -41,11 +41,11 @@ export async function POST(req: Request) {
   try {
     const auth = await requireKasaAuth();
     const body = await req.json();
-    const { expense_category_id, amount_tl, description, recipient_name } = body;
+    const { expense_category_id, amount_kurus, description, recipient_name, payment_method, bank_account_id, idempotency_key } = body;
 
-    if (!expense_category_id || !amount_tl || !description || !String(description).trim()) {
+    if (!expense_category_id || !Number.isSafeInteger(amount_kurus) || !description || !String(description).trim() || !payment_method || !idempotency_key) {
       return NextResponse.json(
-        { error: 'Gider kategorisi, tutar ve açıklama zorunludur.' },
+        { error: 'Gider kategorisi, kuruş tutarı, açıklama, ödeme yöntemi ve işlem anahtarı zorunludur.' },
         { status: 400 }
       );
     }
@@ -68,7 +68,17 @@ export async function POST(req: Request) {
       );
     }
 
-    const amountKurus = Math.round(Number(amount_tl) * 100);
+    if (payment_method !== 'cash' && payment_method !== 'bank') {
+      return NextResponse.json({ error: 'Geçersiz ödeme yöntemi.' }, { status: 400 });
+    }
+    if (payment_method === 'cash' && bank_account_id) {
+      return NextResponse.json({ error: 'Nakit giderde banka hesabı seçilemez.' }, { status: 400 });
+    }
+    if (payment_method === 'bank' && (!bank_account_id || auth.user.role !== 'yonetici')) {
+      return NextResponse.json({ error: 'Banka gideri yalnız yönetici tarafından aktif TRY hesabından kaydedilebilir.' }, { status: 403 });
+    }
+
+    const amountKurus = Number(amount_kurus);
     if (amountKurus <= 0) {
       return NextResponse.json({ error: 'Gider tutarı 0 veya negatif olamaz.' }, { status: 400 });
     }
@@ -80,7 +90,11 @@ export async function POST(req: Request) {
       String(expense_category_id),
       amountKurus,
       String(description).trim(),
-      recipient_name ? String(recipient_name).trim() : undefined
+      recipient_name ? String(recipient_name).trim() : undefined,
+      undefined,
+      payment_method,
+      bank_account_id ? String(bank_account_id) : undefined,
+      String(idempotency_key)
     );
 
     return NextResponse.json({ success: true, expense });

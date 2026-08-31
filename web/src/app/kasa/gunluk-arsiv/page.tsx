@@ -34,6 +34,8 @@ interface ExpenseSummaryItem {
   active_total_kurus: number;
   cancelled_total_kurus: number;
   net_total_kurus: number;
+  cash_total_kurus: number;
+  bank_total_kurus: number;
 }
 
 interface TSDirectCostItem {
@@ -71,15 +73,19 @@ export default function StaffDailyArchivePage() {
   const [movements, setMovements] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [expenseCategories, setExpenseCategories] = useState<Array<{id:string;name:string}>>([]);
+  const [expenseCategoryDrafts, setExpenseCategoryDrafts] = useState<Record<string,string>>({});
+  const [expenseCorrectionBusy, setExpenseCorrectionBusy] = useState<string | null>(null);
 
   const loadDays = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [meRes, daysRes] = await Promise.all([
+      const [meRes, daysRes, categoryRes] = await Promise.all([
         fetch('/api/kasa/auth/me'),
         fetch('/api/kasa/days'),
+        fetch('/api/kasa/expense-categories'),
       ]);
 
       if (meRes.ok) {
@@ -92,6 +98,10 @@ export default function StaffDailyArchivePage() {
 
       const sorted = (daysData.days || daysData.items || []).sort((a: DayItem, b: DayItem) => b.date_val.localeCompare(a.date_val));
       setDays(sorted);
+      if (categoryRes.ok) {
+        const categoryData = await categoryRes.json();
+        setExpenseCategories(categoryData.items || []);
+      }
 
       if (sorted.length > 0 && !selectedDay) {
         setSelectedDay(sorted[0]);
@@ -117,6 +127,7 @@ export default function StaffDailyArchivePage() {
       const detailData = await detailRes.json();
       if (!detailRes.ok) throw new Error(detailData.error || 'Gün detayları okunamadı.');
       setDayDetail(detailData);
+      setExpenseCategoryDrafts(Object.fromEntries((detailData.expenses || []).map((e: any) => [e.entity_id, e.expense_category_id])));
 
       const summaryData = await summaryRes.json();
       if (summaryRes.ok) {
@@ -145,6 +156,40 @@ export default function StaffDailyArchivePage() {
       loadDayDetail(selectedDay);
     }
   }, [selectedDay]);
+
+  const handleExpenseCategoryCorrection = async (expense: any) => {
+    if (!selectedDay || user?.role !== 'yonetici') return;
+    const newCategoryId = expenseCategoryDrafts[expense.entity_id];
+    if (!newCategoryId || newCategoryId === expense.expense_category_id) return;
+    const justification = window.prompt('Kategori düzeltme gerekçesini yazın:');
+    if (!justification?.trim()) {
+      setDetailError('Kategori düzeltmesi için gerekçe zorunludur.');
+      return;
+    }
+    try {
+      setExpenseCorrectionBusy(expense.entity_id);
+      setDetailError(null);
+      const res = await fetch(`/api/kasa/expenses/${expense.entity_id}/update`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          expense_category_id: newCategoryId,
+          amount_kurus: Number(expense.amount_kurus),
+          description: expense.description,
+          recipient_name: expense.recipient_name || undefined,
+          justification: justification.trim(),
+          payment_method: expense.payment_method || 'cash',
+          bank_account_id: expense.bank_account_id || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gider kategorisi düzeltilemedi.');
+      await loadDayDetail(selectedDay);
+    } catch (err: any) {
+      setDetailError(err.message || 'Gider kategorisi düzeltilemedi.');
+    } finally {
+      setExpenseCorrectionBusy(null);
+    }
+  };
 
   const handleExportCSV = () => {
     if (!selectedDay || !movements) return;
@@ -307,12 +352,14 @@ export default function StaffDailyArchivePage() {
                             <th className="p-3 text-right">Brüt Gider Toplamı</th>
                             <th className="p-3 text-right">İptal / Düzeltme Toplamı</th>
                             <th className="p-3 text-right">Net Aktif Gider Toplamı</th>
+                            <th className="p-3 text-right">Nakit</th>
+                            <th className="p-3 text-right">Banka</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {expenseSummary.length === 0 ? (
                             <tr>
-                              <td colSpan={5} className="p-4 text-center text-slate-400 font-medium italic">
+                              <td colSpan={7} className="p-4 text-center text-slate-400 font-medium italic">
                                 {selectedDay.date_val} tarihinde genel kasa gideri kaydedilmemiştir.
                               </td>
                             </tr>
@@ -323,7 +370,9 @@ export default function StaffDailyArchivePage() {
                                 <td className="p-3 text-center font-bold text-slate-700">{item.count}</td>
                                 <td className="p-3 text-right font-bold text-rose-600">{formatTL(item.active_total_kurus)}</td>
                                 <td className="p-3 text-right font-medium text-slate-400">{formatTL(item.cancelled_total_kurus)}</td>
-                                <td className="p-3 text-right font-black text-rose-700">{formatTL(item.net_total_kurus)}</td>
+                              <td className="p-3 text-right font-black text-rose-700">{formatTL(item.net_total_kurus)}</td>
+                              <td className="p-3 text-right">{formatTL(item.cash_total_kurus || 0)}</td>
+                              <td className="p-3 text-right">{formatTL(item.bank_total_kurus || 0)}</td>
                               </tr>
                             ))
                           )}
@@ -342,9 +391,43 @@ export default function StaffDailyArchivePage() {
                               <td className="p-3 text-right text-rose-700 text-sm">
                                 {formatTL(expenseSummary.reduce((sum, i) => sum + i.net_total_kurus, 0))}
                               </td>
+                              <td className="p-3 text-right">{formatTL(expenseSummary.reduce((sum, i) => sum + (i.cash_total_kurus || 0), 0))}</td>
+                              <td className="p-3 text-right">{formatTL(expenseSummary.reduce((sum, i) => sum + (i.bank_total_kurus || 0), 0))}</td>
                             </tr>
                           </tfoot>
                         )}
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <h4 className="text-xs font-extrabold text-slate-700 uppercase">Gider Kayıtları</h4>
+                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px]"><tr>
+                          <th className="p-3">Kategori</th><th className="p-3">Açıklama</th><th className="p-3">Ödeme Kaynağı</th>
+                          <th className="p-3 text-right">Tutar</th><th className="p-3 text-center">Kategori Düzelt</th>
+                        </tr></thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {(dayDetail?.expenses || []).map((expense: any) => <tr key={expense.entity_id}>
+                            <td className="p-3 font-semibold">{expense.category_name}</td>
+                            <td className="p-3">{expense.description}</td>
+                            <td className="p-3 font-semibold">{expense.payment_method === 'bank' ? (expense.bank_account_name || 'Banka Hesabı') : 'Nakit Kasa'}</td>
+                            <td className="p-3 text-right font-bold">{formatTL(expense.amount_kurus)}</td>
+                            <td className="p-3"><div className="flex gap-2 justify-center">
+                              <select disabled={user?.role !== 'yonetici' || selectedDay.status !== 'open' || expense.status !== 'active'}
+                                value={expenseCategoryDrafts[expense.entity_id] || expense.expense_category_id}
+                                onChange={(e) => setExpenseCategoryDrafts((old) => ({...old,[expense.entity_id]:e.target.value}))}
+                                className="p-2 border border-slate-200 rounded-lg bg-white">
+                                {expenseCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                              </select>
+                              <button type="button" disabled={user?.role !== 'yonetici' || selectedDay.status !== 'open' || expense.status !== 'active' || expenseCorrectionBusy === expense.entity_id || (expenseCategoryDrafts[expense.entity_id] || expense.expense_category_id) === expense.expense_category_id}
+                                onClick={() => handleExpenseCategoryCorrection(expense)} className="px-3 py-2 bg-blue-600 text-white rounded-lg font-bold disabled:opacity-40">
+                                {expenseCorrectionBusy === expense.entity_id ? 'Kaydediliyor…' : 'Düzelt'}
+                              </button>
+                            </div></td>
+                          </tr>)}
+                        </tbody>
                       </table>
                     </div>
                   </div>

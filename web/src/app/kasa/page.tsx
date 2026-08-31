@@ -79,6 +79,9 @@ interface ExpenseItem {
   amount_kurus: number;
   description: string;
   recipient_name?: string;
+  payment_method: 'cash' | 'bank';
+  bank_account_id?: string | null;
+  bank_account_name?: string;
   status?: 'active' | 'cancelled';
   cancelled_at?: string;
   cancel_reason?: string;
@@ -97,6 +100,8 @@ interface ExpenseSummaryItem {
   active_total_kurus: number;
   cancelled_total_kurus: number;
   net_total_kurus: number;
+  cash_total_kurus: number;
+  bank_total_kurus: number;
 }
 
 interface TSDirectCostItem {
@@ -141,6 +146,10 @@ export default function KasaMainDashboardPage() {
   const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const [expenseError, setExpenseError] = useState<string | null>(null);
   const [expenseSuccess, setExpenseSuccess] = useState<string | null>(null);
+  const [expensePaymentMethod, setExpensePaymentMethod] = useState<'cash' | 'bank'>('cash');
+  const [expenseBankAccountId, setExpenseBankAccountId] = useState('');
+  const [expenseBankAccounts, setExpenseBankAccounts] = useState<Array<{id:string;account_name:string;bank_name:string;current_balance_kurus:number}>>([]);
+  const [expenseIdempotencyKey, setExpenseIdempotencyKey] = useState('');
 
   // Gider Listesi Modalı State'leri
   const [showExpenseListModal, setShowExpenseListModal] = useState(false);
@@ -304,10 +313,16 @@ export default function KasaMainDashboardPage() {
     setExpenseAmountTL('');
     setExpenseDescription('');
     setExpenseRecipient('');
+    setExpensePaymentMethod('cash');
+    setExpenseBankAccountId('');
+    setExpenseIdempotencyKey(crypto.randomUUID());
     setExpenseCategoriesLoading(true);
 
     try {
-      const res = await fetch('/api/kasa/expense-categories');
+      const [res, bankRes] = await Promise.all([
+        fetch('/api/kasa/expense-categories'),
+        fetch('/api/kasa/bank-account-options'),
+      ]);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Gider kategorileri yüklenemedi. Lütfen tekrar deneyin.');
@@ -318,6 +333,10 @@ export default function KasaMainDashboardPage() {
         return true;
       });
       setExpenseCategories(validItems);
+      if (bankRes.ok) {
+        const bankData = await bankRes.json();
+        setExpenseBankAccounts(bankData.accounts || bankData.items || []);
+      }
       if (validItems.length > 0) {
         setExpenseCatId(validItems[0].id);
       } else {
@@ -352,6 +371,14 @@ export default function KasaMainDashboardPage() {
       setExpenseError('Gider açıklaması zorunludur.');
       return;
     }
+    if (!expensePaymentMethod) {
+      setExpenseError('Ödeme yöntemi zorunludur.');
+      return;
+    }
+    if (expensePaymentMethod === 'bank' && !expenseBankAccountId) {
+      setExpenseError('Aktif TRY banka hesabı seçin.');
+      return;
+    }
 
     try {
       setExpenseSubmitting(true);
@@ -360,9 +387,12 @@ export default function KasaMainDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           expense_category_id: expenseCatId,
-          amount_tl: amt,
+          amount_kurus: Math.round(amt * 100),
           description: expenseDescription.trim(),
           recipient_name: expenseRecipient.trim() || undefined,
+          payment_method: expensePaymentMethod,
+          bank_account_id: expensePaymentMethod === 'bank' ? expenseBankAccountId : null,
+          idempotency_key: expenseIdempotencyKey,
         }),
       });
 
@@ -373,6 +403,7 @@ export default function KasaMainDashboardPage() {
       setExpenseAmountTL('');
       setExpenseDescription('');
       setExpenseRecipient('');
+      setExpenseIdempotencyKey('');
       setShowExpenseModal(false);
       await loadData();
     } catch (err: any) {
@@ -842,12 +873,14 @@ export default function KasaMainDashboardPage() {
                     <th className="p-3 text-right">Brüt Gider Toplamı</th>
                     <th className="p-3 text-right">İptal / Düzeltme Toplamı</th>
                     <th className="p-3 text-right">Net Gider Toplamı</th>
+                    <th className="p-3 text-right">Nakit</th>
+                    <th className="p-3 text-right">Banka</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {expenseSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-4 text-center text-slate-400 font-medium italic">
+                      <td colSpan={7} className="p-4 text-center text-slate-400 font-medium italic">
                         {dateStr} tarihinde genel kasa gideri kaydedilmemiştir.
                       </td>
                     </tr>
@@ -859,6 +892,8 @@ export default function KasaMainDashboardPage() {
                         <td className="p-3 text-right font-bold text-rose-600">{formatTL(item.active_total_kurus)}</td>
                         <td className="p-3 text-right font-medium text-slate-400">{formatTL(item.cancelled_total_kurus)}</td>
                         <td className="p-3 text-right font-black text-rose-700">{formatTL(item.net_total_kurus)}</td>
+                        <td className="p-3 text-right">{formatTL(item.cash_total_kurus || 0)}</td>
+                        <td className="p-3 text-right">{formatTL(item.bank_total_kurus || 0)}</td>
                       </tr>
                     ))
                   )}
@@ -877,6 +912,8 @@ export default function KasaMainDashboardPage() {
                       <td className="p-3 text-right text-rose-700 text-sm">
                         {formatTL(expenseSummary.reduce((sum, i) => sum + i.net_total_kurus, 0))}
                       </td>
+                      <td className="p-3 text-right">{formatTL(expenseSummary.reduce((sum, i) => sum + (i.cash_total_kurus || 0), 0))}</td>
+                      <td className="p-3 text-right">{formatTL(expenseSummary.reduce((sum, i) => sum + (i.bank_total_kurus || 0), 0))}</td>
                     </tr>
                   </tfoot>
                 )}
@@ -1149,6 +1186,65 @@ export default function KasaMainDashboardPage() {
                     💡 Satış fişine bağlı parça/doğrudan maliyeti ayrıca günlük gider olarak tekrar girmeyin.
                   </p>
                 </div>
+
+                <fieldset className="space-y-2">
+                  <legend className="block text-slate-700 font-bold mb-1">Ödeme Yöntemi *</legend>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition ${expensePaymentMethod === 'cash' ? 'bg-rose-50 border-rose-300 text-rose-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                      <input
+                        type="radio"
+                        name="expense-payment"
+                        checked={expensePaymentMethod === 'cash'}
+                        onChange={() => {
+                          setExpensePaymentMethod('cash');
+                          setExpenseBankAccountId('');
+                        }}
+                      />
+                      <span>Nakit (Kasadan)</span>
+                    </label>
+                    <label className={`flex items-center gap-2 p-3 rounded-xl border transition ${user?.role !== 'yonetici' ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-200' : expensePaymentMethod === 'bank' ? 'bg-blue-50 border-blue-300 text-blue-900 font-bold cursor-pointer' : 'bg-slate-50 border-slate-200 text-slate-700 cursor-pointer'}`}>
+                      <input
+                        type="radio"
+                        name="expense-payment"
+                        checked={expensePaymentMethod === 'bank'}
+                        disabled={user?.role !== 'yonetici'}
+                        onChange={() => setExpensePaymentMethod('bank')}
+                      />
+                      <span>Banka (Hesaptan)</span>
+                    </label>
+                  </div>
+                  {user?.role !== 'yonetici' && (
+                    <p className="text-[11px] text-amber-700">
+                      ℹ️ Banka gideri girişi yetki kuralları gereği yalnızca yöneticiler tarafından kaydedilebilir.
+                    </p>
+                  )}
+                </fieldset>
+
+                {expensePaymentMethod === 'bank' && (
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Banka Hesabı *</label>
+                    <select
+                      required
+                      value={expenseBankAccountId}
+                      onChange={(e) => setExpenseBankAccountId(e.target.value)}
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Aktif TRY hesabı seçin</option>
+                      {expenseBankAccounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.bank_name} - {account.account_name}
+                        </option>
+                      ))}
+                    </select>
+                    {expenseBankAccounts.length === 0 ? (
+                      <p className="mt-1 text-[11px] text-amber-600">Aktif TRY banka hesabı bulunamadı.</p>
+                    ) : expenseBankAccountId ? (
+                      <p className="mt-1 text-[11px] text-slate-600">
+                        Kullanılabilir bakiye: {formatTL(expenseBankAccounts.find((a) => a.id === expenseBankAccountId)?.current_balance_kurus || 0)}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">Gider Tutarı (TL) *</label>

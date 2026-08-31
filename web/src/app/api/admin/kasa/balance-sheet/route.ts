@@ -91,14 +91,13 @@ export async function GET() {
 
     const grossProfitTL = grossTurnoverTL - productSalesCostTL - tsDirectCostTL;
 
-    // Giderler (kasa_expenses nakit giderleri + banka işletme giderleri)
+    // Tek gider kaynağı kasa_expenses'tır; ilişkili banka hareketi ikinci kez gider değildir.
     const { data: monthCashExpenses } = await supabase
       .from('kasa_expenses')
-      .select('amount_kurus, expense_category:kasa_expense_categories(is_salary_category)')
+      .select('amount_kurus, payment_method, expense_category:kasa_expense_categories(is_salary_category)')
       .gte('created_at', startOfMonth)
       .lte('created_at', endOfMonth)
-      .eq('status', 'active')
-      .eq('payment_source', 'cash');
+      .eq('status', 'active');
 
     let generalOperatingExpensesTL = 0;
     let salaryExpensesTL = 0;
@@ -112,17 +111,10 @@ export async function GET() {
       }
     });
 
-    const { data: monthBankExpenses } = await supabase
-      .from('kasa_bank_transactions')
-      .select('amount_minor')
-      .gte('created_at', startOfMonth)
-      .lte('created_at', endOfMonth)
-      .eq('status', 'active')
-      .eq('is_operating_expense', true);
+    const bankOperatingExpensesTL = (monthCashExpenses || []).reduce((acc, e: any) =>
+      e.payment_method === 'bank' && !e.expense_category?.is_salary_category ? acc + Number(e.amount_kurus || 0) : acc, 0) / 100;
 
-    const bankOperatingExpensesTL = (monthBankExpenses || []).reduce((acc, t) => acc + Number(t.amount_minor || 0), 0) / 100;
-
-    const totalExpensesTL = generalOperatingExpensesTL + bankOperatingExpensesTL + salaryExpensesTL;
+    const totalExpensesTL = generalOperatingExpensesTL + salaryExpensesTL;
     const netProfitTL = grossProfitTL - totalExpensesTL;
 
     const report = {

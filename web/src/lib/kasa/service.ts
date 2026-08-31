@@ -455,7 +455,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
   const { data: expenses } = await supabase
     .from('kasa_expenses')
     .select(`
-      amount_kurus, sale_id,
+      amount_kurus, sale_id, payment_method,
       category:kasa_expense_categories(name, is_salary_category)
     `)
     .eq('kasa_day_id', dayId)
@@ -540,12 +540,14 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
   }
 
   let expensesTotal = 0;
+  let cashExpensesTotal = 0;
   let salaryExpenses = 0;
   let technicalServiceExpenseFromExpenses = 0;
 
   for (const e of expenses || []) {
     const amt = Number(e.amount_kurus || 0);
     expensesTotal += amt;
+    if (e.payment_method !== 'bank') cashExpensesTotal += amt;
     const expCatObj: any = Array.isArray(e.category) ? e.category[0] : e.category;
     const catName = expCatObj?.name;
     const isSalary = expCatObj?.is_salary_category;
@@ -580,7 +582,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
   const capitalInjected = Number(day?.capital_injected_kurus || 0);
   const ownerWithdrawn = Number(day?.owner_withdrawn_kurus || 0);
 
-  const expectedCash = openingBalance + capitalInjected - ownerWithdrawn + cashCollection + fxConversionsTRYTotal - expensesTotal - cashReturnsTotal - bankDepositsTotal;
+  const expectedCash = openingBalance + capitalInjected - ownerWithdrawn + cashCollection + fxConversionsTRYTotal - cashExpensesTotal - cashReturnsTotal - bankDepositsTotal;
 
   const usdBalanceCents = Number(day?.usd_balance_cents || 0);
   const eurBalanceCents = Number(day?.eur_balance_cents || 0);
@@ -618,7 +620,7 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
     credit_sales_total_kurus: creditSalesTotal,
     credit_collections_total_kurus: creditCollectionsTotal,
     gross_sales_kurus: grossSales,
-    expenses_total_kurus: expensesTotal,
+    expenses_total_kurus: cashExpensesTotal,
     returns_total_kurus: returnsTotal,
     capital_injected_kurus: capitalInjected,
     owner_withdrawn_kurus: ownerWithdrawn,
@@ -973,7 +975,8 @@ export async function listDailyBankDeposits(dayId: string): Promise<KasaBankDepo
     .from('kasa_bank_deposits')
     .select(`
       *,
-      user:kasa_users(full_name)
+      user:kasa_users(full_name),
+      bank_account:kasa_bank_accounts(account_name)
     `)
     .eq('kasa_day_id', dayId)
     .order('created_at', { ascending: false });
@@ -1174,7 +1177,10 @@ export async function createExpense(
   amountKurus: number,
   description: string,
   recipientName?: string,
-  saleId?: string
+  saleId?: string,
+  paymentMethod: 'cash' | 'bank' = 'cash',
+  bankAccountId?: string,
+  idempotencyKey?: string
 ): Promise<KasaExpense> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.rpc('fn_kasa_create_expense', {
@@ -1185,6 +1191,9 @@ export async function createExpense(
     p_description: description.trim(),
     p_recipient_name: recipientName ? recipientName.trim() : null,
     p_sale_id: saleId || null,
+    p_payment_method: paymentMethod,
+    p_bank_account_id: bankAccountId || null,
+    p_idempotency_key: idempotencyKey || null,
   });
 
   if (error || !data) {
@@ -1201,7 +1210,9 @@ export async function updateExpenseTransaction(
   amountKurus: number,
   description: string,
   recipientName?: string,
-  justification?: string
+  justification?: string,
+  paymentMethod: 'cash' | 'bank' = 'cash',
+  bankAccountId?: string
 ): Promise<KasaExpense> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.rpc('fn_kasa_update_expense', {
@@ -1212,6 +1223,8 @@ export async function updateExpenseTransaction(
     p_description: description.trim(),
     p_recipient_name: recipientName ? recipientName.trim() : null,
     p_justification: justification ? justification.trim() : null,
+    p_payment_method: paymentMethod,
+    p_bank_account_id: bankAccountId || null,
   });
 
   if (error || !data) {
@@ -1265,6 +1278,7 @@ export async function listDailyExpenses(dayId: string, actorRole?: KasaUserRole)
       ...item,
       category_name: item.category?.name || 'Gider',
       created_by_name: item.user?.full_name || 'Personel',
+      bank_account_name: item.bank_account?.account_name,
     })) as KasaExpense[];
 }
 
@@ -1287,7 +1301,8 @@ export async function listAllExpenses(options: ExpenseListOptions = {}): Promise
       category:kasa_expense_categories(id, name, is_salary_category),
       user:kasa_users!created_by_user_id(id, full_name),
       canceller:kasa_users!cancelled_by_user_id(id, full_name),
-      kasa_day:kasa_days(date_val)
+      kasa_day:kasa_days(date_val),
+      bank_account:kasa_bank_accounts(account_name)
     `)
     .order('created_at', { ascending: false });
 
@@ -1319,10 +1334,12 @@ export async function listAllExpenses(options: ExpenseListOptions = {}): Promise
     const { data: categories } = await supabase.from('kasa_expense_categories').select('id, name, is_salary_category');
     const { data: users } = await supabase.from('kasa_users').select('id, full_name');
     const { data: days } = await supabase.from('kasa_days').select('id, date_val');
+    const { data: bankAccounts } = await supabase.from('kasa_bank_accounts').select('id, account_name');
 
     const catMap = new Map((categories || []).map((c) => [c.id, c]));
     const userMap = new Map((users || []).map((u) => [u.id, u.full_name]));
     const dayMap = new Map((days || []).map((d) => [d.id, d.date_val]));
+    const bankMap = new Map((bankAccounts || []).map((a) => [a.id, a.account_name]));
 
     return rawExpenses
       .filter((item) => {
@@ -1350,6 +1367,7 @@ export async function listAllExpenses(options: ExpenseListOptions = {}): Promise
           created_by_name: userMap.get(item.created_by_user_id) || 'Personel',
           cancelled_by_name: item.cancelled_by_user_id ? userMap.get(item.cancelled_by_user_id) || 'Yönetici' : null,
           kasa_day_date: dayMap.get(item.kasa_day_id) || item.created_at.split('T')[0],
+          bank_account_name: item.bank_account_id ? bankMap.get(item.bank_account_id) : undefined,
           net_financial_effect_kurus: isActive ? -Number(item.amount_kurus || 0) : 0,
         };
       });
@@ -1368,6 +1386,7 @@ export async function listAllExpenses(options: ExpenseListOptions = {}): Promise
       const creator = Array.isArray(item.user) ? item.user[0] : item.user;
       const canceller = Array.isArray(item.canceller) ? item.canceller[0] : item.canceller;
       const day = Array.isArray(item.kasa_day) ? item.kasa_day[0] : item.kasa_day;
+      const bankAccount = Array.isArray(item.bank_account) ? item.bank_account[0] : item.bank_account;
       const isActive = item.status === 'active';
 
       return {
@@ -1376,6 +1395,7 @@ export async function listAllExpenses(options: ExpenseListOptions = {}): Promise
         created_by_name: creator?.full_name || 'Personel',
         cancelled_by_name: canceller?.full_name || null,
         kasa_day_date: day?.date_val || item.created_at.split('T')[0],
+        bank_account_name: bankAccount?.account_name,
         net_financial_effect_kurus: isActive ? -Number(item.amount_kurus || 0) : 0,
       };
     });
@@ -1903,14 +1923,14 @@ export async function getDailyExpenseCategorySummary(
 
   const { data: expenses } = await supabase
     .from('kasa_expenses')
-    .select('id, expense_category_id, amount_kurus, status')
+    .select('id, expense_category_id, amount_kurus, status, payment_method')
     .eq('kasa_day_id', kasaDayId);
 
-  const expMap = new Map<string, { count: number; active: number; cancelled: number }>();
+  const expMap = new Map<string, { count: number; active: number; cancelled: number; cash: number; bank: number }>();
 
   for (const e of expenses || []) {
     const catId = e.expense_category_id;
-    const cur = expMap.get(catId) || { count: 0, active: 0, cancelled: 0 };
+    const cur = expMap.get(catId) || { count: 0, active: 0, cancelled: 0, cash: 0, bank: 0 };
     const amt = Number(e.amount_kurus || 0);
 
     if (e.status === 'cancelled') {
@@ -1918,6 +1938,8 @@ export async function getDailyExpenseCategorySummary(
     } else {
       cur.count += 1;
       cur.active += amt;
+      if (e.payment_method === 'bank') cur.bank += amt;
+      else cur.cash += amt;
     }
     expMap.set(catId, cur);
   }
@@ -1929,7 +1951,7 @@ export async function getDailyExpenseCategorySummary(
       continue;
     }
 
-    const st = expMap.get(cat.id) || { count: 0, active: 0, cancelled: 0 };
+    const st = expMap.get(cat.id) || { count: 0, active: 0, cancelled: 0, cash: 0, bank: 0 };
     result.push({
       category_id: cat.id,
       category_name: cat.name,
@@ -1938,6 +1960,8 @@ export async function getDailyExpenseCategorySummary(
       active_total_kurus: st.active,
       cancelled_total_kurus: st.cancelled,
       net_total_kurus: st.active,
+      cash_total_kurus: st.cash,
+      bank_total_kurus: st.bank,
     });
   }
 
@@ -2096,7 +2120,7 @@ export async function getUnifiedDailyMovements(params: {
     nakit_tahsilat: 'Nakit Tahsilat',
     kredi_karti_tahsilat: 'Kredi Kartı Tahsilat',
     bank_transfer_tahsilat: 'Havale / EFT Tahsilat',
-    nakit_gider: 'Gider Ödemesi',
+    nakit_gider: 'Nakit Gider',
     salary_payment: 'Personel Maaş Ödemesi',
     iade: 'Satış İadesi',
     iptal: 'Satış İptali',
@@ -2219,7 +2243,7 @@ export async function calculatePhysicalCashForDay(kasaDayId: string): Promise<nu
   const { data: sales } = await supabase.from('kasa_sales').select('cash_paid_kurus').eq('kasa_day_id', kasaDayId).eq('status', 'completed');
   const cashSales = (sales || []).reduce((sum, s) => sum + Number(s.cash_paid_kurus || 0), 0);
 
-  const { data: expenses } = await supabase.from('kasa_expenses').select('amount_kurus').eq('kasa_day_id', kasaDayId).neq('status', 'cancelled');
+  const { data: expenses } = await supabase.from('kasa_expenses').select('amount_kurus').eq('kasa_day_id', kasaDayId).neq('status', 'cancelled').eq('payment_method', 'cash');
   const cashExpenses = (expenses || []).reduce((sum, e) => sum + Number(e.amount_kurus || 0), 0);
 
   const { data: creditPayments } = await supabase.from('kasa_credit_payments').select('cash_paid_kurus').eq('kasa_day_id', kasaDayId);
@@ -2260,7 +2284,8 @@ export async function getDashboardCarryoverInfo(todayDay: KasaDay): Promise<Dash
     .from('kasa_expenses')
     .select('amount_kurus')
     .eq('kasa_day_id', todayDayId)
-    .neq('status', 'cancelled');
+    .neq('status', 'cancelled')
+    .eq('payment_method', 'cash');
 
   const today_active_expenses_kurus = (expToday || []).reduce((sum, e) => sum + Number(e.amount_kurus || 0), 0);
 

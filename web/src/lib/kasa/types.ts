@@ -178,6 +178,11 @@ export interface KasaExpense {
   amount_kurus: number;
   description: string;
   recipient_name?: string;
+  payment_method: 'cash' | 'bank';
+  bank_account_id?: string | null;
+  bank_transaction_id?: string | null;
+  bank_account_name?: string;
+  idempotency_key?: string;
   status?: 'active' | 'cancelled';
   cancelled_at?: string;
   cancelled_by_user_id?: string;
@@ -355,6 +360,8 @@ export interface KasaExpenseCategorySummary {
   active_total_kurus: number;
   cancelled_total_kurus: number;
   net_total_kurus: number;
+  cash_total_kurus?: number;
+  bank_total_kurus?: number;
 }
 
 export interface KasaUnifiedMovement {

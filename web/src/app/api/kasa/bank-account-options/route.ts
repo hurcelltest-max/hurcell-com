@@ -15,7 +15,9 @@ export async function GET(req: Request) {
     const supabase = getSupabaseAdmin();
     const { data: accounts, error } = await supabase
       .from('kasa_bank_accounts')
-      .select('id, account_name, bank_name, currency_code, status, is_active')
+      .select('id, account_name, bank_name, currency_code, current_balance_kurus, is_active')
+      .eq('is_active', true)
+      .eq('currency_code', 'TRY')
       .order('account_name', { ascending: true });
 
     if (error) {
@@ -28,6 +30,9 @@ export async function GET(req: Request) {
 
     const items = activeAccounts.map((a: any) => ({
       id: a.id,
+      account_name: a.account_name,
+      bank_name: a.bank_name,
+      current_balance_kurus: Number(a.current_balance_kurus || 0),
       display_name: `${a.bank_name || 'Banka'} - ${a.account_name} (${a.currency_code || 'TRY'})`,
     }));
 

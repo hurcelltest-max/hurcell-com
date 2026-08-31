@@ -66,10 +66,12 @@ export default function AdminKasaOverviewPage() {
   const [foreignAmount, setForeignAmount] = useState('');
   const [actualRate, setActualRate] = useState('');
   const [manualRateInput, setManualRateInput] = useState('');
-
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [selectedExpenseCatId, setSelectedExpenseCatId] = useState('');
   const [recipientName, setRecipientName] = useState('');
+  const [expensePaymentMethod, setExpensePaymentMethod] = useState<'cash' | 'bank'>('cash');
+  const [expenseBankAccountId, setExpenseBankAccountId] = useState('');
+  const [expenseBankAccounts, setExpenseBankAccounts] = useState<Array<{ id: string; account_name: string; bank_name: string; current_balance_kurus: number }>>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -80,15 +82,26 @@ export default function AdminKasaOverviewPage() {
   const checkBootstrap = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/admin/kasa/bootstrap');
+      const res = await fetch('/api/admin/kasa/check');
       const data = await res.json();
-      setHasManager(data.hasManager);
+      setHasManager(data.has_manager);
 
-      const catRes = await fetch('/api/kasa/expense-categories');
+      const [catRes, bankRes] = await Promise.all([
+        fetch('/api/kasa/expense-categories'),
+        fetch('/api/kasa/bank-account-options'),
+      ]);
+
       if (catRes.ok) {
         const catData = await catRes.json();
-        setExpenseCategories(catData.categories || []);
-        if (catData.categories?.length > 0) setSelectedExpenseCatId(catData.categories[0].id);
+        setExpenseCategories(catData.categories || catData.items || []);
+        if ((catData.categories || catData.items)?.length > 0) {
+          setSelectedExpenseCatId((catData.categories || catData.items)[0].id);
+        }
+      }
+
+      if (bankRes.ok) {
+        const bankData = await bankRes.json();
+        setExpenseBankAccounts(bankData.items || bankData.accounts || []);
       }
 
       const settingsRes = await fetch('/api/admin/kasa/settings');
@@ -209,20 +222,30 @@ export default function AdminKasaOverviewPage() {
         if (!amountTL || Number(amountTL) <= 0) return setActionError('Lütfen geçerli bir tutar girin.');
         if (!selectedExpenseCatId) return setActionError('Lütfen bir gider kategorisi seçin.');
         if (!description.trim()) return setActionError('Lütfen gider açıklaması girin.');
+        if (expensePaymentMethod === 'bank' && !expenseBankAccountId) return setActionError('Lütfen aktif bir TRY banka hesabı seçin.');
 
         const res = await fetch('/api/kasa/expenses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             expense_category_id: selectedExpenseCatId,
-            amount_tl: Number(amountTL),
+            amount_kurus: Math.round(Number(amountTL) * 100),
             description: description.trim(),
-            recipient_name: recipientName.trim(),
+            recipient_name: recipientName.trim() || undefined,
+            payment_method: expensePaymentMethod,
+            bank_account_id: expensePaymentMethod === 'bank' ? expenseBankAccountId : null,
+            idempotency_key: crypto.randomUUID(),
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Gider kaydı eklenemedi.');
         setActionSuccess('Gider/Maaş kaydı başarıyla eklendi.');
+        setAmountTL('');
+        setDescription('');
+        setRecipientName('');
+        setExpensePaymentMethod('cash');
+        setExpenseBankAccountId('');
+        await checkBootstrap();
       } else if (modalType === 'bank_deposit') {
         if (carryoverInfo?.carryover_status === 'pending_previous_close') {
           return setActionError('Önceki kasa günleri kapatılıp bugünün devri onaylanana kadar bankaya para yatırma işlemi yapılamaz.');
@@ -887,19 +910,74 @@ export default function AdminKasaOverviewPage() {
               ) : (
                 <>
                   {modalType === 'expense' && (
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Gider Kategorisi *</label>
-                      <select
-                        value={selectedExpenseCatId}
-                        onChange={(e) => setSelectedExpenseCatId(e.target.value)}
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold"
-                      >
-                        {expenseCategories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} {c.is_salary_category ? '(Maaş)' : ''}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Gider Kategorisi *</label>
+                        <select
+                          value={selectedExpenseCatId}
+                          onChange={(e) => setSelectedExpenseCatId(e.target.value)}
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold"
+                        >
+                          {expenseCategories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} {c.is_salary_category ? '(Maaş)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <fieldset className="space-y-2">
+                        <legend className="block text-xs font-bold uppercase text-slate-600 mb-1">Ödeme Yöntemi *</legend>
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition ${expensePaymentMethod === 'cash' ? 'bg-rose-50 border-rose-300 text-rose-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                            <input
+                              type="radio"
+                              name="admin-expense-payment"
+                              checked={expensePaymentMethod === 'cash'}
+                              onChange={() => {
+                                setExpensePaymentMethod('cash');
+                                setExpenseBankAccountId('');
+                              }}
+                            />
+                            <span>Nakit Kasadan</span>
+                          </label>
+                          <label className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition ${expensePaymentMethod === 'bank' ? 'bg-blue-50 border-blue-300 text-blue-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                            <input
+                              type="radio"
+                              name="admin-expense-payment"
+                              checked={expensePaymentMethod === 'bank'}
+                              onChange={() => setExpensePaymentMethod('bank')}
+                            />
+                            <span>Banka Hesabından</span>
+                          </label>
+                        </div>
+                      </fieldset>
+
+                      {expensePaymentMethod === 'bank' && (
+                        <div>
+                          <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Banka Hesabı *</label>
+                          <select
+                            required
+                            value={expenseBankAccountId}
+                            onChange={(e) => setExpenseBankAccountId(e.target.value)}
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold"
+                          >
+                            <option value="">Aktif TRY hesabı seçin</option>
+                            {expenseBankAccounts.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.bank_name} - {a.account_name}
+                              </option>
+                            ))}
+                          </select>
+                          {expenseBankAccounts.length === 0 ? (
+                            <p className="mt-1 text-[11px] text-amber-600">Aktif TRY banka hesabı bulunamadı.</p>
+                          ) : expenseBankAccountId ? (
+                            <p className="mt-1 text-[11px] text-slate-500">
+                              Kullanılabilir bakiye: {formatTL(expenseBankAccounts.find((a) => a.id === expenseBankAccountId)?.current_balance_kurus || 0)}
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
                   )}
 

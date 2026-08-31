@@ -13,10 +13,12 @@ export async function POST(
 
     const {
       expense_category_id,
-      amount_tl,
+      amount_kurus,
       description,
       recipient_name,
       justification,
+      payment_method,
+      bank_account_id,
     } = body;
 
     if (!justification || !String(justification).trim()) {
@@ -26,14 +28,20 @@ export async function POST(
       );
     }
 
-    if (!expense_category_id || !amount_tl || Number(amount_tl) <= 0 || !description || !String(description).trim()) {
+    if (!expense_category_id || !Number.isSafeInteger(amount_kurus) || amount_kurus <= 0 || !description || !String(description).trim()) {
       return NextResponse.json(
         { error: 'Geçerli bir kategori, tutar ve açıklama girilmesi zorunludur.' },
         { status: 400 }
       );
     }
 
-    const amountKurus = Math.round(Number(amount_tl) * 100);
+    const amountKurus = Number(amount_kurus);
+    if (payment_method !== 'cash' && payment_method !== 'bank') {
+      return NextResponse.json({ error: 'Ödeme yöntemi zorunludur.' }, { status: 400 });
+    }
+    if (payment_method === 'bank' && auth.user.role !== 'yonetici') {
+      return NextResponse.json({ error: 'Banka gideri yalnız yöneticiler tarafından düzenlenebilir.' }, { status: 403 });
+    }
 
     const updatedExpense = await updateExpenseTransaction(
       auth.user.id,
@@ -42,7 +50,9 @@ export async function POST(
       amountKurus,
       String(description).trim(),
       recipient_name ? String(recipient_name).trim() : undefined,
-      String(justification).trim()
+      String(justification).trim(),
+      payment_method,
+      bank_account_id ? String(bank_account_id) : undefined
     );
 
     return NextResponse.json({ success: true, expense: updatedExpense });

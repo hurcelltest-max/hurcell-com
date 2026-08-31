@@ -400,6 +400,7 @@ export interface KasaBankAccount {
   account_name: string;
   bank_name: string;
   account_no?: string | null;
+  account_no_masked?: string | null;
   iban?: string | null;
   iban_masked?: string | null;
   currency_code: string;

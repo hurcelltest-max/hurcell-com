@@ -74,15 +74,28 @@ export default function KasaSatisPage() {
   const [userRole, setUserRole] = useState<'yonetici' | 'personel'>('personel');
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sale_${Date.now()}`));
 
+  const [isPreviousDayUnclosed, setIsPreviousDayUnclosed] = useState(false);
+  const [unclosedDayDate, setUnclosedDayDate] = useState<string | null>(null);
+
   useEffect(() => {
     async function loadInitialData() {
       try {
         setLoading(true);
-        const [meRes, catRes, rateRes] = await Promise.all([
+        const [meRes, catRes, rateRes, dashRes] = await Promise.all([
           fetch('/api/kasa/auth/me'),
           fetch('/api/kasa/categories'),
           fetch('/api/kasa/rates'),
+          fetch('/api/kasa/dashboard'),
         ]);
+
+        if (dashRes.ok) {
+          const dashData = await dashRes.json();
+          if (dashData.isPreviousDayUnclosed) {
+            setIsPreviousDayUnclosed(true);
+            setUnclosedDayDate(dashData.unclosedDayDate || 'Önceki');
+            setError(`${dashData.unclosedDayDate || 'Önceki'} kasa günü kapatılmadan 1 Eylül işlemi girilemez.`);
+          }
+        }
 
         if (meRes.ok) {
           const meData = await meRes.json();
@@ -190,6 +203,10 @@ export default function KasaSatisPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (isPreviousDayUnclosed) {
+      return setError(`${unclosedDayDate || '31 Ağustos'} kasa günü kapatılmadan 1 Eylül işlemi girilemez.`);
+    }
 
     if (totalPriceNum <= 0) {
       return setError('Lütfen geçerli bir ürün birim fiyatı girin.');
@@ -304,6 +321,30 @@ export default function KasaSatisPage() {
           <ArrowLeft size={18} /> Kasa Föyüne Dön
         </Link>
       </div>
+
+      {isPreviousDayUnclosed && (
+        <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 space-y-3 shadow-md">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={24} className="text-amber-600 shrink-0" />
+              <div>
+                <div className="font-extrabold text-sm text-amber-950 uppercase tracking-wide">
+                  ÖNCEKİ KASA GÜNÜ KAPATILMALI
+                </div>
+                <p className="text-xs text-amber-900 mt-0.5">
+                  {unclosedDayDate || '31 Ağustos'} kasa günü kapatılmadan 1 Eylül işlemi girilemez.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin/kasa/gun-sonu"
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition"
+            >
+              Günü Kapat →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-800 text-sm font-semibold rounded-2xl flex items-center gap-2">
@@ -666,10 +707,15 @@ export default function KasaSatisPage() {
 
         <button
           type="submit"
-          disabled={submitting}
-          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl text-base shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          disabled={submitting || isPreviousDayUnclosed}
+          title={isPreviousDayUnclosed ? `${unclosedDayDate || '31 Ağustos'} kasa günü kapatılmadan 1 Eylül işlemi girilemez.` : undefined}
+          className={`w-full py-4 text-white font-black rounded-2xl text-base shadow-lg transition-all flex items-center justify-center gap-2 ${
+            isPreviousDayUnclosed
+              ? 'bg-slate-400 cursor-not-allowed opacity-60 shadow-none'
+              : 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50'
+          }`}
         >
-          <CheckCircle size={20} /> {submitting ? 'Satış Kaydediliyor...' : 'Satış Kaydını Tamamla'}
+          <CheckCircle size={20} /> {submitting ? 'Satış Kaydediliyor...' : isPreviousDayUnclosed ? 'Önceki Günü Kapatınız' : 'Satış Kaydını Tamamla'}
         </button>
 
       </form>

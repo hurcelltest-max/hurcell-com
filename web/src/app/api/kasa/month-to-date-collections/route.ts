@@ -17,40 +17,49 @@ export async function GET() {
     const startISO = `${startDateStr}T00:00:00.000Z`;
     const endISO = `${endDateStr}T23:59:59.999Z`;
 
-    // 1. Aybaşından bugüne tamamlanan satışlar
-    const { data: sales } = await supabase
-      .from('kasa_sales')
-      .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus, status')
-      .gte('created_at', startISO)
-      .lte('created_at', endISO)
-      .eq('status', 'completed');
+    // 1. Ay kapsamındaki kasa günlerini bul
+    const { data: days } = await supabase
+      .from('kasa_days')
+      .select('id, date_val')
+      .gte('date_val', startDateStr)
+      .lte('date_val', endDateStr);
+
+    const dayIds = (days || []).map((d) => d.id);
 
     let cashSalesMinor = 0;
     let cardSalesMinor = 0;
     let bankTransferSalesMinor = 0;
 
-    (sales || []).forEach((s) => {
-      cashSalesMinor += Number(s.cash_paid_kurus || 0);
-      cardSalesMinor += Number(s.card_paid_kurus || 0);
-      bankTransferSalesMinor += Number(s.bank_transfer_paid_kurus || 0);
-    });
-
-    // 2. Aybaşından bugüne cari tahsilatlar
-    const { data: creditPayments } = await supabase
-      .from('kasa_credit_payments')
-      .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus')
-      .gte('created_at', startISO)
-      .lte('created_at', endISO);
-
     let creditCashMinor = 0;
     let creditCardMinor = 0;
     let creditBankMinor = 0;
 
-    (creditPayments || []).forEach((cp) => {
-      creditCashMinor += Number(cp.cash_paid_kurus || 0);
-      creditCardMinor += Number(cp.card_paid_kurus || 0);
-      creditBankMinor += Number(cp.bank_transfer_paid_kurus || 0);
-    });
+    if (dayIds.length > 0) {
+      // 1. Aybaşından bugüne tamamlanan satışlar (kasa gününe bağlı)
+      const { data: sales } = await supabase
+        .from('kasa_sales')
+        .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus, status')
+        .in('kasa_day_id', dayIds)
+        .eq('status', 'completed');
+
+      (sales || []).forEach((s) => {
+        cashSalesMinor += Number(s.cash_paid_kurus || 0);
+        cardSalesMinor += Number(s.card_paid_kurus || 0);
+        bankTransferSalesMinor += Number(s.bank_transfer_paid_kurus || 0);
+      });
+
+      // 2. Aybaşından bugüne cari tahsilatlar (kasa gününe bağlı)
+      const { data: creditPayments } = await supabase
+        .from('kasa_credit_payments')
+        .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus')
+        .in('kasa_day_id', dayIds);
+
+      (creditPayments || []).forEach((cp) => {
+        creditCashMinor += Number(cp.cash_paid_kurus || 0);
+        creditCardMinor += Number(cp.card_paid_kurus || 0);
+        creditBankMinor += Number(cp.bank_transfer_paid_kurus || 0);
+      });
+    }
 
     const netCashMinor = cashSalesMinor + creditCashMinor;
     const netCardMinor = cardSalesMinor + creditCardMinor;

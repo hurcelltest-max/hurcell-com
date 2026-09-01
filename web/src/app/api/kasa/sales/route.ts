@@ -72,9 +72,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'EKSİK_İDEMPOTENCY_KEY: İşlem güvenliği için geçerli idempotency_key zorunludur.' }, { status: 400 });
     }
 
-    if (!category_id || !product_name || !quantity || !unit_price_tl) {
+    const trimmedProductName = typeof product_name === 'string' ? product_name.trim() : '';
+    if (!trimmedProductName || trimmedProductName.length === 0) {
+      return NextResponse.json({ error: 'GEÇERSİZ_ÜRÜN_ADI: Ürün / Hizmet adı zorunludur.' }, { status: 400 });
+    }
+    if (trimmedProductName.length > 255) {
+      return NextResponse.json({ error: 'GEÇERSİZ_ÜRÜN_ADI: Ürün / Hizmet adı en fazla 255 karakter olabilir.' }, { status: 400 });
+    }
+
+    if (!category_id || !quantity || !unit_price_tl) {
       return NextResponse.json(
-        { error: 'Kategori, Ürün Adı, Miktar ve Birim Fiyat zorunludur.' },
+        { error: 'Kategori, Miktar ve Birim Fiyat zorunludur.' },
         { status: 400 }
       );
     }
@@ -141,7 +149,7 @@ export async function POST(req: Request) {
 
     const sale = await createSaleTransaction(auth.user.id, {
       category_id,
-      product_name: String(product_name).trim(),
+      product_name: trimmedProductName,
       brand: brand ? String(brand).trim() : undefined,
       model: model ? String(model).trim() : undefined,
       product_code: product_code ? String(product_code).trim() : undefined,
@@ -175,16 +183,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, sale });
   } catch (error: any) {
     console.error('[SATIŞ_OLUŞTURMA_HATASI]', {
-      message: error?.message,
-      stack: error?.stack,
       code: error?.code,
+      message: error?.message,
     });
     let userMsg = error?.message || 'Satış oluşturulamadı.';
+    let status = 400;
     if (userMsg.includes('null value in column "receipt_no"') || userMsg.includes('receipt_no')) {
       userMsg = 'SATIŞ_FİŞİ_ÜRETİLEMEDİ: Satış fiş numarası üretilirken bir hata oluştu. Lütfen tekrar deneyiniz.';
+    } else if (userMsg.includes('null value in column "product_name"') || userMsg.includes('product_name')) {
+      userMsg = 'EKSİK_ALAN_HATASI: Ürün / Hizmet adı (product_name) zorunludur.';
+    } else if (userMsg.includes('KASA_GUNU_TARIH_UYUSMAZLIGI') || userMsg.includes('ONCEKI_KASA_GUNU_KAPATILMADI') || userMsg.includes('KASA_GUNU_KAPALI')) {
+      status = 409;
     } else if (userMsg.includes('violates not-null constraint')) {
-      userMsg = 'EKSİK_ALAN_HATASI: Satış kaydında zorunlu bir alan eksik kaldı.';
+      const colMatch = userMsg.match(/null value in column "([^"]+)"/);
+      userMsg = colMatch
+        ? `EKSİK_ALAN_HATASI: Satış kaydında zorunlu alan (${colMatch[1]}) eksik kaldı.`
+        : 'EKSİK_ALAN_HATASI: Satış kaydında zorunlu bir alan eksik kaldı.';
     }
-    return NextResponse.json({ error: userMsg }, { status: 400 });
+    return NextResponse.json({ error: userMsg }, { status });
   }
 }

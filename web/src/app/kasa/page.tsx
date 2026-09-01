@@ -486,7 +486,13 @@ export default function KasaMainDashboardPage() {
 
             <button
               onClick={openExpenseModal}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-rose-600/20 flex items-center gap-2 transition-all active:scale-[0.98]"
+              disabled={isPreviousDayUnclosed}
+              title={isPreviousDayUnclosed ? `${unclosedDayDate || 'Önceki'} kasa günü kapatılmadan yeni gün işlemi girilemez.` : undefined}
+              className={`px-4 py-2 text-white text-sm font-semibold rounded-xl shadow-md flex items-center gap-2 transition-all ${
+                isPreviousDayUnclosed
+                  ? 'bg-slate-400 cursor-not-allowed opacity-60 shadow-none'
+                  : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20 active:scale-[0.98]'
+              }`}
             >
               <MinusCircle size={18} /> Günlük Gider Ekle
             </button>
@@ -498,12 +504,22 @@ export default function KasaMainDashboardPage() {
               <List size={18} /> Giderler
             </button>
 
-            <Link
-              href="/kasa/satis"
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all active:scale-[0.98]"
-            >
-              <PlusCircle size={18} /> Yeni Satış Girişi
-            </Link>
+            {isPreviousDayUnclosed ? (
+              <button
+                disabled
+                title={`${unclosedDayDate || 'Önceki'} kasa günü kapatılmadan yeni gün işlemi girilemez.`}
+                className="px-4 py-2 bg-slate-400 text-white text-sm font-semibold rounded-xl shadow-none flex items-center gap-2 cursor-not-allowed opacity-60"
+              >
+                <PlusCircle size={18} /> Yeni Satış Girişi
+              </button>
+            ) : (
+              <Link
+                href="/kasa/satis"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all active:scale-[0.98]"
+              >
+                <PlusCircle size={18} /> Yeni Satış Girişi
+              </Link>
+            )}
 
             <Link
               href="/kasa/hareketler"

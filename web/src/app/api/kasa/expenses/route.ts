@@ -105,6 +105,8 @@ export async function POST(req: Request) {
         { status: 403 }
       );
     }
-    return NextResponse.json({ error: error.message || 'Gider kaydı eklenemedi.' }, { status: 400 });
+    const msg = error.message || 'Gider kaydı eklenemedi.';
+    const status = (msg.includes('KASA_GUNU_TARIH_UYUSMAZLIGI') || msg.includes('ONCEKI_KASA_GUNU_KAPATILMADI') || msg.includes('KASA_GUNU_KAPALI')) ? 409 : 400;
+    return NextResponse.json({ error: msg }, { status });
   }
 }

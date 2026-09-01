@@ -737,6 +737,7 @@ export async function createSaleTransaction(
     p_actor_user_id: actorUserId,
     p_kasa_day_id: day.id,
     p_category_id: input.category_id,
+    p_product_name: input.product_name.trim(),
     p_quantity: input.quantity,
     p_unit_price_kurus: input.unit_price_kurus,
     p_total_price_kurus: input.quantity * input.unit_price_kurus,
@@ -1659,22 +1660,30 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
   const year = parseInt(yearStr, 10);
   const month = parseInt(monthStr, 10);
 
-  const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
-  const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+  const startDateStr = `${yearStr}-${monthStr}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDateStr = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
-  const startISO = startDate.toISOString();
-  const endISO = endDate.toISOString();
+  // Ay kapsamındaki kasa günlerini bul
+  const { data: monthDays } = await supabase
+    .from('kasa_days')
+    .select('id, date_val')
+    .gte('date_val', startDateStr)
+    .lte('date_val', endDateStr);
 
-  // 1. Sales in month
-  const { data: sales } = await supabase
-    .from('kasa_sales')
-    .select(`
-      *,
-      category:kasa_categories(name)
-    `)
-    .gte('created_at', startISO)
-    .lte('created_at', endISO)
-    .eq('status', 'completed');
+  const dayIds = (monthDays || []).map((d) => d.id);
+
+  // 1. Sales in month (bağlı kasa gününe göre)
+  const { data: sales } = dayIds.length > 0
+    ? await supabase
+        .from('kasa_sales')
+        .select(`
+          *,
+          category:kasa_categories(name)
+        `)
+        .in('kasa_day_id', dayIds)
+        .eq('status', 'completed')
+    : { data: [] };
 
   let gross_sales_kurus = 0;
   let cash_sales_kurus = 0;
@@ -1729,26 +1738,28 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
     }
   }
 
-  // 2. Credit payments collected in month
-  const { data: creditPayments } = await supabase
-    .from('kasa_credit_payments')
-    .select('amount_kurus')
-    .gte('created_at', startISO)
-    .lte('created_at', endISO);
+  // 2. Credit payments collected in month (bağlı kasa gününe göre)
+  const { data: creditPayments } = dayIds.length > 0
+    ? await supabase
+        .from('kasa_credit_payments')
+        .select('amount_kurus')
+        .in('kasa_day_id', dayIds)
+    : { data: [] };
 
   const credit_payments_collected_kurus = (creditPayments || []).reduce((sum, c) => sum + Number(c.amount_kurus || 0), 0);
 
-  // 3. Expenses in month (active only!)
+  // 3. Expenses in month (bağlı kasa gününe göre, aktif olanlar)
   const { data: expCatList } = await supabase.from('kasa_expense_categories').select('id, name, is_salary_category');
   const expCatMap = new Map<string, { name: string; is_salary_category: boolean }>();
   (expCatList || []).forEach((c: any) => expCatMap.set(c.id, { name: c.name, is_salary_category: !!c.is_salary_category }));
 
-  const { data: expenses } = await supabase
-    .from('kasa_expenses')
-    .select('amount_kurus, expense_category_id, status')
-    .gte('created_at', startISO)
-    .lte('created_at', endISO)
-    .neq('status', 'cancelled');
+  const { data: expenses } = dayIds.length > 0
+    ? await supabase
+        .from('kasa_expenses')
+        .select('amount_kurus, expense_category_id, status')
+        .in('kasa_day_id', dayIds)
+        .neq('status', 'cancelled')
+    : { data: [] };
 
   let general_operating_expenses_kurus = 0;
   let salary_expenses_kurus = 0;
@@ -1791,11 +1802,12 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
   const capital_injected_kurus = (days || []).reduce((sum, d) => sum + Number(d.capital_injected_kurus || 0), 0);
   const owner_withdrawn_kurus = (days || []).reduce((sum, d) => sum + Number(d.owner_withdrawn_kurus || 0), 0);
 
-  const { data: bankDeposits } = await supabase
-    .from('kasa_bank_deposits')
-    .select('amount_kurus')
-    .gte('created_at', startISO)
-    .lte('created_at', endISO);
+  const { data: bankDeposits } = dayIds.length > 0
+    ? await supabase
+        .from('kasa_bank_deposits')
+        .select('amount_kurus')
+        .in('kasa_day_id', dayIds)
+    : { data: [] };
 
   const bank_deposits_kurus = (bankDeposits || []).reduce((sum, b) => sum + Number(b.amount_kurus || 0), 0);
 
@@ -1803,12 +1815,13 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
   const end_of_month_cash_kurus = latestDay ? Number(latestDay.counted_cash_kurus || latestDay.opening_balance_kurus || 0) : 0;
 
   // 6. Cancelled sales TS cost & financial loss handling
-  const { data: cancelledSales } = await supabase
-    .from('kasa_sales')
-    .select('service_cost_kurus, cost_price_kurus, service_cost_payment_status, cost_refunded_on_cancel, category:kasa_categories(name)')
-    .eq('status', 'cancelled')
-    .gte('created_at', startISO)
-    .lte('created_at', endISO);
+  const { data: cancelledSales } = dayIds.length > 0
+    ? await supabase
+        .from('kasa_sales')
+        .select('service_cost_kurus, cost_price_kurus, service_cost_payment_status, cost_refunded_on_cancel, category:kasa_categories(name)')
+        .eq('status', 'cancelled')
+        .in('kasa_day_id', dayIds)
+    : { data: [] };
 
   let unrefunded_cancelled_ts_cost_kurus = 0;
   let cancelled_unpaid_ts_cost_kurus = 0;
@@ -2397,41 +2410,49 @@ export async function getMonthToDateCollections() {
 
   const startDateStr = `${year}-${month}-01`;
   const endDateStr = `${year}-${month}-${day}`;
-  const startISO = `${startDateStr}T00:00:00.000Z`;
-  const endISO = `${endDateStr}T23:59:59.999Z`;
+  // Ay kapsamındaki kasa günlerini bul
+  const { data: monthDays } = await supabase
+    .from('kasa_days')
+    .select('id, date_val')
+    .gte('date_val', startDateStr)
+    .lte('date_val', endDateStr);
 
-  const { data: sales } = await supabase
-    .from('kasa_sales')
-    .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus, status')
-    .gte('created_at', startISO)
-    .lte('created_at', endISO)
-    .eq('status', 'completed');
+  const dayIds = (monthDays || []).map((d) => d.id);
 
   let cashSalesMinor = 0;
   let cardSalesMinor = 0;
   let bankTransferSalesMinor = 0;
 
-  (sales || []).forEach((s) => {
-    cashSalesMinor += Number(s.cash_paid_kurus || 0);
-    cardSalesMinor += Number(s.card_paid_kurus || 0);
-    bankTransferSalesMinor += Number(s.bank_transfer_paid_kurus || 0);
-  });
+  if (dayIds.length > 0) {
+    const { data: sales } = await supabase
+      .from('kasa_sales')
+      .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus, status')
+      .in('kasa_day_id', dayIds)
+      .eq('status', 'completed');
 
-  const { data: creditPayments } = await supabase
-    .from('kasa_credit_payments')
-    .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus')
-    .gte('created_at', startISO)
-    .lte('created_at', endISO);
+    (sales || []).forEach((s) => {
+      cashSalesMinor += Number(s.cash_paid_kurus || 0);
+      cardSalesMinor += Number(s.card_paid_kurus || 0);
+      bankTransferSalesMinor += Number(s.bank_transfer_paid_kurus || 0);
+    });
+  }
 
   let creditCashMinor = 0;
   let creditCardMinor = 0;
   let creditBankMinor = 0;
 
-  (creditPayments || []).forEach((cp) => {
-    creditCashMinor += Number(cp.cash_paid_kurus || 0);
-    creditCardMinor += Number(cp.card_paid_kurus || 0);
-    creditBankMinor += Number(cp.bank_transfer_paid_kurus || 0);
-  });
+  if (dayIds.length > 0) {
+    const { data: creditPayments } = await supabase
+      .from('kasa_credit_payments')
+      .select('cash_paid_kurus, card_paid_kurus, bank_transfer_paid_kurus')
+      .in('kasa_day_id', dayIds);
+
+    (creditPayments || []).forEach((cp) => {
+      creditCashMinor += Number(cp.cash_paid_kurus || 0);
+      creditCardMinor += Number(cp.card_paid_kurus || 0);
+      creditBankMinor += Number(cp.bank_transfer_paid_kurus || 0);
+    });
+  }
 
   const netCashMinor = cashSalesMinor + creditCashMinor;
   const netCardMinor = cardSalesMinor + creditCardMinor;

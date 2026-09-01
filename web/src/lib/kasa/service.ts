@@ -990,8 +990,7 @@ export async function listDailyBankDeposits(dayId: string): Promise<KasaBankDepo
     .from('kasa_bank_deposits')
     .select(`
       *,
-      user:kasa_users(full_name),
-      bank_account:kasa_bank_accounts(account_name)
+      user:kasa_users(full_name)
     `)
     .eq('kasa_day_id', dayId)
     .order('created_at', { ascending: false });
@@ -1311,14 +1310,7 @@ export async function listAllExpenses(options: ExpenseListOptions = {}): Promise
 
   let query = supabase
     .from('kasa_expenses')
-    .select(`
-      *,
-      category:kasa_expense_categories(id, name, is_salary_category),
-      user:kasa_users!created_by_user_id(id, full_name),
-      canceller:kasa_users!cancelled_by_user_id(id, full_name),
-      kasa_day:kasa_days(date_val),
-      bank_account:kasa_bank_accounts(account_name)
-    `)
+    .select('*')
     .order('created_at', { ascending: false });
 
   if (options.statusFilter && options.statusFilter !== 'all') {
@@ -1333,84 +1325,43 @@ export async function listAllExpenses(options: ExpenseListOptions = {}): Promise
     query = query.eq('created_by_user_id', options.createdById);
   }
 
-  const { data, error } = await query;
+  const [expensesRes, categoriesRes, usersRes, daysRes, bankAccountsRes] = await Promise.all([
+    query,
+    supabase.from('kasa_expense_categories').select('id, name, is_salary_category'),
+    supabase.from('kasa_users').select('id, full_name'),
+    supabase.from('kasa_days').select('id, date_val'),
+    supabase.from('kasa_bank_accounts').select('id, account_name'),
+  ]);
 
-  if (error) {
-    // If join fails, fall back to safe manual join via separate queries
-    const { data: rawExpenses, error: rawError } = await supabase
-      .from('kasa_expenses')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (rawError || !rawExpenses) {
-      throw new Error(`Gider listesi veritabanından alınamadı: ${error?.message || rawError?.message}`);
-    }
-
-    const { data: categories } = await supabase.from('kasa_expense_categories').select('id, name, is_salary_category');
-    const { data: users } = await supabase.from('kasa_users').select('id, full_name');
-    const { data: days } = await supabase.from('kasa_days').select('id, date_val');
-    const { data: bankAccounts } = await supabase.from('kasa_bank_accounts').select('id, account_name');
-
-    const catMap = new Map((categories || []).map((c) => [c.id, c]));
-    const userMap = new Map((users || []).map((u) => [u.id, u.full_name]));
-    const dayMap = new Map((days || []).map((d) => [d.id, d.date_val]));
-    const bankMap = new Map((bankAccounts || []).map((a) => [a.id, a.account_name]));
-
-    return rawExpenses
-      .filter((item) => {
-        const cat = catMap.get(item.expense_category_id);
-        if (options.actorRole === 'personel' && (cat?.is_salary_category || cat?.name === 'Personel Maaşı')) {
-          return false;
-        }
-        if (options.statusFilter && options.statusFilter !== 'all' && item.status !== options.statusFilter) {
-          return false;
-        }
-        if (options.categoryId && item.expense_category_id !== options.categoryId) {
-          return false;
-        }
-        if (options.createdById && item.created_by_user_id !== options.createdById) {
-          return false;
-        }
-        return true;
-      })
-      .map((item) => {
-        const cat = catMap.get(item.expense_category_id);
-        const isActive = item.status === 'active';
-        return {
-          ...item,
-          category_name: cat?.name || 'Gider',
-          created_by_name: userMap.get(item.created_by_user_id) || 'Personel',
-          cancelled_by_name: item.cancelled_by_user_id ? userMap.get(item.cancelled_by_user_id) || 'Yönetici' : null,
-          kasa_day_date: dayMap.get(item.kasa_day_id) || item.created_at.split('T')[0],
-          bank_account_name: item.bank_account_id ? bankMap.get(item.bank_account_id) : undefined,
-          net_financial_effect_kurus: isActive ? -Number(item.amount_kurus || 0) : 0,
-        };
-      });
+  if (expensesRes.error) {
+    console.error('[listAllExpenses] Giderler sorgu hatası:', expensesRes.error);
+    throw new Error(`Gider listesi veritabanından alınamadı: ${expensesRes.error.message}`);
   }
 
-  return (data || [])
+  const rawExpenses = expensesRes.data || [];
+  const catMap = new Map((categoriesRes.data || []).map((c) => [c.id, c]));
+  const userMap = new Map((usersRes.data || []).map((u) => [u.id, u.full_name]));
+  const dayMap = new Map((daysRes.data || []).map((d) => [d.id, d.date_val]));
+  const bankMap = new Map((bankAccountsRes.data || []).map((a) => [a.id, a.account_name]));
+
+  return rawExpenses
     .filter((item) => {
-      const cat = Array.isArray(item.category) ? item.category[0] : item.category;
+      const cat = catMap.get(item.expense_category_id);
       if (options.actorRole === 'personel' && (cat?.is_salary_category || cat?.name === 'Personel Maaşı')) {
         return false;
       }
       return true;
     })
     .map((item) => {
-      const cat = Array.isArray(item.category) ? item.category[0] : item.category;
-      const creator = Array.isArray(item.user) ? item.user[0] : item.user;
-      const canceller = Array.isArray(item.canceller) ? item.canceller[0] : item.canceller;
-      const day = Array.isArray(item.kasa_day) ? item.kasa_day[0] : item.kasa_day;
-      const bankAccount = Array.isArray(item.bank_account) ? item.bank_account[0] : item.bank_account;
+      const cat = catMap.get(item.expense_category_id);
       const isActive = item.status === 'active';
-
       return {
         ...item,
         category_name: cat?.name || 'Gider',
-        created_by_name: creator?.full_name || 'Personel',
-        cancelled_by_name: canceller?.full_name || null,
-        kasa_day_date: day?.date_val || item.created_at.split('T')[0],
-        bank_account_name: bankAccount?.account_name,
+        created_by_name: userMap.get(item.created_by_user_id) || 'Personel',
+        cancelled_by_name: item.cancelled_by_user_id ? userMap.get(item.cancelled_by_user_id) || 'Yönetici' : null,
+        kasa_day_date: dayMap.get(item.kasa_day_id) || item.created_at?.split('T')[0],
+        bank_account_name: item.bank_account_id ? bankMap.get(item.bank_account_id) : undefined,
         net_financial_effect_kurus: isActive ? -Number(item.amount_kurus || 0) : 0,
       };
     });

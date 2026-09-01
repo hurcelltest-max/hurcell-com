@@ -19,11 +19,12 @@ export async function GET(req: Request) {
     // 1. Kasa Günü Bilgisi
     const { data: day, error: dayError } = await supabase
       .from('kasa_days')
-      .select('*, bank_account:kasa_bank_accounts(account_name)')
+      .select('*')
       .eq('id', dayId)
       .single();
 
     if (dayError || !day) {
+      console.error('[day-detail] Kasa günü sorgu hatası:', dayError);
       return NextResponse.json(
         { error: dayError ? `Veritabanı hatası: ${dayError.message}` : 'Kasa günü bulunamadı.' },
         { status: dayError ? 500 : 404 }
@@ -33,11 +34,12 @@ export async function GET(req: Request) {
     const dayStatus = day.status as 'open' | 'closed';
     const physicalCashKurus = await calculatePhysicalCashForDay(dayId);
 
-    // 2. Ayrı Lookup Sorguları (FK Join bağımlılığı olmadan)
-    const [usersRes, salesCatsRes, expCatsRes] = await Promise.all([
+    // 2. Ayrı Lookup Sorguları (FK Join bağımlılığı olmadan güvenli iki aşamalı birleştirme)
+    const [usersRes, salesCatsRes, expCatsRes, bankAccountsRes] = await Promise.all([
       supabase.from('kasa_users').select('id, full_name'),
       supabase.from('kasa_categories').select('id, name'),
       supabase.from('kasa_expense_categories').select('id, name, is_salary_category'),
+      supabase.from('kasa_bank_accounts').select('id, account_name, currency_code'),
     ]);
 
     const userMap = new Map<string, string>();
@@ -50,6 +52,9 @@ export async function GET(req: Request) {
     (expCatsRes.data || []).forEach((c: any) =>
       expCatMap.set(c.id, { name: c.name, is_salary_category: !!c.is_salary_category })
     );
+
+    const bankMap = new Map<string, string>();
+    (bankAccountsRes.data || []).forEach((b: any) => bankMap.set(b.id, b.account_name));
 
     // 3. Satışlar Sorgusu
     const { data: salesData, error: salesError } = await supabase
@@ -201,7 +206,7 @@ export async function GET(req: Request) {
         recipient_name: e.recipient_name || '',
         payment_method: e.payment_method || 'cash',
         bank_account_id: e.bank_account_id || null,
-        bank_account_name: Array.isArray(e.bank_account) ? e.bank_account[0]?.account_name : e.bank_account?.account_name,
+        bank_account_name: e.bank_account_id ? bankMap.get(e.bank_account_id) || 'Banka' : null,
         status: e.status,
         created_at: e.created_at,
         created_by_user_id: createdByUserId,

@@ -34,10 +34,11 @@ export async function GET(req: Request) {
     const physicalCashKurus = await calculatePhysicalCashForDay(dayId);
 
     // 2. Güvenli Ayrı Lookup Sorguları (Foreign Key Join bağımlılığını tamamen kaldırıyoruz)
-    const [usersRes, salesCatsRes, expCatsRes] = await Promise.all([
+    const [usersRes, salesCatsRes, expCatsRes, bankAccountsRes] = await Promise.all([
       supabase.from('kasa_users').select('id, full_name'),
       supabase.from('kasa_categories').select('id, name'),
       supabase.from('kasa_expense_categories').select('id, name, is_salary_category'),
+      supabase.from('kasa_bank_accounts').select('id, account_name, currency_code'),
     ]);
 
     const userMap = new Map<string, string>();
@@ -50,6 +51,9 @@ export async function GET(req: Request) {
     (expCatsRes.data || []).forEach((c: any) =>
       expCatMap.set(c.id, { name: c.name, is_salary_category: !!c.is_salary_category })
     );
+
+    const bankMap = new Map<string, string>();
+    (bankAccountsRes.data || []).forEach((b: any) => bankMap.set(b.id, b.account_name));
 
     // 3. Satışlar (kasa_sales) Sorgusu
     const { data: salesData, error: salesError } = await supabase
@@ -143,6 +147,9 @@ export async function GET(req: Request) {
         amount_kurus: Number(e.amount_kurus || 0),
         description: e.description,
         recipient_name: e.recipient_name || '',
+        payment_method: e.payment_method || 'cash',
+        bank_account_id: e.bank_account_id || null,
+        bank_account_name: e.bank_account_id ? bankMap.get(e.bank_account_id) || 'Banka' : null,
         status: e.status,
         created_at: e.created_at,
         created_by_name: userMap.get(e.created_by_user_id) || 'Sistem',

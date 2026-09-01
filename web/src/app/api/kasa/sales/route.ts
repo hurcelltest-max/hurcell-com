@@ -174,6 +174,17 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, sale });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Satış oluşturulamadı.' }, { status: 400 });
+    console.error('[SATIŞ_OLUŞTURMA_HATASI]', {
+      message: error?.message,
+      stack: error?.stack,
+      code: error?.code,
+    });
+    let userMsg = error?.message || 'Satış oluşturulamadı.';
+    if (userMsg.includes('null value in column "receipt_no"') || userMsg.includes('receipt_no')) {
+      userMsg = 'SATIŞ_FİŞİ_ÜRETİLEMEDİ: Satış fiş numarası üretilirken bir hata oluştu. Lütfen tekrar deneyiniz.';
+    } else if (userMsg.includes('violates not-null constraint')) {
+      userMsg = 'EKSİK_ALAN_HATASI: Satış kaydında zorunlu bir alan eksik kaldı.';
+    }
+    return NextResponse.json({ error: userMsg }, { status: 400 });
   }
 }

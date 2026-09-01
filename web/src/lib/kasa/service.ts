@@ -771,22 +771,37 @@ export async function createSaleTransaction(
     throw new Error(error?.message || 'Satış kaydı oluşturulamadı.');
   }
 
+  const saleId = (data as any)?.sale_id || (data as any)?.id;
   let sale = data as KasaSale;
 
-  if (input.customer_name || input.customer_phone || input.serial_imei) {
-    const { data: updatedSale } = await supabase
-      .from('kasa_sales')
-      .update({
-        customer_name: input.customer_name ? input.customer_name.trim() : null,
-        customer_phone: input.customer_phone ? input.customer_phone.trim() : null,
-        serial_imei: input.serial_imei ? input.serial_imei.trim() : null,
-      })
-      .eq('id', sale.id)
-      .select('*')
-      .single();
+  if (saleId) {
+    if (input.customer_name || input.customer_phone || input.serial_imei) {
+      await supabase
+        .from('kasa_sales')
+        .update({
+          customer_name: input.customer_name ? input.customer_name.trim() : null,
+          customer_phone: input.customer_phone ? input.customer_phone.trim() : null,
+          serial_imei: input.serial_imei ? input.serial_imei.trim() : null,
+        })
+        .eq('id', saleId);
+    }
 
-    if (updatedSale) {
-      sale = updatedSale as KasaSale;
+    const { data: fullSale } = await supabase
+      .from('kasa_sales')
+      .select(`
+        *,
+        category:kasa_categories(name),
+        user:kasa_users(full_name)
+      `)
+      .eq('id', saleId)
+      .maybeSingle();
+
+    if (fullSale) {
+      sale = {
+        ...fullSale,
+        category_name: (fullSale.category as any)?.name || 'Bilinmeyen Kategori',
+        created_by_name: (fullSale.user as any)?.full_name || 'Bilinmeyen Personel',
+      } as KasaSale;
     }
   }
 

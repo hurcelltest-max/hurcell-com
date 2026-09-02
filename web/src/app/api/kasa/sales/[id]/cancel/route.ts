@@ -40,7 +40,8 @@ export async function POST(
 
     return NextResponse.json({ success: true, sale: cancelledSale });
   } catch (error: any) {
-    const msg = error.message || '';
+    console.error('[Kasa Cancel Sale Error]:', error);
+    const msg = String(error?.message || '');
     if (msg.includes('YETKİSİZ') || msg.includes('FORBIDDEN')) {
       return NextResponse.json({ error: 'Satış iptal yetkisi bulunmamaktadır.' }, { status: 403 });
     }
@@ -53,6 +54,9 @@ export async function POST(
     if (msg.includes('KASA_GÜNÜ_KAPALI') || msg.includes('PREVIOUS_DAY_UNCLOSED') || msg.includes('GÜN_KİLİTLİ')) {
       return NextResponse.json({ error: 'Kasa günü kapalı veya kilitli olduğundan satış iptal edilemez.' }, { status: 400 });
     }
-    return NextResponse.json({ error: msg || 'İptal işlemi başarısız.' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Satış iptali tamamlanamadı. Herhangi bir kayıt değiştirilmedi.' },
+      { status: 400 }
+    );
   }
 }

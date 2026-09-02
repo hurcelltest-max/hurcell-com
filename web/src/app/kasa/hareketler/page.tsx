@@ -9,6 +9,7 @@ import { canEditSale, canCancelSale } from '@/lib/kasa/pure_utils';
 interface User {
   id: string;
   role: 'yonetici' | 'personel';
+  permissions?: string[];
 }
 
 function formatTL(kurus: number): string {
@@ -267,6 +268,7 @@ export default function KasaHareketlerPage() {
         body: JSON.stringify({
           justification: trimmedJustification,
           cost_refunded: cancelCostRefunded,
+          idempotency_key: `sale_cancel_${cancellingMovement.sale_id}_${Date.now()}`,
         }),
       });
 
@@ -399,6 +401,7 @@ export default function KasaHareketlerPage() {
                       saleStatus: m.sale_status,
                       dayStatus: m.kasa_day_status,
                       movementType: m.movement_type,
+                      hasCancelPermission: user?.permissions?.includes('kasa.sale.cancel'),
                     });
 
                     const isTs = m.category_name === 'Teknik Servis';

@@ -6,6 +6,7 @@ export interface KasaSessionPayload {
   fullName: string;
   role: KasaUserRole;
   exp: number;
+  permissions?: string[];
 }
 
 export interface KasaUser {
@@ -16,6 +17,7 @@ export interface KasaUser {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  permissions?: string[];
 }
 
 export interface DashboardCarryoverInfo {

@@ -86,11 +86,14 @@ export async function GET(req: Request) {
         movementType: 'satis',
       });
 
+      const hasCancelPermission = auth.user.role === 'yonetici' || (auth.user.permissions || []).includes('kasa.sale.cancel');
+
       const canCancel = canCancelSale({
         role: auth.user.role,
         saleStatus: s.status,
         dayStatus,
         movementType: 'satis',
+        hasCancelPermission,
       });
 
       let blockReason: string | null = null;
@@ -99,10 +102,10 @@ export async function GET(req: Request) {
       } else if (s.status !== 'completed') {
         blockReason = `İptal veya iade edilmiş satış düzenlenemez (${s.status}).`;
       } else if (auth.user.role === 'personel') {
-        if (!isOwnRecord) {
+        if (!isOwnRecord && !hasCancelPermission) {
           blockReason = 'Personel yalnızca kendi oluşturduğu satışları düzeltebilir.';
         } else if (!canCancel) {
-          blockReason = 'Satış iptal yetkisi yalnızca yöneticilere aittir.';
+          blockReason = 'Satış iptal yetkisi bulunmamaktadır.';
         }
       }
 

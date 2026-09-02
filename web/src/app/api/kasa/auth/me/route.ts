@@ -14,6 +14,7 @@ export async function GET() {
       username: auth.user.username,
       full_name: auth.user.full_name,
       role: auth.user.role,
+      permissions: auth.user.permissions || [],
     },
   });
 }

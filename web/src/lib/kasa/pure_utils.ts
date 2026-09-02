@@ -207,11 +207,12 @@ export function canCancelSale(input: {
   saleStatus?: string;
   dayStatus?: string;
   movementType?: string;
+  hasCancelPermission?: boolean;
 }): boolean {
   if (input.movementType !== 'satis') return false;
   if (input.saleStatus !== 'completed') return false;
   if (input.dayStatus !== 'open') return false;
-  return input.role === 'yonetici';
+  return input.role === 'yonetici' || !!input.hasCancelPermission;
 }
 
 export function canEditExpense(input: {

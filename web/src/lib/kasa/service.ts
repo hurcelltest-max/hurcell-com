@@ -80,6 +80,28 @@ export async function getUserByUsername(username: string): Promise<(KasaUser & {
   return data;
 }
 
+export async function getUserPermissions(userId: string): Promise<string[]> {
+  const supabase = getSupabaseAdmin();
+  try {
+    const { data, error } = await supabase
+      .from('kasa_user_permissions')
+      .select('permission_key')
+      .eq('user_id', userId)
+      .eq('is_allowed', true)
+      .is('revoked_at', null);
+
+    if (error || !data) return [];
+    return data.map((p: any) => p.permission_key);
+  } catch {
+    return [];
+  }
+}
+
+export async function hasUserPermission(userId: string, permissionKey: string): Promise<boolean> {
+  const perms = await getUserPermissions(userId);
+  return perms.includes(permissionKey);
+}
+
 export async function getUserById(id: string): Promise<KasaUser | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -89,7 +111,8 @@ export async function getUserById(id: string): Promise<KasaUser | null> {
     .maybeSingle();
 
   if (error || !data) return null;
-  return data as KasaUser;
+  const permissions = await getUserPermissions(id);
+  return { ...(data as KasaUser), permissions };
 }
 
 export async function hasAnyManagerUser(): Promise<boolean> {
@@ -1078,14 +1101,16 @@ export async function cancelSaleTransaction(
   actorUserId: string,
   saleId: string,
   justification: string,
-  costRefunded?: boolean
+  idempotencyKey?: string
 ): Promise<KasaSale> {
   const supabase = getSupabaseAdmin();
+  const autoIdempotencyKey = idempotencyKey || `cancel_sale_${saleId}_${Date.now()}`;
   const { data, error } = await supabase.rpc('fn_kasa_cancel_sale', {
     p_actor_user_id: actorUserId,
     p_sale_id: saleId,
     p_justification: justification,
-    p_cost_refunded: costRefunded ?? false,
+    p_cancel_movements: true,
+    p_idempotency_key: autoIdempotencyKey,
   });
 
   if (error || !data) {

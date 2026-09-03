@@ -605,7 +605,9 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
   const capitalInjected = Number(day?.capital_injected_kurus || 0);
   const ownerWithdrawn = Number(day?.owner_withdrawn_kurus || 0);
 
-  const expectedCash = openingBalance + capitalInjected - ownerWithdrawn + cashCollection + fxConversionsTRYTotal - cashExpensesTotal - cashReturnsTotal - bankDepositsTotal;
+  // Satışlar status = 'completed' filtresi ile çekildiğinden, iptal edilen satışlar cashCollection ve grossSales tutarlarına zaten dahil değildir.
+  // Bu nedenle iptal hareketleri (cashReturnsTotal ve returnsTotal) burada tekrar düşülmez.
+  const expectedCash = openingBalance + capitalInjected - ownerWithdrawn + cashCollection + fxConversionsTRYTotal - cashExpensesTotal - bankDepositsTotal;
 
   const usdBalanceCents = Number(day?.usd_balance_cents || 0);
   const eurBalanceCents = Number(day?.eur_balance_cents || 0);
@@ -624,8 +626,8 @@ export async function getDashboardMetrics(dayId: string, actorRole?: KasaUserRol
   // TAHSİL EDİLMİŞ GERÇEKLEŞEN KÂR (Cari satıştaki henüz tahsil edilmeyen gelir ve maliyet düşülür)
   const collectedProductCost = totalProductCost - uncollectedProductCost;
   const realizedSalesRevenue = grossSales - creditSalesTotal;
-  const estimatedProfit = grossSales - returnsTotal - totalProductCost - totalServiceCosts - expensesTotal + realizedFxDiffTotal;
-  const realizedNetProfit = realizedSalesRevenue - returnsTotal - collectedProductCost - totalServiceCosts - expensesTotal + realizedFxDiffTotal;
+  const estimatedProfit = grossSales - totalProductCost - totalServiceCosts - expensesTotal + realizedFxDiffTotal;
+  const realizedNetProfit = realizedSalesRevenue - collectedProductCost - totalServiceCosts - expensesTotal + realizedFxDiffTotal;
 
   const uncollectedCreditRisk = openCreditTotal;
   const prudentFinancialResult = calculatePrudentResult(realizedNetProfit, uncollectedCreditRisk);

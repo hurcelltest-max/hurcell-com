@@ -1144,6 +1144,7 @@ export async function updateSaleTransaction(
     customer_name?: string;
     customer_phone?: string;
     serial_imei?: string;
+    technical_service_details?: any;
     description?: string;
     cost_price_kurus?: number;
     service_cost_kurus?: number;
@@ -1196,6 +1197,7 @@ export async function updateSaleTransaction(
     p_customer_name: saleData.customer_name || null,
     p_customer_phone: saleData.customer_phone || null,
     p_serial_imei: saleData.serial_imei || null,
+    p_technical_service_details: (saleData as any).technical_service_details || null,
     p_description: saleData.description || null,
     p_service_cost_payment_status: saleData.service_cost_payment_status || null,
     p_service_cost_payment_source: saleData.service_cost_payment_source || (saleData.service_cost_payment_status === 'paid_from_bank' ? 'bank' : null),

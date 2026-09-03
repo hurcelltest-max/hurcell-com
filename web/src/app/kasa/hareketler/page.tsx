@@ -113,13 +113,26 @@ export default function KasaHareketlerPage() {
       return ['credit_tahsilat', 'nakit_tahsilat', 'kredi_karti_tahsilat', 'bank_transfer_tahsilat'].includes(m.movement_type);
     }
     if (filterType === 'corrections') {
-      return ['satis_duzeltme_iptal', 'satis_duzeltme_yeni', 'gider_duzeltme_iptal', 'gider_duzeltme_yeni', 'gider_iptal', 'iptal'].includes(m.movement_type);
+      return ['satis_duzeltme_iptal', 'satis_duzeltme_yeni', 'gider_duzeltme_iptal', 'gider_duzeltme_yeni', 'gider_iptal', 'iptal', 'iade'].includes(m.movement_type);
     }
     return true;
   });
 
-  const totalCashIn = filteredMovements.reduce((sum, m) => sum + m.cash_in_kurus, 0);
-  const totalCashOut = filteredMovements.reduce((sum, m) => sum + m.cash_out_kurus, 0);
+  const isSaleCancellationOrRefund = (movementType: string) => {
+    return ['iptal', 'iade', 'satis_duzeltme_iptal'].includes(movementType);
+  };
+
+  const totalGrossCashIn = filteredMovements.reduce((sum, m) => sum + (m.cash_in_kurus || 0), 0);
+  const totalSaleCancelCashOut = filteredMovements
+    .filter((m) => isSaleCancellationOrRefund(m.movement_type))
+    .reduce((sum, m) => sum + (m.cash_out_kurus || 0), 0);
+  const totalOtherCashOut = filteredMovements
+    .filter((m) => !isSaleCancellationOrRefund(m.movement_type))
+    .reduce((sum, m) => sum + (m.cash_out_kurus || 0), 0);
+
+  const netSalesCashCollection = totalGrossCashIn - totalSaleCancelCashOut;
+  const netCashMovement = totalGrossCashIn - totalSaleCancelCashOut - totalOtherCashOut;
+
   const totalCard = filteredMovements.reduce((sum, m) => sum + (m.card_portion_kurus > 0 ? m.card_portion_kurus : 0), 0);
   const totalBankTransfer = filteredMovements.reduce((sum, m) => sum + (m.bank_transfer_portion_kurus > 0 ? m.bank_transfer_portion_kurus : 0), 0);
 
@@ -317,22 +330,52 @@ export default function KasaHareketlerPage() {
         )}
 
         {/* Üst Dönem Özet Kartları */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Toplam Nakit Giriş</span>
-            <div className="text-lg font-extrabold text-emerald-800">{formatTL(totalCashIn)}</div>
+        <div className="space-y-3">
+          {/* Nakit Hareketleri Satırı */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Brüt Nakit Giriş</span>
+              <div className="text-base font-extrabold text-emerald-800">{formatTL(totalGrossCashIn)}</div>
+              <span className="text-[9px] text-slate-400 font-medium block">Satış & Tahsilatlar</span>
+            </div>
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Satış İptali / Nakit İade</span>
+              <div className="text-base font-extrabold text-amber-700">{formatTL(totalSaleCancelCashOut > 0 ? -totalSaleCancelCashOut : 0)}</div>
+              <span className="text-[9px] text-slate-400 font-medium block">İptal Edilen Nakit</span>
+            </div>
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Diğer Nakit Çıkış</span>
+              <div className="text-base font-extrabold text-rose-600">{formatTL(totalOtherCashOut > 0 ? -totalOtherCashOut : 0)}</div>
+              <span className="text-[9px] text-slate-400 font-medium block">Giderler, Maaş, Banka vb.</span>
+            </div>
+            <div className="bg-white p-3.5 rounded-2xl border border-teal-200 bg-teal-50/30 shadow-sm">
+              <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Net Satış Nakit Tahsilatı</span>
+              <div className="text-base font-extrabold text-teal-900">{formatTL(netSalesCashCollection)}</div>
+              <span className="text-[9px] text-teal-600 font-medium block">İptal Sonrası Net Satış</span>
+            </div>
+            <div className="bg-white p-3.5 rounded-2xl border border-indigo-200 bg-indigo-50/30 shadow-sm">
+              <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider block">Net Nakit Hareketi</span>
+              <div className="text-base font-extrabold text-indigo-950">{formatTL(netCashMovement)}</div>
+              <span className="text-[9px] text-indigo-600 font-medium block">Kasadaki Net Değişim</span>
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Toplam Nakit Çıkış</span>
-            <div className="text-lg font-extrabold text-rose-600">{formatTL(totalCashOut)}</div>
-          </div>
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">Toplam POS Kredi Kartı</span>
-            <div className="text-lg font-extrabold text-blue-800">{formatTL(totalCard)}</div>
-          </div>
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">Toplam Havale / EFT</span>
-            <div className="text-lg font-extrabold text-purple-800">{formatTL(totalBankTransfer)}</div>
+
+          {/* Banka ve POS Tahsilat Satırı */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">Toplam POS Kredi Kartı</span>
+                <span className="text-[9px] text-slate-400 font-medium block">Banka POS Tahsilatları</span>
+              </div>
+              <div className="text-base font-extrabold text-blue-800">{formatTL(totalCard)}</div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">Toplam Havale / EFT</span>
+                <span className="text-[9px] text-slate-400 font-medium block">Banka Hesabına Gelenler</span>
+              </div>
+              <div className="text-base font-extrabold text-purple-800">{formatTL(totalBankTransfer)}</div>
+            </div>
           </div>
         </div>
 

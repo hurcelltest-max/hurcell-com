@@ -191,6 +191,20 @@ export async function POST(
 
     return NextResponse.json({ success: true, sale: updatedSale });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Satış güncellenemedi.' }, { status: 400 });
+    console.error('[Kasa Update Sale Error]:', error);
+    const msg = String(error?.message || '');
+    if (msg.includes('YETKİSİZ') || msg.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'Satış düzeltme yetkisi bulunmamaktadır.' }, { status: 403 });
+    }
+    if (msg.includes('KASA_GÜNÜ_KAPALI') || msg.includes('PREVIOUS_DAY_UNCLOSED') || msg.includes('GÜN_KİLİTLİ')) {
+      return NextResponse.json({ error: 'Kasa günü kapalı veya kilitli olduğundan satış düzeltilemez.' }, { status: 400 });
+    }
+    if (msg.includes('EKSİK_İDEMPOTENCY_KEY') || msg.includes('MÜŞTERİ_ADI_ZORUNLU') || msg.includes('TUTAR_UYUŞMAZLIĞI') || msg.includes('ÖDEME_UYUŞMAZLIĞI')) {
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+    return NextResponse.json(
+      { error: 'Satış düzeltmesi tamamlanamadı. Herhangi bir kayıt değiştirilmedi.' },
+      { status: 400 }
+    );
   }
 }

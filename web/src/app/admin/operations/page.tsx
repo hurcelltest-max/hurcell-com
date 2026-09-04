@@ -27,6 +27,11 @@ import {
   CheckCircle2,
   Database,
   Loader2,
+  Send,
+  UserCheck,
+  Clock,
+  Zap,
+  CreditCard,
 } from 'lucide-react';
 import {
   parseMovementQuantity,
@@ -42,6 +47,7 @@ import {
   MOCK_PRINT_JOBS,
 } from './mock-data';
 import { OperationsProduct } from '@/app/api/admin/operations/products/route';
+import { WhatsAppSimulationResult } from '@/lib/whatsapp/types';
 
 type MovementTypeKey = 'STOCK_IN' | 'SALE' | 'RETURN' | 'DAMAGE' | 'INTERNAL_USE' | 'PRINT_MATERIAL_USE';
 
@@ -49,6 +55,7 @@ export default function HurcellOperationsDashboard() {
   const [activeTab, setActiveTab] = useState<
     | 'overview'
     | 'stock'
+    | 'whatsapp'
     | 'products'
     | 'customers'
     | 'sms'
@@ -56,6 +63,7 @@ export default function HurcellOperationsDashboard() {
     | 'print'
     | 'loyalty'
     | 'orders'
+    | 'revolving_credit'
     | 'settings'
   >('overview');
 
@@ -72,6 +80,50 @@ export default function HurcellOperationsDashboard() {
   const [stockStatusFilter, setStockStatusFilter] = useState<'all' | 'critical' | 'out' | 'in'>('all');
   const [whatsappFilter, setWhatsappFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // WhatsApp Pilot Simulation State (Manual Click Only - Zero Automatic useEffect Fetch)
+  const [activeSimulationScenario, setActiveSimulationScenario] = useState<string>('SCENARIO_1_REGISTERED_CREDIT_MANUAL_REVIEW');
+  const simulatedPhone = '+90 555 123 45 67';
+  const simulatedMessage = 'Şarj kablosu almak istiyorum.';
+  const [isSimulatingWhatsApp, setIsSimulatingWhatsApp] = useState<boolean>(false);
+  const [simulationResult, setSimulationResult] = useState<WhatsAppSimulationResult | null>(null);
+
+  const handleRunWhatsAppSimulation = async (scenarioOverride?: string) => {
+    const scenario = scenarioOverride || activeSimulationScenario;
+    setIsSimulatingWhatsApp(true);
+    try {
+      const res = await fetch('/api/admin/operations/whatsapp/simulate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: simulatedPhone,
+          message: simulatedMessage,
+          scenario_fixture: scenario,
+        }),
+      });
+
+      if (res.status === 404) {
+        throw new Error('WhatsApp simülatörü bu ortamda devre dışı.');
+      }
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'WhatsApp simülasyonu başarısız oldu.');
+      }
+
+      setSimulationResult(json.simulation);
+      showToast(`Simülasyon çalıştırıldı: ${json.simulation.scenario_id}`, 'info');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Simülasyon çalıştırılırken hata oluştu.';
+      showToast(msg, 'error');
+    } finally {
+      setIsSubmittingMovement(false);
+      setIsSimulatingWhatsApp(false);
+    }
+  };
+
   const [currentPage, setCurrentPage] = useState(1);
 
   // Real Production Products State (Connected to GET /api/admin/operations/products)
@@ -328,6 +380,20 @@ export default function HurcellOperationsDashboard() {
         </button>
 
         <button
+          onClick={() => setActiveTab('whatsapp')}
+          className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border ${
+            activeTab === 'whatsapp'
+              ? 'bg-purple-600/30 text-purple-300 border-purple-500/50 shadow-md shadow-purple-900/20'
+              : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:bg-slate-800/80 hover:text-slate-200'
+          }`}
+        >
+          <Zap size={14} className={activeTab === 'whatsapp' ? 'text-purple-400 animate-pulse' : 'text-slate-500'} />
+          WhatsApp Sipariş Akışı Simülatörü
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            O5 SIMÜLATOR
+          </span>
+        </button>
+        <button
           onClick={() => setActiveTab('stock')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === 'stock'
@@ -415,6 +481,20 @@ export default function HurcellOperationsDashboard() {
           <ShoppingCart size={16} /> Siparişler
         </button>
 
+        <button
+          onClick={() => setActiveTab('revolving_credit')}
+          className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border ${
+            activeTab === 'revolving_credit'
+              ? 'bg-purple-600/30 text-purple-300 border-purple-500/50 shadow-md shadow-purple-900/20'
+              : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:bg-slate-800/80 hover:text-slate-200'
+          }`}
+        >
+          <CreditCard size={14} className={activeTab === 'revolving_credit' ? 'text-purple-400 animate-pulse' : 'text-slate-500'} />
+          Döner Kredi & Borç Ledger (Demo)
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            O7 DEMO
+          </span>
+        </button>
         <button
           onClick={() => setActiveTab('settings')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
@@ -1071,6 +1151,200 @@ export default function HurcellOperationsDashboard() {
           </div>
         </div>
       )}
+
+      {/* 2. WHATSAPP PILOT DASHBOARD (PAKET O5 SIMÜLATOR) */}
+      {activeTab === 'whatsapp' && (
+        <div className="space-y-6">
+          <div className="bg-blue-950/50 border border-blue-800/60 rounded-2xl p-4 flex items-center justify-between gap-4 text-blue-100 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Zap className="text-blue-400 shrink-0" size={22} />
+              <div>
+                <h4 className="text-xs font-extrabold text-blue-200 flex items-center gap-2">
+                  Paket O5 — WhatsApp Müşteri, Kredi, Stok & Onay Pilotu (Simülatör)
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-900/80 text-blue-300 border border-blue-700/60">
+                    DEMO SIMÜLATOR
+                  </span>
+                </h4>
+                <p className="text-xs font-medium text-blue-300/90 mt-0.5">
+                  Yerel/demo simülasyonudur. Gerçek WhatsApp mesajı gönderilmez, veritabanına yazılmaz. Yalnızca buton tıklaması ile manuel simülasyon çalışır.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-700 p-5 rounded-3xl space-y-4 shadow-md">
+            <div className="text-xs font-bold text-white flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Send size={16} className="text-emerald-400" /> Senaryo Seçimi & Manuel Simülasyon Çalıştır:
+              </span>
+              <span className="text-[11px] text-slate-400 font-mono font-normal">
+                Otomatik ağ çağrısı yok (Tıklama gereklidir)
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { id: 'SCENARIO_1_REGISTERED_CREDIT_MANUAL_REVIEW', label: '1. Kayıtlı Müşteri — Kredi Onay Bekliyor' },
+                { id: 'SCENARIO_2_REGISTERED_CASH_OPTION', label: '2. Kayıtlı Müşteri — Nakit/Havale Opsiyonu' },
+                { id: 'SCENARIO_3_UNREGISTERED_PROMPT', label: '3. Kayıtsız Müşteri — Kayıt Çağrısı' },
+                { id: 'SCENARIO_4_OUT_OF_STOCK', label: '4. Stok Yetersiz Senaryosu' },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  disabled={isSimulatingWhatsApp}
+                  onClick={() => {
+                    setActiveSimulationScenario(s.id);
+                    handleRunWhatsAppSimulation(s.id);
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 ${
+                    activeSimulationScenario === s.id
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <div className="pt-2 flex justify-end">
+              <button
+                disabled={isSimulatingWhatsApp}
+                onClick={() => handleRunWhatsAppSimulation()}
+                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-md shadow-purple-900/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Zap size={14} className={isSimulatingWhatsApp ? 'animate-spin' : ''} />
+                {isSimulatingWhatsApp ? 'Simülasyon Çalışıyor...' : 'Simülasyonu Çalıştır (Demo İsteği)'}
+              </button>
+            </div>
+          </div>
+
+          {simulationResult && (
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <h3 className="font-bold text-white text-base flex items-center gap-2">
+                    Simülasyon Çıktısı: <span className="text-purple-400 font-mono">{simulationResult.scenario_id}</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{simulationResult.lookup_method || 'Senaryo Adımı'}</p>
+                </div>
+                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  State: {simulationResult.current_state}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/60 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase font-mono tracking-wider flex items-center gap-2">
+                    <UserCheck size={14} className="text-blue-400" /> Müşteri & Kredi Karar Önizlemesi
+                  </h4>
+                  <div className="text-xs space-y-1.5 text-slate-300">
+                    <div><span className="text-slate-400">Telefon:</span> <span className="font-mono text-white">{simulationResult.customer?.phone_masked || simulationResult.phone_canonical}</span></div>
+                    <div><span className="text-slate-400">Müşteri Adı:</span> <span className="font-semibold text-white">{simulationResult.customer?.full_name || 'Kayıtsız'}</span></div>
+                    <div><span className="text-slate-400">Kayıtlı Müşteri mi?:</span> <span className="font-bold text-emerald-400">{simulationResult.customer?.is_registered ? 'EVET' : 'HAYIR'}</span></div>
+                    <div><span className="text-slate-400">Kredi Kararı:</span> <span className="font-mono text-amber-400">{simulationResult.credit_decision}</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/60 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase font-mono tracking-wider flex items-center gap-2">
+                    <Clock size={14} className="text-purple-400" /> Yapılandırılmış Mesaj Yanıtı (Simüle)
+                  </h4>
+                  <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-700/80 font-mono text-xs text-emerald-300 whitespace-pre-wrap leading-relaxed">
+                    {simulationResult.outgoing_whatsapp_message}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {/* 3. DÖNER KREDİ & BORÇ LEDGER DASHBOARD (PAKET O7 DEMO) */}
+      {activeTab === 'revolving_credit' && (
+        <div className="space-y-6">
+          <div className="bg-purple-950/40 border border-purple-800/50 rounded-2xl p-4 flex items-center justify-between gap-4 text-purple-100 shadow-sm">
+            <div className="flex items-center gap-3">
+              <CreditCard className="text-purple-400 shrink-0" size={22} />
+              <div>
+                <h4 className="text-xs font-extrabold text-purple-200 flex items-center gap-2">
+                  Paket O7 — Döner Kredi Motoru & Borç Takip Ledger (Demo / Simülasyon)
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-900/60 text-purple-300 border border-purple-700/50">
+                    LOKAL MOCK DEMO
+                  </span>
+                </h4>
+                <p className="text-xs font-medium text-purple-300/80 mt-0.5">
+                  Demo / Simülasyon — Gerçek müşteri limiti veya bakiyesi değildir. Veritabanına yazılmaz, finansal kayıt veya RPC işlemi oluşturmaz.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+              <div className="text-xs text-slate-400 font-semibold">Örnek Kredi Limiti</div>
+              <div className="text-lg font-bold font-mono text-white">10.000,00 TL</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+              <div className="text-xs text-slate-400 font-semibold">Örnek Borç Bakiye</div>
+              <div className="text-lg font-bold font-mono text-amber-400">3.500,00 TL</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+              <div className="text-xs text-slate-400 font-semibold">Örnek Kullanılabilir Limit</div>
+              <div className="text-lg font-bold font-mono text-emerald-400">6.500,00 TL</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-1">
+              <div className="text-xs text-slate-400 font-semibold">Hesap Durumu</div>
+              <div className="text-lg font-bold font-mono text-blue-400">ACTIVE</div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="font-bold text-white text-base">Örnek Döner Kredi Hareket Ledger (Mock Engine Audit)</h3>
+                <p className="text-xs text-slate-400">Tüm hareketler <code className="text-purple-300 font-mono">quantity_delta</code> ve idempotency matematiği ile simüle edilir.</p>
+              </div>
+              <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                24 TEST PASSED
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-800/80 text-slate-400 font-mono text-[11px] uppercase border-b border-slate-800">
+                  <tr>
+                    <th className="px-4 py-3">İşlem Tipi</th>
+                    <th className="px-4 py-3">Tutar</th>
+                    <th className="px-4 py-3 font-mono">Önceki Bakiye</th>
+                    <th className="px-4 py-3 font-mono">Sonraki Bakiye</th>
+                    <th className="px-4 py-3 font-mono">Kullanılabilir Limit</th>
+                    <th className="px-4 py-3">Referans</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  <tr className="hover:bg-slate-800/40 font-mono">
+                    <td className="px-4 py-3 font-bold text-amber-400">SALE_DEBIT</td>
+                    <td className="px-4 py-3 text-white font-bold">+5.000,00 TL</td>
+                    <td className="px-4 py-3 text-slate-400">0,00 TL</td>
+                    <td className="px-4 py-3 text-amber-400">5.000,00 TL</td>
+                    <td className="px-4 py-3 text-emerald-400">5.000,00 TL</td>
+                    <td className="px-4 py-3 text-slate-400">ORD-2026-001</td>
+                  </tr>
+                  <tr className="hover:bg-slate-800/40 font-mono">
+                    <td className="px-4 py-3 font-bold text-emerald-400">PAYMENT_CREDIT</td>
+                    <td className="px-4 py-3 text-emerald-400 font-bold">-1.500,00 TL</td>
+                    <td className="px-4 py-3 text-slate-400">5.000,00 TL</td>
+                    <td className="px-4 py-3 text-amber-400">3.500,00 TL</td>
+                    <td className="px-4 py-3 text-emerald-400">6.500,00 TL</td>
+                    <td className="px-4 py-3 text-slate-400">PAY-2026-089</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

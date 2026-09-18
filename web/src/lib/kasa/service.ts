@@ -82,19 +82,18 @@ export async function getUserByUsername(username: string): Promise<(KasaUser & {
 
 export async function getUserPermissions(userId: string): Promise<string[]> {
   const supabase = getSupabaseAdmin();
-  try {
-    const { data, error } = await supabase
-      .from('kasa_user_permissions')
-      .select('permission_key')
-      .eq('user_id', userId)
-      .eq('is_allowed', true)
-      .is('revoked_at', null);
+  const { data, error } = await supabase
+    .from('kasa_user_permissions')
+    .select('permission_key')
+    .eq('user_id', userId)
+    .eq('is_allowed', true)
+    .is('revoked_at', null);
 
-    if (error || !data) return [];
-    return data.map((p: any) => p.permission_key);
-  } catch {
-    return [];
+  if (error) {
+    throw new Error(`Kullanıcı yetkileri alınamadı: ${error.message}`);
   }
+  if (!data) return [];
+  return data.map((p: any) => p.permission_key);
 }
 
 export async function hasUserPermission(userId: string, permissionKey: string): Promise<boolean> {

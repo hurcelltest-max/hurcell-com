@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { requireKasaAuth } from '@/lib/kasa/auth';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { hasUserPermission } from '@/lib/kasa/service';
 
 export async function GET(req: Request) {
   try {
     const auth = await requireKasaAuth();
-    if (auth.user.role !== 'yonetici') {
+    const hasBankAccess =
+      auth.user.role === 'yonetici' ||
+      (await hasUserPermission(auth.user.id, 'kasa.expense.bank'));
+
+    if (!hasBankAccess) {
       return NextResponse.json(
-        { error: 'BANKA_ÖDEMESİ_YETKİSİZ: Banka hesap seçenekleri yalnızca yöneticilere açıktır.' },
+        { error: 'BANKA_ÖDEMESİ_YETKİSİZ: Banka hesap seçenekleri yalnızca yöneticilere ve yetkili personele açıktır.' },
         { status: 403 }
       );
     }

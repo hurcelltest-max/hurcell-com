@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { requireKasaAuth } from '@/lib/kasa/auth';
 import {
   createExpense,
@@ -6,6 +6,7 @@ import {
   listDailyExpenses,
   listAllExpenses,
   getKasaExpenseCategories,
+  hasUserPermission,
 } from '@/lib/kasa/service';
 
 export async function GET(req: Request) {
@@ -74,8 +75,24 @@ export async function POST(req: Request) {
     if (payment_method === 'cash' && bank_account_id) {
       return NextResponse.json({ error: 'Nakit giderde banka hesabı seçilemez.' }, { status: 400 });
     }
-    if (payment_method === 'bank' && (!bank_account_id || auth.user.role !== 'yonetici')) {
-      return NextResponse.json({ error: 'Banka gideri yalnız yönetici tarafından aktif TRY hesabından kaydedilebilir.' }, { status: 403 });
+
+    const hasBankPerm =
+      auth.user.role === 'yonetici' ||
+      (await hasUserPermission(auth.user.id, 'kasa.expense.bank'));
+
+    if (payment_method === 'bank') {
+      if (!hasBankPerm) {
+        return NextResponse.json(
+          { error: 'Banka gideri ekleme yetkiniz bulunmamaktadır.' },
+          { status: 403 }
+        );
+      }
+      if (!bank_account_id) {
+        return NextResponse.json(
+          { error: 'Banka gideri için aktif TRY hesabı seçilmelidir.' },
+          { status: 400 }
+        );
+      }
     }
 
     const amountKurus = Number(amount_kurus);

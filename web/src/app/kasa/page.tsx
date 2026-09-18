@@ -68,6 +68,7 @@ interface UserData {
   username: string;
   full_name: string;
   role: 'yonetici' | 'personel';
+  permissions?: string[];
 }
 
 interface ExpenseItem {
@@ -319,10 +320,11 @@ export default function KasaMainDashboardPage() {
     setExpenseCategoriesLoading(true);
 
     try {
-      const [res, bankRes] = await Promise.all([
-        fetch('/api/kasa/expense-categories'),
-        fetch('/api/kasa/bank-account-options'),
-      ]);
+      const canUseBank = user?.role === 'yonetici' || (user?.permissions || []).includes('kasa.expense.bank');
+      const catPromise = fetch('/api/kasa/expense-categories');
+      const bankPromise = canUseBank ? fetch('/api/kasa/bank-account-options') : Promise.resolve(null);
+
+      const [res, bankRes] = await Promise.all([catPromise, bankPromise]);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Gider kategorileri yüklenemedi. Lütfen tekrar deneyin.');
@@ -333,9 +335,11 @@ export default function KasaMainDashboardPage() {
         return true;
       });
       setExpenseCategories(validItems);
-      if (bankRes.ok) {
+      if (bankRes && bankRes.ok) {
         const bankData = await bankRes.json();
         setExpenseBankAccounts(bankData.accounts || bankData.items || []);
+      } else {
+        setExpenseBankAccounts([]);
       }
       if (validItems.length > 0) {
         setExpenseCatId(validItems[0].id);
@@ -716,45 +720,73 @@ export default function KasaMainDashboardPage() {
 
         {/* AYBAŞINDAN BUGÜNE TAHSİLATLAR VE BANKA HAREKETLERİ KARTI */}
         {mtdData && (
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                <CalendarCheck size={18} className="text-indigo-600" /> AYBAŞINDAN BUGÜNE TAHSİLATLAR VE BANKA HAREKETLERİ
+                <CalendarCheck size={18} className="text-indigo-600" /> AYBAŞINDAN BUGÜNE TAHSİLATLAR, GİDERLER VE BANKA HAREKETLERİ
               </h3>
               <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-200">
                 {mtdData.period_label}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Nakit Tahsilat</span>
-                <div className="text-base font-extrabold text-emerald-700">{formatTL(mtdData.net_cash_collections_minor)}</div>
-                <p className="text-[9px] text-slate-400">Satış + Cari Nakit</p>
-              </div>
+            {/* Tahsilatlar Satırı */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Tahsilatlar (Aybaşından Bugüne)</span>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Nakit Tahsilat</span>
+                  <div className="text-base font-extrabold text-emerald-700">{formatTL(mtdData.net_cash_collections_minor)}</div>
+                  <p className="text-[9px] text-slate-400">Satış + Cari Nakit</p>
+                </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">POS / Kart Tahsilat</span>
-                <div className="text-base font-extrabold text-blue-700">{formatTL(mtdData.net_card_collections_minor)}</div>
-                <p className="text-[9px] text-slate-400">Satış + Cari Kart</p>
-              </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">POS / Kart Tahsilat</span>
+                  <div className="text-base font-extrabold text-blue-700">{formatTL(mtdData.net_card_collections_minor)}</div>
+                  <p className="text-[9px] text-slate-400">Satış + Cari Kart</p>
+                </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Havale / EFT Tahsilat</span>
-                <div className="text-base font-extrabold text-purple-700">{formatTL(mtdData.net_bank_transfer_collections_minor)}</div>
-                <p className="text-[9px] text-slate-400">Banka Tahsilatları</p>
-              </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Havale / EFT Tahsilat</span>
+                  <div className="text-base font-extrabold text-purple-700">{formatTL(mtdData.net_bank_transfer_collections_minor)}</div>
+                  <p className="text-[9px] text-slate-400">Banka Tahsilatları</p>
+                </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Cari Tahsilat Toplamı</span>
-                <div className="text-base font-extrabold text-indigo-700">{formatTL(mtdData.net_credit_collections_minor)}</div>
-                <p className="text-[9px] text-slate-400">Önceki Alacak Tahsilatları</p>
-              </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Cari Tahsilat Toplamı</span>
+                  <div className="text-base font-extrabold text-indigo-700">{formatTL(mtdData.net_credit_collections_minor)}</div>
+                  <p className="text-[9px] text-slate-400">Önceki Alacak Tahsilatları</p>
+                </div>
 
-              <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200 col-span-2 sm:col-span-1">
-                <span className="text-[10px] font-bold text-indigo-900 uppercase">Toplam Net Tahsilat</span>
-                <div className="text-base font-black text-indigo-950">{formatTL(mtdData.net_collections_minor)}</div>
-                <p className="text-[9px] text-indigo-700">Tüm Kanallar Toplamı</p>
+                <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200 col-span-2 sm:col-span-1">
+                  <span className="text-[10px] font-bold text-indigo-900 uppercase">Toplam Net Tahsilat</span>
+                  <div className="text-base font-black text-indigo-950">{formatTL(mtdData.net_collections_minor)}</div>
+                  <p className="text-[9px] text-indigo-700">Tüm Kanallar Toplamı</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Giderler Satırı (3 Yeni Kutu) */}
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Giderler (Aybaşından Bugüne)</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-200">
+                  <span className="text-[10px] font-bold text-rose-700 uppercase">Nakit Gider</span>
+                  <div className="text-base font-extrabold text-rose-700">{formatTL(mtdData.net_cash_expenses_minor || 0)}</div>
+                  <p className="text-[9px] text-slate-500">Kasadan Ödenen Geçerli Giderler</p>
+                </div>
+
+                <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-200">
+                  <span className="text-[10px] font-bold text-blue-700 uppercase">Banka / Kart Gideri</span>
+                  <div className="text-base font-extrabold text-blue-700">{formatTL(mtdData.net_bank_expenses_minor || 0)}</div>
+                  <p className="text-[9px] text-slate-500">Banka Hesabından Ödenen Geçerli Giderler</p>
+                </div>
+
+                <div className="p-3 bg-rose-100/70 rounded-xl border border-rose-300">
+                  <span className="text-[10px] font-bold text-rose-950 uppercase">Toplam Gider</span>
+                  <div className="text-base font-black text-rose-950">{formatTL(mtdData.net_total_expenses_minor || 0)}</div>
+                  <p className="text-[9px] text-rose-800">Nakit + Banka/Kart Toplamı</p>
+                </div>
               </div>
             </div>
           </div>
@@ -1218,20 +1250,20 @@ export default function KasaMainDashboardPage() {
                       />
                       <span>Nakit (Kasadan)</span>
                     </label>
-                    <label className={`flex items-center gap-2 p-3 rounded-xl border transition ${user?.role !== 'yonetici' ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-200' : expensePaymentMethod === 'bank' ? 'bg-blue-50 border-blue-300 text-blue-900 font-bold cursor-pointer' : 'bg-slate-50 border-slate-200 text-slate-700 cursor-pointer'}`}>
+                    <label className={`flex items-center gap-2 p-3 rounded-xl border transition ${!(user?.role === 'yonetici' || user?.permissions?.includes('kasa.expense.bank')) ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-200' : expensePaymentMethod === 'bank' ? 'bg-blue-50 border-blue-300 text-blue-900 font-bold cursor-pointer' : 'bg-slate-50 border-slate-200 text-slate-700 cursor-pointer'}`}>
                       <input
                         type="radio"
                         name="expense-payment"
                         checked={expensePaymentMethod === 'bank'}
-                        disabled={user?.role !== 'yonetici'}
+                        disabled={!(user?.role === 'yonetici' || user?.permissions?.includes('kasa.expense.bank'))}
                         onChange={() => setExpensePaymentMethod('bank')}
                       />
                       <span>Banka (Hesaptan)</span>
                     </label>
                   </div>
-                  {user?.role !== 'yonetici' && (
+                  {!(user?.role === 'yonetici' || user?.permissions?.includes('kasa.expense.bank')) && (
                     <p className="text-[11px] text-amber-700">
-                      ℹ️ Banka gideri girişi yetki kuralları gereği yalnızca yöneticiler tarafından kaydedilebilir.
+                      ℹ️ Banka gideri girişi yetki kuralları gereği yalnızca yöneticiler ve yetkilendirilmiş personel tarafından kaydedilebilir.
                     </p>
                   )}
                 </fieldset>

@@ -528,4 +528,7 @@ export interface KasaMonthToDateCollections {
   net_bank_transfer_collections_minor?: number;
   net_credit_collections_minor?: number;
   net_collections_minor?: number;
+  net_cash_expenses_minor?: number;
+  net_bank_expenses_minor?: number;
+  net_total_expenses_minor?: number;
 }

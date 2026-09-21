@@ -1421,6 +1421,25 @@ export async function closeDayTransaction(
   return data as KasaDay;
 }
 
+export async function reopenDayTransaction(
+  actorUserId: string,
+  dayId: string,
+  justification: string
+): Promise<KasaDay> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc('fn_kasa_reopen_day', {
+    p_actor_user_id: actorUserId,
+    p_kasa_day_id: dayId,
+    p_justification: justification,
+  });
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Gün yeniden açılamadı.');
+  }
+
+  return data as KasaDay;
+}
+
 export async function getPeriodReportMetrics(
   periodName: string,
   startDateStr: string,

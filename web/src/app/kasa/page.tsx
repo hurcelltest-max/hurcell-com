@@ -200,6 +200,13 @@ export default function KasaMainDashboardPage() {
   const [monthlyLoading, setMonthlyLoading] = useState<boolean>(false);
   const [mtdData, setMtdData] = useState<KasaMonthToDateCollections | null>(null);
 
+  // Günü Yeniden Açma State'leri
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [reopenJustification, setReopenJustification] = useState('');
+  const [reopenSubmitting, setReopenSubmitting] = useState(false);
+  const [reopenError, setReopenError] = useState<string | null>(null);
+  const [reopenSuccess, setReopenSuccess] = useState<string | null>(null);
+
   const loadExpenseSummary = async (dayId?: string) => {
     try {
       setExpenseSummaryError(null);
@@ -422,6 +429,46 @@ export default function KasaMainDashboardPage() {
     await loadDailyExpenses('all');
   };
 
+  const handleReopenDay = async () => {
+    if (!targetDayId) {
+      setReopenError('Kasa günü kimliği bulunamadı.');
+      return;
+    }
+    const cleanJustification = reopenJustification.trim();
+    if (!cleanJustification || cleanJustification.length < 10) {
+      setReopenError('Yeniden açma gerekçesi zorunludur ve en az 10 anlamlı karakter içermelidir.');
+      return;
+    }
+
+    try {
+      setReopenSubmitting(true);
+      setReopenError(null);
+      const res = await fetch('/api/kasa/reopen-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kasa_day_id: targetDayId,
+          justification: cleanJustification,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gün yeniden açılamadı.');
+
+      setReopenSuccess(`${dateStr} tarihli kasa günü başarıyla yeniden açıldı.`);
+      setShowReopenModal(false);
+      setReopenJustification('');
+      await loadData();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kasa-updated'));
+      }
+    } catch (err: any) {
+      setReopenError(err.message || 'Gün yeniden açılırken hata oluştu.');
+    } finally {
+      setReopenSubmitting(false);
+    }
+  };
+
   const handleLogout = async () => {
     await fetch('/api/kasa/auth/logout', { method: 'POST' });
     router.push('/kasa/giris');
@@ -532,12 +579,25 @@ export default function KasaMainDashboardPage() {
               <List size={18} /> Kasa Hareketleri
             </Link>
 
-            <Link
-              href="/admin/kasa/gun-sonu"
-              className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
-            >
-              Gün Sonu
-            </Link>
+            {dayStatus === 'closed' && user?.role === 'yonetici' ? (
+              <button
+                onClick={() => {
+                  setReopenError(null);
+                  setReopenJustification('');
+                  setShowReopenModal(true);
+                }}
+                className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all shadow-sm active:scale-[0.98]"
+              >
+                <RotateCcw size={16} /> Günü Yeniden Aç
+              </button>
+            ) : dayStatus === 'open' ? (
+              <Link
+                href="/admin/kasa/gun-sonu"
+                className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
+              >
+                Gün Sonu
+              </Link>
+            ) : null}
 
             {/* Ortak Role-Aware Rota: Personele de açık Günlük Arşiv */}
             <Link
@@ -1353,6 +1413,99 @@ export default function KasaMainDashboardPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* GÜNÜ YENİDEN AÇMA ONAY MODALI */}
+        {showReopenModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5 text-emerald-700">
+                  <RotateCcw size={22} />
+                  <h3 className="font-extrabold text-slate-900 text-lg">Kapalı Kasa Gününü Yeniden Aç</h3>
+                </div>
+                <button
+                  onClick={() => !reopenSubmitting && setShowReopenModal(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition"
+                >
+                  <span className="text-xl leading-none">&times;</span>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Açılacak Tarih */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Yeniden Açılacak Tarih:</span>
+                  <span className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <Calendar size={14} className="text-emerald-600" /> {dateStr}
+                  </span>
+                </div>
+
+                {/* Uyarı */}
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                    <AlertTriangle size={15} className="text-amber-600 shrink-0" /> Dikkat:
+                  </div>
+                  <p>
+                    Bu günün kapanış toplamları değişebilir. Eksik işlemleri tamamladıktan sonra günü yeniden kapatın.
+                  </p>
+                </div>
+
+                {reopenError && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-medium rounded-xl">
+                    {reopenError}
+                  </div>
+                )}
+
+                {/* Gerekçe */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Yeniden Açma Gerekçesi <span className="text-red-500">* (En az 10 karakter)</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={reopenJustification}
+                    onChange={(e) => setReopenJustification(e.target.value)}
+                    placeholder="Örn: Saat 18:30'da yapılan satış kaydının girişi unutulmuş..."
+                    className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+                    <span>Minimum 10 anlamlı karakter zorunludur.</span>
+                    <span className={reopenJustification.trim().length < 10 ? 'text-rose-500 font-bold' : 'text-emerald-600 font-bold'}>
+                      {reopenJustification.trim().length} / 10
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={reopenSubmitting}
+                  onClick={() => setShowReopenModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="button"
+                  disabled={reopenSubmitting || reopenJustification.trim().length < 10}
+                  onClick={handleReopenDay}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {reopenSubmitting ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" /> Açılıyor...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={14} /> Onayla ve Günü Aç
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}

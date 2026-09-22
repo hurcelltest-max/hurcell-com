@@ -28,6 +28,7 @@ import {
   Info,
 } from 'lucide-react';
 import { DashboardCarryoverInfo, KasaMonthlyReport, KasaMonthToDateCollections } from '@/lib/kasa/types';
+import { formatDateTR } from '@/lib/kasa/pure_utils';
 
 interface CategorySummary {
   category_id: string;
@@ -187,6 +188,7 @@ export default function KasaMainDashboardPage() {
 
   // Önceki Gün Kapatılmama Uyarısı State'leri
   const [isPreviousDayUnclosed, setIsPreviousDayUnclosed] = useState(false);
+  const [isSinglePastDayOpen, setIsSinglePastDayOpen] = useState(false);
   const [unclosedDayDate, setUnclosedDayDate] = useState<string | null>(null);
   const [openDaysList, setOpenDaysList] = useState<any[]>([]);
   const [firstDayToClose, setFirstDayToClose] = useState<any | null>(null);
@@ -246,6 +248,7 @@ export default function KasaMainDashboardPage() {
       setCategories(dashData.categorySummary || []);
       setCarryoverInfo(dashData.carryoverInfo || null);
       setIsPreviousDayUnclosed(Boolean(dashData.is_previous_day_unclosed));
+      setIsSinglePastDayOpen(Boolean(dashData.is_single_past_day_open));
       setUnclosedDayDate(dashData.unclosed_day_date || null);
       setOpenDaysList(dashData.open_days_list || []);
       setFirstDayToClose(dashData.first_day_requiring_close || null);
@@ -652,25 +655,51 @@ export default function KasaMainDashboardPage() {
         )}
 
         {isPreviousDayUnclosed && (
-          <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 space-y-3 shadow-md">
+          <div className="p-5 bg-red-50 border-2 border-red-400 rounded-2xl text-red-950 space-y-3 shadow-md">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
-                <AlertTriangle size={24} className="text-amber-600 shrink-0" />
+                <AlertTriangle size={24} className="text-red-600 shrink-0" />
                 <div>
-                  <div className="font-extrabold text-sm text-amber-950 uppercase tracking-wide">
+                  <div className="font-extrabold text-sm text-red-950 uppercase tracking-wide">
                     ÖNCEKİ KASA GÜNLERİ KAPATILMALI
                   </div>
-                  <p className="text-xs text-amber-900 mt-0.5">
-                    {unclosedDayDate} tarihli kasa günü henüz kapatılmamıştır. Kronolojik sıra bozulmadan işlemler devam edemez.
+                  <p className="text-xs text-red-900 mt-0.5">
+                    Birden fazla açık kasa günü veya kronolojik tutarsızlık tespit edildi. Kronolojik sıra bozulmadan işlemler devam edemez.
                   </p>
                 </div>
               </div>
               <Link
                 href={firstDayToClose ? `/admin/kasa/gun-sonu?day_id=${firstDayToClose.id}` : '/admin/kasa/gun-sonu'}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition"
               >
                 Günü Kapat →
               </Link>
+            </div>
+          </div>
+        )}
+
+        {isSinglePastDayOpen && !isPreviousDayUnclosed && (
+          <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 space-y-3 shadow-md">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <AlertTriangle size={24} className="text-amber-600 shrink-0" />
+                <div>
+                  <div className="font-extrabold text-sm text-amber-950 tracking-wide">
+                    {formatDateTR(dateStr)} kasa günü hâlâ açık.
+                  </div>
+                  <p className="text-xs text-amber-900 mt-0.5">
+                    Şimdi ekleyeceğiniz satış ve giderler {formatDateTR(dateStr)} gününe kaydedilecektir.
+                  </p>
+                </div>
+              </div>
+              {user?.role === 'yonetici' && (
+                <Link
+                  href="/admin/kasa/gun-sonu"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition shrink-0"
+                >
+                  Günü Kapat →
+                </Link>
+              )}
             </div>
           </div>
         )}

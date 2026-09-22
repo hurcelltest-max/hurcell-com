@@ -75,6 +75,8 @@ export default function KasaSatisPage() {
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sale_${Date.now()}`));
 
   const [isPreviousDayUnclosed, setIsPreviousDayUnclosed] = useState(false);
+  const [isSinglePastDayOpen, setIsSinglePastDayOpen] = useState(false);
+  const [openDayDate, setOpenDayDate] = useState<string>('');
   const [unclosedDayDate, setUnclosedDayDate] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,10 +92,14 @@ export default function KasaSatisPage() {
 
         if (dashRes.ok) {
           const dashData = await dashRes.json();
-          if (dashData.isPreviousDayUnclosed) {
-            setIsPreviousDayUnclosed(true);
-            setUnclosedDayDate(dashData.unclosedDayDate || 'Önceki');
-            setError(`${dashData.unclosedDayDate || 'Önceki'} kasa günü kapatılmadan 1 Eylül işlemi girilemez.`);
+          setIsPreviousDayUnclosed(Boolean(dashData.is_previous_day_unclosed));
+          setIsSinglePastDayOpen(Boolean(dashData.is_single_past_day_open));
+          setUnclosedDayDate(dashData.unclosed_day_date || 'Önceki');
+          if (dashData.day) {
+            setOpenDayDate(dashData.day.date_val);
+          }
+          if (dashData.is_previous_day_unclosed) {
+            setError('Birden fazla açık gün veya kronolojik tutarsızlık tespit edildi. Kasa günü kapatılmadan yeni işlem girilemez.');
           }
         }
 
@@ -323,25 +329,51 @@ export default function KasaSatisPage() {
       </div>
 
       {isPreviousDayUnclosed && (
-        <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 space-y-3 shadow-md">
+        <div className="p-5 bg-red-50 border-2 border-red-400 rounded-2xl text-red-950 space-y-3 shadow-md">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <AlertTriangle size={24} className="text-amber-600 shrink-0" />
+              <AlertTriangle size={24} className="text-red-600 shrink-0" />
               <div>
-                <div className="font-extrabold text-sm text-amber-950 uppercase tracking-wide">
-                  ÖNCEKİ KASA GÜNÜ KAPATILMALI
+                <div className="font-extrabold text-sm text-red-950 uppercase tracking-wide">
+                  ÖNCEKİ KASA GÜNLERİ KAPATILMALI
                 </div>
-                <p className="text-xs text-amber-900 mt-0.5">
-                  {unclosedDayDate || '31 Ağustos'} kasa günü kapatılmadan 1 Eylül işlemi girilemez.
+                <p className="text-xs text-red-900 mt-0.5">
+                  Birden fazla açık kasa günü veya kronolojik tutarsızlık tespit edildi. Kronolojik sıra bozulmadan işlemler devam edemez.
                 </p>
               </div>
             </div>
             <Link
               href="/admin/kasa/gun-sonu"
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition"
             >
               Günü Kapat →
             </Link>
+          </div>
+        </div>
+      )}
+
+      {isSinglePastDayOpen && !isPreviousDayUnclosed && (
+        <div className="p-5 bg-amber-50 border-2 border-amber-400 rounded-2xl text-amber-950 space-y-3 shadow-md">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={24} className="text-amber-600 shrink-0" />
+              <div>
+                <div className="font-extrabold text-sm text-amber-950 tracking-wide">
+                  {formatDateTR(openDayDate)} kasa günü hâlâ açık.
+                </div>
+                <p className="text-xs text-amber-900 mt-0.5">
+                  Şimdi ekleyeceğiniz satış ve giderler {formatDateTR(openDayDate)} gününe kaydedilecektir.
+                </p>
+              </div>
+            </div>
+            {userRole === 'yonetici' && (
+              <Link
+                href="/admin/kasa/gun-sonu"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md transition shrink-0"
+              >
+                Günü Kapat →
+              </Link>
+            )}
           </div>
         </div>
       )}

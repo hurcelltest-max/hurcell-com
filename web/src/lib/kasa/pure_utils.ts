@@ -29,11 +29,36 @@ export function isSaleCostMissing(sale: {
   }
 }
 
+export function getIstanbulTodayDateIso(date: Date = new Date()): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Istanbul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+}
+
+export function formatDateTR(isoDate?: string | null): string {
+  if (!isoDate) return '';
+  const parts = isoDate.split('-');
+  if (parts.length !== 3) return isoDate;
+  const [year, month, day] = parts;
+  const monthNames = [
+    'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+    'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+  ];
+  const mIndex = parseInt(month, 10) - 1;
+  const mName = monthNames[mIndex] || month;
+  return `${parseInt(day, 10)} ${mName} ${year}`;
+}
+
 export interface OpenDaysChainResult {
   openDays: KasaDay[];
   firstDayRequiringClose: KasaDay | null;
   displayedDay: KasaDay | null;
   isPreviousDaysUnclosed: boolean;
+  isSinglePastDayOpen: boolean;
   dashboardStatus: 'ok' | 'previous_days_require_closing';
   actionBlockReason: string | null;
 }
@@ -45,6 +70,7 @@ export function evaluateOpenDaysChain(openDays: KasaDay[], todayIsoDate: string)
       firstDayRequiringClose: null,
       displayedDay: null,
       isPreviousDaysUnclosed: false,
+      isSinglePastDayOpen: false,
       dashboardStatus: 'ok',
       actionBlockReason: null,
     };
@@ -56,25 +82,29 @@ export function evaluateOpenDaysChain(openDays: KasaDay[], todayIsoDate: string)
   const lastOpen = sortedDays[sortedDays.length - 1];
 
   const hasMultipleOpenDays = sortedDays.length > 1;
-  const isFirstUnclosedPast = firstUnclosed.date_val < todayIsoDate;
 
-  if (hasMultipleOpenDays || isFirstUnclosedPast) {
+  if (hasMultipleOpenDays) {
     const datesList = sortedDays.map((d) => d.date_val).join(' → ');
     return {
       openDays: sortedDays,
       firstDayRequiringClose: firstUnclosed,
       displayedDay: lastOpen,
       isPreviousDaysUnclosed: true,
+      isSinglePastDayOpen: false,
       dashboardStatus: 'previous_days_require_closing',
-      actionBlockReason: `Önceki kasa günleri kapatılmadan yeni gün başlatılamaz. Kapanış sırası: ${datesList}. Kilitli günleri sırayla kapatın.`,
+      actionBlockReason: `Birden fazla açık kasa günü tespit edildi. Kapanış sırası: ${datesList}. Kilitli günleri sırayla kapatın.`,
     };
   }
 
+  const singleOpenDay = sortedDays[0];
+  const isPast = singleOpenDay.date_val < todayIsoDate;
+
   return {
     openDays: sortedDays,
-    firstDayRequiringClose: null,
-    displayedDay: sortedDays[0],
-    isPreviousDaysUnclosed: false,
+    firstDayRequiringClose: isPast ? singleOpenDay : null,
+    displayedDay: singleOpenDay,
+    isPreviousDaysUnclosed: false, // Single open day is valid and ready for transactions
+    isSinglePastDayOpen: isPast,
     dashboardStatus: 'ok',
     actionBlockReason: null,
   };

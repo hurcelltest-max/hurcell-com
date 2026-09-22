@@ -6,9 +6,11 @@ import { getTCMBExchangeRates } from './tcmb';
 import {
   isSaleCostMissing,
   evaluateOpenDaysChain,
+  getIstanbulTodayDateIso,
+  formatDateTR,
   OpenDaysChainResult,
 } from './pure_utils';
-export { isSaleCostMissing, evaluateOpenDaysChain, type OpenDaysChainResult };
+export { isSaleCostMissing, evaluateOpenDaysChain, getIstanbulTodayDateIso, formatDateTR, type OpenDaysChainResult };
 import {
   DashboardCarryoverInfo,
   KasaBankDeposit,
@@ -285,35 +287,18 @@ export async function getOpenDaysChain(actorUserId: string): Promise<OpenDaysCha
     .order('date_val', { ascending: true });
 
   const openDays = (openDaysRaw || []) as KasaDay[];
-  const todayIso = new Date().toISOString().split('T')[0];
+  const todayIso = getIstanbulTodayDateIso();
 
   return evaluateOpenDaysChain(openDays, todayIso);
 }
 
-export async function getOrCreateTodayDay(actorUserId: string): Promise<KasaDay & { is_previous_day_unclosed?: boolean; unclosed_day_date?: string }> {
+export async function getOrCreateTodayDay(actorUserId: string): Promise<KasaDay> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.rpc('fn_kasa_get_or_create_open_day', {
     p_actor_user_id: actorUserId,
   });
 
   if (error || !data) {
-    // Önceki gün kapatılmamışsa, aktif açık günü güvenli biçimde getir
-    if (error?.message?.includes('PREVIOUS_DAY_UNCLOSED') || error?.message?.includes('kapatılmamış')) {
-      const { data: openDays } = await supabase
-        .from('kasa_days')
-        .select('*')
-        .eq('status', 'open')
-        .order('date_val', { ascending: false })
-        .limit(1);
-
-      if (openDays && openDays.length > 0) {
-        return {
-          ...(openDays[0] as KasaDay),
-          is_previous_day_unclosed: true,
-          unclosed_day_date: openDays[0].date_val,
-        };
-      }
-    }
     throw new Error(`Kasa günü alınamadı: ${error?.message || 'Bilinmeyen veritabanı hatası'}`);
   }
 

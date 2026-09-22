@@ -49,6 +49,7 @@ export async function GET(req: Request) {
       dashboard_status: chain.dashboardStatus,
       action_block_reason: chain.actionBlockReason,
       is_previous_day_unclosed: chain.isPreviousDaysUnclosed,
+      is_single_past_day_open: chain.isSinglePastDayOpen,
       unclosed_day_date: chain.firstDayRequiringClose?.date_val || targetDay.date_val,
     });
   } catch (error: any) {

@@ -16,6 +16,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { KasaCategory, KasaCreditCustomer, KasaFXRatesResponse } from '@/lib/kasa/types';
+import { formatDateTR } from '@/lib/kasa/pure_utils';
 
 function formatTL(kurus: number): string {
   return new Intl.NumberFormat('tr-TR', {
@@ -359,10 +360,10 @@ export default function KasaSatisPage() {
               <AlertTriangle size={24} className="text-amber-600 shrink-0" />
               <div>
                 <div className="font-extrabold text-sm text-amber-950 tracking-wide">
-                  {formatDateTR(openDayDate)} kasa günü hâlâ açık.
+                  {openDayDate ? `${formatDateTR(openDayDate)} kasa günü hâlâ açık.` : 'Önceki kasa günü hâlâ açık.'}
                 </div>
                 <p className="text-xs text-amber-900 mt-0.5">
-                  Şimdi ekleyeceğiniz satış ve giderler {formatDateTR(openDayDate)} gününe kaydedilecektir.
+                  Bu formdaki satış {openDayDate ? `${formatDateTR(openDayDate)}` : 'açık'} gününe kaydedilecektir.
                 </p>
               </div>
             </div>

@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
       page,
       pageSize,
       actorRole: auth.user.role,
+      permissions: auth.user.permissions,
     });
 
     return NextResponse.json(result);

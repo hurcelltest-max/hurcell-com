@@ -155,13 +155,14 @@ export async function GET(req: Request) {
 
     const rawExpenses = expensesData || [];
     const expenses: any[] = [];
+    const canViewAllExpenses = auth.user.role === 'yonetici' || (auth.user.permissions || []).includes('kasa.expense.view_all');
 
     for (const e of rawExpenses) {
       const expCatInfo = expCatMap.get(e.expense_category_id);
       const isSalary = expCatInfo?.is_salary_category || false;
 
-      // Personel maaş kayıtlarını görmesin
-      if (auth.user.role === 'personel' && isSalary) {
+      // Personel maaş kayıtlarını görmesin (kasa.expense.view_all izni yoksa)
+      if (!canViewAllExpenses && isSalary) {
         continue;
       }
 

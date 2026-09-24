@@ -1281,7 +1281,11 @@ export async function cancelExpenseTransaction(
   return data as KasaExpense;
 }
 
-export async function listDailyExpenses(dayId: string, actorRole?: KasaUserRole): Promise<KasaExpense[]> {
+export async function listDailyExpenses(
+  dayId: string,
+  actorRole?: KasaUserRole,
+  permissions: string[] = []
+): Promise<KasaExpense[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('kasa_expenses')
@@ -1295,9 +1299,11 @@ export async function listDailyExpenses(dayId: string, actorRole?: KasaUserRole)
 
   if (error || !data) return [];
 
+  const canViewAll = actorRole === 'yonetici' || permissions.includes('kasa.expense.view_all');
+
   return data
     .filter((item) => {
-      if (actorRole === 'personel' && (item.category?.is_salary_category || item.category?.name === 'Personel Maaşı')) {
+      if (!canViewAll && (item.category?.is_salary_category || item.category?.name === 'Personel Maaşı')) {
         return false;
       }
       return true;
@@ -1317,6 +1323,8 @@ export interface ExpenseListOptions {
   statusFilter?: 'all' | 'active' | 'cancelled';
   createdById?: string;
   actorRole?: KasaUserRole;
+  actorUserId?: string;
+  permissions?: string[];
 }
 
 export async function listAllExpenses(options: ExpenseListOptions = {}): Promise<any[]> {
@@ -1358,10 +1366,12 @@ export async function listAllExpenses(options: ExpenseListOptions = {}): Promise
   const dayMap = new Map((daysRes.data || []).map((d) => [d.id, d.date_val]));
   const bankMap = new Map((bankAccountsRes.data || []).map((a) => [a.id, a.account_name]));
 
+  const canViewAll = options.actorRole === 'yonetici' || (options.permissions || []).includes('kasa.expense.view_all');
+
   return rawExpenses
     .filter((item) => {
       const cat = catMap.get(item.expense_category_id);
-      if (options.actorRole === 'personel' && (cat?.is_salary_category || cat?.name === 'Personel Maaşı')) {
+      if (!canViewAll && (cat?.is_salary_category || cat?.name === 'Personel Maaşı')) {
         return false;
       }
       return true;
@@ -1429,7 +1439,8 @@ export async function getPeriodReportMetrics(
   periodName: string,
   startDateStr: string,
   endDateStr: string,
-  actorRole?: KasaUserRole
+  actorRole?: KasaUserRole,
+  permissions: string[] = []
 ): Promise<KasaPeriodReportMetrics> {
   const supabase = getSupabaseAdmin();
 
@@ -1602,12 +1613,14 @@ export async function getPeriodReportMetrics(
   let technicalServiceExpenseFromExpenses = 0;
   const expCatMap = new Map<string, number>();
 
+  const canViewAll = actorRole === 'yonetici' || permissions.includes('kasa.expense.view_all');
+
   for (const e of expenses || []) {
     const amt = Number(e.amount_kurus || 0);
     const catName = (e.category as any)?.name;
     const isSalary = (e.category as any)?.is_salary_category;
 
-    if (actorRole === 'personel' && (isSalary || catName === 'Personel Maaşı')) {
+    if (!canViewAll && (isSalary || catName === 'Personel Maaşı')) {
       continue;
     }
 
@@ -1922,7 +1935,8 @@ export async function getMonthlyReport(monthISO: string, actorRole?: KasaUserRol
 
 export async function getDailyExpenseCategorySummary(
   kasaDayId: string,
-  actorRole: KasaUserRole
+  actorRole: KasaUserRole,
+  permissions: string[] = []
 ): Promise<KasaExpenseCategorySummary[]> {
   const supabase = getSupabaseAdmin();
 
@@ -1956,9 +1970,10 @@ export async function getDailyExpenseCategorySummary(
   }
 
   const result: KasaExpenseCategorySummary[] = [];
+  const canViewAll = actorRole === 'yonetici' || permissions.includes('kasa.expense.view_all');
 
   for (const cat of categories || []) {
-    if (actorRole === 'personel' && cat.is_salary_category) {
+    if (!canViewAll && cat.is_salary_category) {
       continue;
     }
 
@@ -2075,6 +2090,7 @@ export async function getUnifiedDailyMovements(params: {
   page?: number;
   pageSize?: number;
   actorRole?: KasaUserRole;
+  permissions?: string[];
 }): Promise<KasaUnifiedMovementsResponse> {
   const supabase = getSupabaseAdmin();
 
@@ -2153,9 +2169,11 @@ export async function getUnifiedDailyMovements(params: {
     carryover_repair: 'Devir Onarımı Kaydı',
   };
 
+  const canViewAll = params.actorRole === 'yonetici' || (params.permissions || []).includes('kasa.expense.view_all');
+
   for (const m of movements || []) {
     const isSalary = m.movement_type === 'salary_payment';
-    if (params.actorRole === 'personel' && isSalary) {
+    if (!canViewAll && isSalary) {
       continue;
     }
 

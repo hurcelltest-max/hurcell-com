@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { requireKasaAuth } from '@/lib/kasa/auth';
 import {
   createExpense,
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
     if (scope === 'today_only') {
       const todayDay = await getOrCreateTodayDay(auth.user.id);
-      const expenses = await listDailyExpenses(todayDay.id, auth.user.role);
+      const expenses = await listDailyExpenses(todayDay.id, auth.user.role, auth.user.permissions);
       return NextResponse.json({ expenses });
     }
 
@@ -27,6 +27,8 @@ export async function GET(req: Request) {
       statusFilter,
       categoryId,
       actorRole: auth.user.role,
+      actorUserId: auth.user.id,
+      permissions: auth.user.permissions,
     });
 
     return NextResponse.json({ expenses });

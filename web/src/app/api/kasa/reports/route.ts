@@ -99,7 +99,8 @@ export async function GET(req: Request) {
       rangeInfo.periodName,
       rangeInfo.startDate,
       rangeInfo.endDate,
-      auth.user.role
+      auth.user.role,
+      auth.user.permissions
     );
 
     return NextResponse.json({

@@ -1211,7 +1211,7 @@ export default function KasaMainDashboardPage() {
                     <span className="font-semibold">Aktif Genel Kasa Giderleri:</span>
                     <span className="font-bold">{formatTL((metrics?.expenses_total_kurus || 0) - (metrics?.salary_expenses_kurus || 0) - (metrics?.ts_cost_paid_from_cash_kurus || 0))}</span>
                   </div>
-                  {user?.role === 'yonetici' && (
+                  {(user?.role === 'yonetici' || user?.permissions?.includes('kasa.expense.view_all')) && (
                     <div className="flex justify-between items-center py-1 border-b border-rose-200/60">
                       <span className="font-semibold">Personel Maaş Ödemeleri:</span>
                       <span className="font-bold">{formatTL(metrics?.salary_expenses_kurus || 0)}</span>

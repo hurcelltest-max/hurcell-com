@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const dayIdParam = searchParams.get('day_id');
 
     const targetDay = dayIdParam ? { id: dayIdParam } : await getOrCreateTodayDay(auth.user.id);
-    const summary = await getDailyExpenseCategorySummary(targetDay.id, auth.user.role);
+    const summary = await getDailyExpenseCategorySummary(targetDay.id, auth.user.role, auth.user.permissions);
     const tsCosts = await getDailyTSDirectCosts(targetDay.id);
 
     return NextResponse.json({

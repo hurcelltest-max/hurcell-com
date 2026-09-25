@@ -7,10 +7,14 @@ export async function GET() {
     const auth = await requireKasaAuth();
     const categories = await getKasaExpenseCategories();
 
+    const canCreateSalary =
+      auth.user.role === 'yonetici' ||
+      (auth.user.permissions || []).includes('kasa.expense.salary.create');
+
     const items = categories
       .filter((c) => {
         if (!c.is_active) return false;
-        if (auth.user.role === 'personel' && c.is_salary_category) return false;
+        if (!canCreateSalary && c.is_salary_category) return false;
         return true;
       })
       .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0) || a.name.localeCompare(b.name, 'tr'))

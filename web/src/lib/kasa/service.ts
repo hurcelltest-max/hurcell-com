@@ -696,6 +696,7 @@ export async function createSaleTransaction(
     service_cost_payment_status?: 'paid_from_cash' | 'paid_from_bank' | 'used_from_stock' | 'previously_paid' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost' | 'legacy_unspecified';
     service_cost_payment_source?: string;
     service_cost_bank_account_id?: string;
+    pos_bank_account_id?: string;
     technical_service_details?: TechnicalServiceDetails;
     idempotency_key?: string;
   }
@@ -754,6 +755,7 @@ export async function createSaleTransaction(
     p_service_cost_kurus: input.service_cost_kurus || 0,
     p_cash_paid_kurus: input.cash_paid_kurus || 0,
     p_card_paid_kurus: input.card_paid_kurus || 0,
+    p_pos_bank_account_id: input.pos_bank_account_id || null,
     p_bank_transfer_paid_kurus: input.bank_transfer_paid_kurus || 0,
     p_bank_transfer_reference: input.bank_transfer_reference || null,
     p_usd_paid_cents: input.usd_paid_cents || 0,
@@ -1137,6 +1139,7 @@ export async function updateSaleTransaction(
     service_cost_payment_status?: 'paid_from_cash' | 'paid_from_bank' | 'used_from_stock' | 'previously_paid' | 'previously_paid_or_stock' | 'unpaid' | 'no_cost' | 'legacy_unspecified';
     service_cost_payment_source?: string;
     service_cost_bank_account_id?: string;
+    pos_bank_account_id?: string;
     idempotency_key?: string;
   }
 ): Promise<KasaSale> {
@@ -1167,6 +1170,7 @@ export async function updateSaleTransaction(
     p_service_cost_kurus: saleData.service_cost_kurus || 0,
     p_cash_paid_kurus: saleData.cash_paid_kurus || 0,
     p_card_paid_kurus: saleData.card_paid_kurus || 0,
+    p_pos_bank_account_id: saleData.pos_bank_account_id || null,
     p_bank_transfer_paid_kurus: saleData.bank_transfer_paid_kurus || 0,
     p_bank_transfer_reference: saleData.bank_transfer_reference || null,
     p_usd_paid_cents: saleData.usd_paid_cents || 0,
@@ -2531,3 +2535,72 @@ export async function getMonthToDateCollections() {
     net_collections_minor: netCollectionsMinor,
   };
 }
+
+export async function recordBankDailyBalance(
+  actorUserId: string,
+  bankAccountId: string,
+  dateVal: string,
+  reportedBalanceKurus: number,
+  justification: string
+): Promise<any> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc('fn_kasa_record_bank_daily_balance', {
+    p_actor_user_id: actorUserId,
+    p_bank_account_id: bankAccountId,
+    p_date_val: dateVal,
+    p_reported_balance_kurus: reportedBalanceKurus,
+    p_justification: justification.trim(),
+  });
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Banka günlük bakiyesi kaydedilemedi.');
+  }
+
+  return data;
+}
+
+export async function listBankDailyBalances(dateVal?: string): Promise<any[]> {
+  const supabase = getSupabaseAdmin();
+  const targetDate = dateVal || getIstanbulTodayDateIso();
+
+  // 1. Get all active TRY bank accounts
+  const { data: accounts, error: accErr } = await supabase
+    .from('kasa_bank_accounts')
+    .select('id, bank_name, account_name, currency_code, current_balance_kurus, is_active, display_order')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  if (accErr || !accounts) return [];
+
+  // 2. Get snapshots for targetDate
+  const { data: snapshots, error: snapErr } = await supabase
+    .from('kasa_bank_daily_snapshots')
+    .select('*, user:kasa_users(full_name)')
+    .eq('date_val', targetDate);
+
+  const snapMap = new Map((snapshots || []).map((s: any) => [s.bank_account_id, s]));
+
+  return accounts.map((acc: any) => {
+    const snap = snapMap.get(acc.id);
+    const systemBalance = Number(acc.current_balance_kurus || 0);
+    const reportedBalance = snap ? Number(snap.reported_balance_kurus) : null;
+    const difference = snap ? Number(snap.difference_kurus) : 0;
+
+    return {
+      bank_account_id: acc.id,
+      bank_name: acc.bank_name,
+      account_name: acc.account_name,
+      currency_code: acc.currency_code,
+      is_active: acc.is_active,
+      system_balance_kurus: systemBalance,
+      today_reported_balance_kurus: reportedBalance,
+      difference_kurus: difference,
+      last_reported_by_name: snap?.user?.full_name || null,
+      last_reported_at: snap?.updated_at || snap?.created_at || null,
+      justification: snap?.justification || null,
+      snapshot_id: snap?.id || null,
+      has_reported_today: Boolean(snap),
+    };
+  });
+}
+

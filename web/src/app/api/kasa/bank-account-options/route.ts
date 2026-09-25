@@ -6,16 +6,6 @@ import { hasUserPermission } from '@/lib/kasa/service';
 export async function GET(req: Request) {
   try {
     const auth = await requireKasaAuth();
-    const hasBankAccess =
-      auth.user.role === 'yonetici' ||
-      (await hasUserPermission(auth.user.id, 'kasa.expense.bank'));
-
-    if (!hasBankAccess) {
-      return NextResponse.json(
-        { error: 'BANKA_ÖDEMESİ_YETKİSİZ: Banka hesap seçenekleri yalnızca yöneticilere ve yetkili personele açıktır.' },
-        { status: 403 }
-      );
-    }
 
     const supabase = getSupabaseAdmin();
     const { data: accounts, error } = await supabase

@@ -64,6 +64,7 @@ export async function POST(req: Request) {
       service_cost_payment_status,
       service_cost_payment_source,
       service_cost_bank_account_id,
+      pos_bank_account_id,
       technical_service_details,
       idempotency_key,
     } = body;
@@ -147,6 +148,13 @@ export async function POST(req: Request) {
     const costPriceKurus = cost_price_tl ? Math.round(Number(cost_price_tl) * 100) : undefined;
     const serviceCostKurus = isTechnicalService && service_cost_tl ? Math.round(Number(service_cost_tl) * 100) : undefined;
 
+    if (cardPaidKurus > 0 && !pos_bank_account_id) {
+      return NextResponse.json(
+        { error: 'POS_BANKASI_ZORUNLU: Kredi kartı tahsilatlarında POS Bankası seçilmesi zorunludur.' },
+        { status: 400 }
+      );
+    }
+
     const sale = await createSaleTransaction(auth.user.id, {
       category_id,
       product_name: trimmedProductName,
@@ -157,6 +165,7 @@ export async function POST(req: Request) {
       unit_price_kurus: unitPriceKurus,
       cash_paid_kurus: cashPaidKurus,
       card_paid_kurus: cardPaidKurus,
+      pos_bank_account_id: cardPaidKurus > 0 ? pos_bank_account_id : undefined,
       bank_transfer_paid_kurus: bankTransferPaidKurus,
       bank_transfer_reference: sanitizeReference(bank_transfer_reference),
       credit_paid_kurus: creditPaidKurus,

@@ -114,6 +114,7 @@ export interface KasaSale {
   cost_refunded_on_cancel?: boolean;
   cash_paid_kurus: number;
   card_paid_kurus: number;
+  pos_bank_account_id?: string | null;
   bank_transfer_paid_kurus: number;
   bank_transfer_reference?: string;
   usd_paid_cents: number;
@@ -422,7 +423,22 @@ export interface KasaBankTransaction {
   account_name?: string;
   bank_account_name?: string;
   bank_name?: string;
-  transaction_type: 'opening_balance' | 'capital_injection' | 'owner_withdrawal' | 'pos_settlement' | 'bank_expense' | 'ts_cost_payment' | 'bank_transfer_in' | 'bank_transfer_out' | 'bank_to_cash_withdrawal' | 'cash_to_bank_deposit' | 'bank_adjustment';
+  transaction_type:
+    | 'opening_balance'
+    | 'capital_injection'
+    | 'owner_withdrawal'
+    | 'pos_settlement'
+    | 'pos_collection'
+    | 'pos_reversal'
+    | 'bank_expense'
+    | 'expense_reversal'
+    | 'ts_cost_payment'
+    | 'bank_transfer_in'
+    | 'bank_transfer_out'
+    | 'bank_to_cash_withdrawal'
+    | 'cash_to_bank_deposit'
+    | 'bank_adjustment'
+    | 'balance_adjustment';
   direction: 'in' | 'out';
   amount_kurus: number;
   amount_minor?: number;
@@ -439,6 +455,36 @@ export interface KasaBankTransaction {
   created_by_name?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface KasaBankDailySnapshot {
+  id: string;
+  bank_account_id: string;
+  date_val: string;
+  reported_balance_kurus: number;
+  system_balance_kurus: number;
+  difference_kurus: number;
+  adjustment_transaction_id?: string | null;
+  justification?: string | null;
+  created_by_user_id: string;
+  created_by_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KasaBankDailyBalanceItem {
+  bank_account_id: string;
+  bank_name: string;
+  account_name: string;
+  currency_code: string;
+  is_active: boolean;
+  system_balance_kurus: number;
+  today_reported_balance_kurus: number | null;
+  difference_kurus: number;
+  last_reported_by_name?: string | null;
+  last_reported_at?: string | null;
+  snapshot_id?: string | null;
+  has_reported_today: boolean;
 }
 
 export interface KasaBankSettings {

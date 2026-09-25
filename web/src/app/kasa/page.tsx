@@ -26,8 +26,9 @@ import {
   Coins,
   RefreshCw,
   Info,
+  Landmark,
 } from 'lucide-react';
-import { DashboardCarryoverInfo, KasaMonthlyReport, KasaMonthToDateCollections } from '@/lib/kasa/types';
+import { DashboardCarryoverInfo, KasaMonthlyReport, KasaMonthToDateCollections, KasaBankDailyBalanceItem } from '@/lib/kasa/types';
 import { formatDateTR } from '@/lib/kasa/pure_utils';
 
 interface CategorySummary {
@@ -209,6 +210,89 @@ export default function KasaMainDashboardPage() {
   const [reopenError, setReopenError] = useState<string | null>(null);
   const [reopenSuccess, setReopenSuccess] = useState<string | null>(null);
 
+  // Günlük Banka Bakiyeleri & Mutabakat State'leri
+  const [bankDailyBalances, setBankDailyBalances] = useState<KasaBankDailyBalanceItem[]>([]);
+  const [bankBalancesLoading, setBankBalancesLoading] = useState(false);
+  const [showBalanceModal, setShowBalanceModal] = useState(false);
+  const [selectedBankForBalance, setSelectedBankForBalance] = useState<KasaBankDailyBalanceItem | null>(null);
+  const [reportedBalanceInputTL, setReportedBalanceInputTL] = useState('');
+  const [balanceJustification, setBalanceJustification] = useState('');
+  const [balanceSubmitting, setBalanceSubmitting] = useState(false);
+  const [balanceModalError, setBalanceModalError] = useState<string | null>(null);
+  const [balanceModalSuccess, setBalanceModalSuccess] = useState<string | null>(null);
+
+  const loadBankBalances = async () => {
+    try {
+      setBankBalancesLoading(true);
+      const res = await fetch('/api/kasa/bank-balances');
+      if (res.ok) {
+        const data = await res.json();
+        setBankDailyBalances(data.items || []);
+      }
+    } catch (err) {
+      console.error('Banka bakiyeleri yüklenemedi:', err);
+    } finally {
+      setBankBalancesLoading(false);
+    }
+  };
+
+  const handleOpenBalanceModal = (b: KasaBankDailyBalanceItem) => {
+    setSelectedBankForBalance(b);
+    setReportedBalanceInputTL(
+      b.today_reported_balance_kurus !== null
+        ? (b.today_reported_balance_kurus / 100).toString()
+        : (b.system_balance_kurus / 100).toString()
+    );
+    setBalanceJustification(b.justification || '');
+    setBalanceModalError(null);
+    setBalanceModalSuccess(null);
+    setShowBalanceModal(true);
+  };
+
+  const handleSaveBankBalance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBankForBalance) return;
+    setBalanceModalError(null);
+    setBalanceModalSuccess(null);
+
+    const cleanStr = reportedBalanceInputTL.replace(',', '.').trim();
+    const balanceNum = Number(cleanStr);
+    if (isNaN(balanceNum) || balanceNum < 0) {
+      setBalanceModalError('Lütfen 0 veya pozitif geçerli bir gerçek bakiye tutarı giriniz.');
+      return;
+    }
+
+    try {
+      setBalanceSubmitting(true);
+      const res = await fetch('/api/kasa/bank-balances', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bank_account_id: selectedBankForBalance.bank_account_id,
+          date_val: dateStr || new Date().toISOString().split('T')[0],
+          reported_balance_tl: balanceNum,
+          justification: balanceJustification.trim() || 'Günlük mutabakat girişi',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Banka bakiyesi kaydedilemedi.');
+
+      setBalanceModalSuccess('Banka bakiyesi ve mutabakat kaydı başarıyla kaydedildi.');
+      await loadBankBalances();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kasa-updated'));
+      }
+      setTimeout(() => {
+        setShowBalanceModal(false);
+      }, 700);
+    } catch (err: any) {
+      setBalanceModalError(err.message || 'Banka bakiyesi kaydedilirken hata oluştu.');
+    } finally {
+      setBalanceSubmitting(false);
+    }
+  };
+
   const loadExpenseSummary = async (dayId?: string) => {
     try {
       setExpenseSummaryError(null);
@@ -259,6 +343,8 @@ export default function KasaMainDashboardPage() {
         .then((d) => setMtdData(d.collections || null))
         .catch(console.error);
 
+      await loadBankBalances();
+
       if (dashData.day) {
         setDayStatus(dashData.day.status);
         setDateStr(dashData.day.date_val);
@@ -291,6 +377,13 @@ export default function KasaMainDashboardPage() {
 
   useEffect(() => {
     loadData();
+    const handleUpdate = () => {
+      loadData();
+    };
+    window.addEventListener('kasa-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('kasa-updated', handleUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -331,6 +424,7 @@ export default function KasaMainDashboardPage() {
 
     try {
       const canUseBank = user?.role === 'yonetici' || (user?.permissions || []).includes('kasa.expense.bank');
+      const canCreateSalary = user?.role === 'yonetici' || (user?.permissions || []).includes('kasa.expense.salary.create');
       const catPromise = fetch('/api/kasa/expense-categories');
       const bankPromise = canUseBank ? fetch('/api/kasa/bank-account-options') : Promise.resolve(null);
 
@@ -341,7 +435,7 @@ export default function KasaMainDashboardPage() {
       }
       const rawCats = data.items || data.categories || data.expenseCategories || [];
       const validItems = rawCats.filter((c: any) => {
-        if (user?.role === 'personel' && c.is_salary_category) return false;
+        if (!canCreateSalary && c.is_salary_category) return false;
         return true;
       });
       setExpenseCategories(validItems);
@@ -387,6 +481,11 @@ export default function KasaMainDashboardPage() {
     }
     if (!expensePaymentMethod) {
       setExpenseError('Ödeme yöntemi zorunludur.');
+      return;
+    }
+    const selectedCat = expenseCategories.find((c) => c.id === expenseCatId);
+    if (selectedCat?.is_salary_category && !expenseRecipient.trim()) {
+      setExpenseError('Personel Maaşı için alıcı personel adı/soyadı zorunludur.');
       return;
     }
     if (expensePaymentMethod === 'bank' && !expenseBankAccountId) {
@@ -880,6 +979,105 @@ export default function KasaMainDashboardPage() {
             </div>
           </div>
         )}
+
+        {/* BANKA BAKİYELERİ VE GÜNLÜK MUTABAKAT KARTI */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Landmark size={20} className="text-blue-600" />
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
+                  BANKA BAKİYELERİ VE GÜNLÜK MUTABAKAT (6 BANKA)
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Sistem bakiyesi, bugün kaydedilen gerçek banka bakiyesi ve mutabakat farkı
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={loadBankBalances}
+              disabled={bankBalancesLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+            >
+              <RefreshCw size={14} className={bankBalancesLoading ? 'animate-spin' : ''} />
+              <span>Yenile</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {bankDailyBalances.map((b) => {
+              const canRecord = user?.role === 'yonetici' || (user?.permissions || []).includes('kasa.bank.balance.record');
+              const isBalanced = b.has_reported_today && b.difference_kurus === 0;
+              const hasDiff = b.has_reported_today && b.difference_kurus !== 0;
+
+              return (
+                <div
+                  key={b.bank_account_id}
+                  className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-blue-300 transition shadow-sm space-y-3 flex flex-col justify-between"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-extrabold text-sm text-slate-900">{b.bank_name}</div>
+                        <div className="text-[11px] text-slate-500">{b.account_name} ({b.currency_code})</div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isBalanced
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : hasDiff
+                          ? 'bg-amber-100 text-amber-900'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {isBalanced ? '✓ Birebir Eşit' : hasDiff ? 'Fark Var' : 'Mutabakat Bekliyor'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 text-xs">
+                      <div className="p-2 bg-white rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Sistem Bakiyesi</span>
+                        <span className="font-extrabold text-slate-900 text-sm">{formatTL(b.system_balance_kurus)}</span>
+                      </div>
+                      <div className="p-2 bg-blue-50/70 rounded-xl border border-blue-100">
+                        <span className="text-[10px] text-blue-700 font-bold uppercase block">Gerçek Bakiye</span>
+                        <span className="font-extrabold text-blue-950 text-sm">
+                          {b.today_reported_balance_kurus !== null ? formatTL(b.today_reported_balance_kurus) : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {b.has_reported_today && (
+                      <div className={`p-2 rounded-xl text-xs flex items-center justify-between font-bold ${
+                        b.difference_kurus === 0 ? 'bg-emerald-50 text-emerald-800' : b.difference_kurus > 0 ? 'bg-indigo-50 text-indigo-900' : 'bg-rose-50 text-rose-900'
+                      }`}>
+                        <span className="text-[11px]">Mutabakat Farkı:</span>
+                        <span>{b.difference_kurus > 0 ? `+${formatTL(b.difference_kurus)}` : formatTL(b.difference_kurus)}</span>
+                      </div>
+                    )}
+
+                    {b.last_reported_by_name && (
+                      <div className="text-[10px] text-slate-500 pt-0.5">
+                        👤 Kaydeden: <span className="font-semibold text-slate-700">{b.last_reported_by_name}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {canRecord && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenBalanceModal(b)}
+                      className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5"
+                    >
+                      <Edit3 size={13} />
+                      <span>{b.has_reported_today ? 'Gerçek Bakiyeyi Güncelle' : 'Bugünkü Gerçek Bakiyeyi Gir'}</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
 
         {/* YÖNETİCİ SERMAYE / SAHİP ÇEKİMİ BİLGİSİ */}
         {user?.role === 'yonetici' && (
@@ -1408,10 +1606,21 @@ export default function KasaMainDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Ödeme Yapılan Kişi / Kurum (Opsiyonel)</label>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    {expenseCategories.find((c) => c.id === expenseCatId)?.is_salary_category ? (
+                      <span className="text-rose-700">Personel Adı Soyadı (Maaş Alan) *</span>
+                    ) : (
+                      'Ödeme Yapılan Kişi / Kurum (Opsiyonel)'
+                    )}
+                  </label>
                   <input
                     type="text"
-                    placeholder="Örn: Aras Kargo / Ahmet Bey"
+                    required={Boolean(expenseCategories.find((c) => c.id === expenseCatId)?.is_salary_category)}
+                    placeholder={
+                      expenseCategories.find((c) => c.id === expenseCatId)?.is_salary_category
+                        ? 'Örn: Bahar AYDAMGA'
+                        : 'Örn: Aras Kargo / Ahmet Bey'
+                    }
                     value={expenseRecipient}
                     onChange={(e) => setExpenseRecipient(e.target.value)}
                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-rose-500 focus:border-transparent"
@@ -1438,6 +1647,148 @@ export default function KasaMainDashboardPage() {
                       </>
                     ) : (
                       'Gideri Kaydet'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* GÜNLÜK GERÇEK BANKA BAKİYESİ VE MUTABAKAT MODALI */}
+        {showBalanceModal && selectedBankForBalance && (
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !balanceSubmitting) setShowBalanceModal(false);
+            }}
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-blue-600 font-bold text-base">
+                  <Landmark size={20} />
+                  <span>Günlük Banka Bakiyesi Mutabakatı</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !balanceSubmitting && setShowBalanceModal(false)}
+                  className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {balanceModalError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <AlertTriangle size={16} className="text-red-600 shrink-0" />
+                  <span>{balanceModalError}</span>
+                </div>
+              )}
+
+              {balanceModalSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <span>{balanceModalSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveBankBalance} className="space-y-4 text-xs font-semibold">
+                {/* Banka Bilgisi */}
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-sm text-slate-900">{selectedBankForBalance.bank_name}</span>
+                    <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md">
+                      {selectedBankForBalance.currency_code}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-slate-500 pt-1 border-t border-slate-200">
+                    <span>Mevcut Sistem Bakiyesi:</span>
+                    <span className="font-extrabold text-slate-800">{formatTL(selectedBankForBalance.system_balance_kurus)}</span>
+                  </div>
+                </div>
+
+                {/* Gerçek Bakiye Girişi */}
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Bugünkü Gerçek Banka Bakiyesi (TL) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="0,00"
+                    value={reportedBalanceInputTL}
+                    onChange={(e) => setReportedBalanceInputTL(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-blue-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    İnternet bankacılığından baktığınız güncel gerçek hesap bakiyesini giriniz.
+                  </p>
+                </div>
+
+                {/* Fark Önizleme */}
+                {(() => {
+                  const inputNum = Number(reportedBalanceInputTL.replace(',', '.').trim());
+                  if (isNaN(inputNum) || inputNum < 0) return null;
+                  const inputKurus = Math.round(inputNum * 100);
+                  const diffKurus = inputKurus - selectedBankForBalance.system_balance_kurus;
+                  return (
+                    <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                      diffKurus === 0
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : diffKurus > 0
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-900'
+                        : 'bg-rose-50 border-rose-200 text-rose-900'
+                    }`}>
+                      <div className="flex justify-between items-center font-bold">
+                        <span>Mutabakat Farkı:</span>
+                        <span className="text-sm font-extrabold">
+                          {diffKurus > 0 ? `+${formatTL(diffKurus)}` : formatTL(diffKurus)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] opacity-90">
+                        {diffKurus === 0
+                          ? '✓ Sistem bakiyesi gerçek banka bakiyesi ile birebir uyuşmaktadır.'
+                          : diffKurus > 0
+                          ? `Sistemde ${formatTL(diffKurus)} tutarında artış (düzeltme girişi) oluşturulacaktır.`
+                          : `Sistemde ${formatTL(Math.abs(diffKurus))} tutarında azalış (düzeltme çıkışı) oluşturulacaktır.`}
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* Açıklama */}
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Açıklama / Mutabakat Notu (Opsiyonel)</label>
+                  <input
+                    type="text"
+                    placeholder="Örn: Gün sonu banka ekstresi kontrolü..."
+                    value={balanceJustification}
+                    onChange={(e) => setBalanceJustification(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    disabled={balanceSubmitting}
+                    onClick={() => setShowBalanceModal(false)}
+                    className="w-1/3 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={balanceSubmitting}
+                    className="w-2/3 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {balanceSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Kaydediliyor...</span>
+                      </>
+                    ) : (
+                      'Bakiyeyi Kaydet'
                     )}
                   </button>
                 </div>

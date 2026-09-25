@@ -43,6 +43,7 @@ export default function KasaSatisPage() {
   const [costPriceTL, setCostPriceTL] = useState('');
   const [serviceCostPaymentStatus, setServiceCostPaymentStatus] = useState<string>('');
   const [serviceCostBankAccountId, setServiceCostBankAccountId] = useState('');
+  const [posBankAccountId, setPosBankAccountId] = useState('');
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [description, setDescription] = useState('');
   const [serialImei, setSerialImei] = useState('');
@@ -84,11 +85,12 @@ export default function KasaSatisPage() {
     async function loadInitialData() {
       try {
         setLoading(true);
-        const [meRes, catRes, rateRes, dashRes] = await Promise.all([
+        const [meRes, catRes, rateRes, dashRes, bankRes] = await Promise.all([
           fetch('/api/kasa/auth/me'),
           fetch('/api/kasa/categories'),
           fetch('/api/kasa/rates'),
           fetch('/api/kasa/dashboard'),
+          fetch('/api/kasa/bank-account-options'),
         ]);
 
         if (dashRes.ok) {
@@ -107,14 +109,15 @@ export default function KasaSatisPage() {
         if (meRes.ok) {
           const meData = await meRes.json();
           setUserRole(meData.user?.role || 'personel');
+        }
 
-          if (meData.user?.role === 'yonetici') {
-            const bankRes = await fetch('/api/kasa/bank-account-options');
-            if (bankRes.ok) {
-              const bData = await bankRes.json();
-              setBankAccounts(bData.items || []);
-              if (bData.items?.length > 0) setServiceCostBankAccountId(bData.items[0].id);
-            }
+        if (bankRes.ok) {
+          const bData = await bankRes.json();
+          const bList = bData.items || [];
+          setBankAccounts(bList);
+          if (bList.length > 0) {
+            setServiceCostBankAccountId((prev) => prev || bList[0].id);
+            setPosBankAccountId((prev) => prev || bList[0].id);
           }
         }
 
@@ -169,7 +172,12 @@ export default function KasaSatisPage() {
     setCreditPaidTL('');
 
     if (type === 'cash') setCashPaidTL(totalPriceNum.toString());
-    if (type === 'card') setCardPaidTL(totalPriceNum.toString());
+    if (type === 'card') {
+      setCardPaidTL(totalPriceNum.toString());
+      if (!posBankAccountId && bankAccounts.length > 0) {
+        setPosBankAccountId(bankAccounts[0].id);
+      }
+    }
     if (type === 'bank_transfer') setBankTransferPaidTL(totalPriceNum.toString());
     if (type === 'usd' && usdRate > 0) setUsdPaid((totalPriceNum / usdRate).toFixed(2));
     if (type === 'eur' && eurRate > 0) setEurPaid((totalPriceNum / eurRate).toFixed(2));
@@ -223,6 +231,10 @@ export default function KasaSatisPage() {
       return setError(`Girilen ödemeler toplamı (${totalPaymentsEntered.toFixed(2)} TL), satış toplamından (${totalPriceNum.toFixed(2)} TL) farklıdır. Fark: ${paymentDiff.toFixed(2)} TL`);
     }
 
+    if (cardNum > 0 && !posBankAccountId) {
+      return setError('Kredi kartı tahsilatlarında POS Bankası seçilmesi zorunludur.');
+    }
+
     const trimmedCustomerName = customerName.trim();
     if (isTechnicalService) {
       if (!trimmedCustomerName || trimmedCustomerName.length < 2 || trimmedCustomerName.length > 120) {
@@ -258,6 +270,7 @@ export default function KasaSatisPage() {
           service_cost_bank_account_id: isTechnicalService && serviceCostPaymentStatus === 'paid_from_bank' ? serviceCostBankAccountId : undefined,
           cash_paid_tl: cashNum,
           card_paid_tl: cardNum,
+          pos_bank_account_id: cardNum > 0 ? posBankAccountId : undefined,
           bank_transfer_paid_tl: bankTransferNum,
           bank_transfer_reference: bankTransferReference.trim() || undefined,
           usd_paid: usdPaidNum > 0 ? usdPaidNum : undefined,
@@ -620,6 +633,28 @@ export default function KasaSatisPage() {
               )}
             </div>
           </div>
+
+          {Number(cardPaidTL) > 0 && (
+            <div className="p-3 bg-blue-50/70 border-2 border-blue-300 rounded-xl space-y-1">
+              <label className="block text-xs font-bold uppercase text-blue-900 flex items-center justify-between">
+                <span>POS Bankası *</span>
+                <span className="text-[10px] text-blue-600 font-normal">Kredi kartı tahsilatının aktarılacağı banka</span>
+              </label>
+              <select
+                required
+                value={posBankAccountId}
+                onChange={(e) => setPosBankAccountId(e.target.value)}
+                className="w-full p-2.5 bg-white border border-blue-400 rounded-lg text-sm font-bold text-blue-950 focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- POS Bankası Seçiniz --</option>
+                {bankAccounts.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.bank_name || b.account_name} ({b.currency_code || 'TRY'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {Number(bankTransferPaidTL) > 0 && (
             <div className="p-3 bg-purple-50/50 border border-purple-200 rounded-xl space-y-1">

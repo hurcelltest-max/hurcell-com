@@ -64,10 +64,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Seçilen gider kategorisi pasiftir, kullanılamaz.' }, { status: 400 });
     }
 
-    if (selectedCategory.is_salary_category && auth.user.role !== 'yonetici') {
+    const canCreateSalary =
+      auth.user.role === 'yonetici' ||
+      (await hasUserPermission(auth.user.id, 'kasa.expense.salary.create'));
+
+    if (selectedCategory.is_salary_category && !canCreateSalary) {
       return NextResponse.json(
-        { error: 'Personel maaşı kaydı yalnızca yöneticiler tarafından eklenebilir.' },
+        { error: 'Personel maaşı kaydı yalnızca yöneticiler veya yetkili personel tarafından eklenebilir.' },
         { status: 403 }
+      );
+    }
+
+    if (selectedCategory.is_salary_category && (!recipient_name || !String(recipient_name).trim())) {
+      return NextResponse.json(
+        { error: 'ALICI_ZORUNLU: Personel maaşı giderlerinde alıcı / personel adı zorunludur.' },
+        { status: 400 }
       );
     }
 

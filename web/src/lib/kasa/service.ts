@@ -773,9 +773,15 @@ export async function createSaleTransaction(
     p_customer_phone: input.customer_phone || null,
     p_serial_imei: input.serial_imei || null,
     p_technical_service_details: input.technical_service_details || null,
-    p_service_cost_payment_status: input.service_cost_payment_status ?? null,
-    p_service_cost_payment_source: input.service_cost_payment_source ?? null,
-    p_service_cost_bank_account_id: input.service_cost_bank_account_id ?? null,
+    p_service_cost_payment_status: categoryObj?.name === 'Teknik Servis'
+      ? (input.service_cost_payment_status ?? null)
+      : (input.service_cost_payment_status || 'previously_paid_or_stock'),
+    p_service_cost_payment_source: categoryObj?.name === 'Teknik Servis'
+      ? (input.service_cost_payment_source ?? null)
+      : null,
+    p_service_cost_bank_account_id: categoryObj?.name === 'Teknik Servis'
+      ? (input.service_cost_bank_account_id ?? null)
+      : null,
     p_idempotency_key: input.idempotency_key || null,
   });
 
@@ -1189,9 +1195,15 @@ export async function updateSaleTransaction(
     p_serial_imei: saleData.serial_imei || null,
     p_technical_service_details: (saleData as any).technical_service_details || null,
     p_description: saleData.description || null,
-    p_service_cost_payment_status: saleData.service_cost_payment_status || null,
-    p_service_cost_payment_source: saleData.service_cost_payment_source || (saleData.service_cost_payment_status === 'paid_from_bank' ? 'bank' : null),
-    p_service_cost_bank_account_id: saleData.service_cost_bank_account_id || null,
+    p_service_cost_payment_status: categoryObj?.name === 'Teknik Servis'
+      ? (saleData.service_cost_payment_status || null)
+      : (saleData.service_cost_payment_status || 'previously_paid_or_stock'),
+    p_service_cost_payment_source: categoryObj?.name === 'Teknik Servis'
+      ? (saleData.service_cost_payment_source || (saleData.service_cost_payment_status === 'paid_from_bank' ? 'bank' : null))
+      : null,
+    p_service_cost_bank_account_id: categoryObj?.name === 'Teknik Servis'
+      ? (saleData.service_cost_bank_account_id || null)
+      : null,
     p_idempotency_key: saleData.idempotency_key || null,
   });
 

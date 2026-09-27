@@ -1,17 +1,23 @@
 import { NextResponse } from 'next/server';
+import { requireManagerAuth } from '@/lib/kasa/auth';
 import { createKasaUser, listKasaUsers, updateKasaUser } from '@/lib/kasa/service';
 
 export async function GET() {
   try {
+    await requireManagerAuth();
     const users = await listKasaUsers();
     return NextResponse.json({ users });
   } catch (error: any) {
+    if (error.message?.startsWith('FORBIDDEN') || error.message?.includes('YETKİSİZ')) {
+      return NextResponse.json({ error: 'Kullanıcıları yönetme yetkisi yalnızca yöneticilere aittir.' }, { status: 403 });
+    }
     return NextResponse.json({ error: error.message || 'Kullanıcılar listelenemedi.' }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
+    await requireManagerAuth();
     const body = await req.json();
     const { username, full_name, password, role } = body;
 
@@ -32,12 +38,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, user: newUser });
   } catch (error: any) {
+    if (error.message?.startsWith('FORBIDDEN') || error.message?.includes('YETKİSİZ')) {
+      return NextResponse.json({ error: 'Kullanıcı ekleme yetkisi yalnızca yöneticilere aittir.' }, { status: 403 });
+    }
     return NextResponse.json({ error: error.message || 'Kullanıcı oluşturulamadı.' }, { status: 400 });
   }
 }
 
 export async function PATCH(req: Request) {
   try {
+    await requireManagerAuth();
     const body = await req.json();
     const { id, full_name, is_active, role, password } = body;
 
@@ -54,6 +64,9 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ success: true, user: updatedUser });
   } catch (error: any) {
+    if (error.message?.startsWith('FORBIDDEN') || error.message?.includes('YETKİSİZ')) {
+      return NextResponse.json({ error: 'Kullanıcı güncelleme yetkisi yalnızca yöneticilere aittir.' }, { status: 403 });
+    }
     return NextResponse.json({ error: error.message || 'Kullanıcı güncellenemedi.' }, { status: 400 });
   }
 }

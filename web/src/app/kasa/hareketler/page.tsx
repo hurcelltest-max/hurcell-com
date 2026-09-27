@@ -437,6 +437,7 @@ export default function KasaHareketlerPage() {
                       saleStatus: m.sale_status,
                       dayStatus: m.kasa_day_status,
                       movementType: m.movement_type,
+                      hasUpdatePermission: user?.permissions?.includes('kasa.sale.update'),
                     });
 
                     const canCancel = canCancelSale({

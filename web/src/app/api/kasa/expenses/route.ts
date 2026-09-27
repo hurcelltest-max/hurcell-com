@@ -89,6 +89,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Nakit giderde banka hesabı seçilemez.' }, { status: 400 });
     }
 
+    const hasCashExpensePerm =
+      auth.user.role === 'yonetici' ||
+      (await hasUserPermission(auth.user.id, 'kasa.expense.create'));
+
+    if (payment_method === 'cash' && !hasCashExpensePerm) {
+      return NextResponse.json(
+        { error: 'Gider ekleme yetkiniz bulunmamaktadır.' },
+        { status: 403 }
+      );
+    }
+
     const hasBankPerm =
       auth.user.role === 'yonetici' ||
       (await hasUserPermission(auth.user.id, 'kasa.expense.bank'));

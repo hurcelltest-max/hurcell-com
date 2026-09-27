@@ -223,13 +223,14 @@ export function canEditSale(input: {
   saleStatus?: string;
   dayStatus?: string;
   movementType?: string;
+  hasUpdatePermission?: boolean;
 }): boolean {
   if (input.movementType !== 'satis') return false;
   if (input.saleStatus !== 'completed') return false;
   if (input.dayStatus !== 'open') return false;
   if (!input.role || !input.currentUserId) return false;
   if (input.role === 'yonetici') return true;
-  return input.saleCreatedByUserId === input.currentUserId;
+  return !!input.hasUpdatePermission;
 }
 
 export function canCancelSale(input: {
@@ -252,13 +253,14 @@ export function canEditExpense(input: {
   expenseStatus?: string;
   dayStatus?: string;
   isSalaryCategory?: boolean;
+  hasExpensePermission?: boolean;
 }): boolean {
   if (input.expenseStatus !== 'active') return false;
   if (input.dayStatus !== 'open') return false;
   if (!input.role || !input.currentUserId) return false;
   if (input.role === 'yonetici') return true;
   if (input.isSalaryCategory) return false;
-  return input.expenseCreatedByUserId === input.currentUserId;
+  return input.expenseCreatedByUserId === input.currentUserId && (input.hasExpensePermission ?? true);
 }
 
 export function canCancelExpense(input: {
@@ -268,13 +270,14 @@ export function canCancelExpense(input: {
   expenseStatus?: string;
   dayStatus?: string;
   isSalaryCategory?: boolean;
+  hasExpensePermission?: boolean;
 }): boolean {
   if (input.expenseStatus !== 'active') return false;
   if (input.dayStatus !== 'open') return false;
   if (!input.role || !input.currentUserId) return false;
   if (input.role === 'yonetici') return true;
   if (input.isSalaryCategory) return false;
-  return input.expenseCreatedByUserId === input.currentUserId;
+  return input.expenseCreatedByUserId === input.currentUserId && (input.hasExpensePermission ?? true);
 }
 
 export function evaluateTSAccountingScenario1(input: { totalPriceKurus: number; bankTransferPaidKurus: number }) {

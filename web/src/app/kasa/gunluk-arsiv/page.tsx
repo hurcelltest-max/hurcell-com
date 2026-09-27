@@ -552,6 +552,7 @@ export default function StaffDailyArchivePage() {
                               saleStatus: m.sale_status,
                               dayStatus: selectedDay.status,
                               movementType: m.movement_type,
+                              hasUpdatePermission: user?.permissions?.includes('kasa.sale.update'),
                             });
 
                             const canCancel = canCancelSale({
@@ -559,6 +560,7 @@ export default function StaffDailyArchivePage() {
                               saleStatus: m.sale_status,
                               dayStatus: selectedDay.status,
                               movementType: m.movement_type,
+                              hasCancelPermission: user?.permissions?.includes('kasa.sale.cancel'),
                             });
 
                             return (

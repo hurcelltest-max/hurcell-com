@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireKasaAuth } from '@/lib/kasa/auth';
-import { updateSaleTransaction, getKasaCategoryById, getSaleById } from '@/lib/kasa/service';
+import { updateSaleTransaction, getKasaCategoryById, getSaleById, hasUserPermission } from '@/lib/kasa/service';
 
 const ALLOWED_NEW_TS_STATUSES = [
   'paid_from_cash',
@@ -18,6 +18,17 @@ export async function POST(
   try {
     const auth = await requireKasaAuth();
     const { id: saleId } = await params;
+
+    const isManager = auth.user.role === 'yonetici';
+    const hasUpdatePerm = isManager ? true : await hasUserPermission(auth.user.id, 'kasa.sale.update');
+
+    if (!isManager && !hasUpdatePerm) {
+      return NextResponse.json(
+        { error: 'Satış düzeltme yetkisi bulunmamaktadır. Yalnızca yöneticiler veya yetkilendirilmiş personel satış düzeltmesi yapabilir.' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
 
     const {

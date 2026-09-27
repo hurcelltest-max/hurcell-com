@@ -637,18 +637,23 @@ export default function KasaMainDashboardPage() {
               </span>
             </div>
 
-            <button
-              onClick={openExpenseModal}
-              disabled={isPreviousDayUnclosed}
-              title={isPreviousDayUnclosed ? `${unclosedDayDate || 'Önceki'} kasa günü kapatılmadan yeni gün işlemi girilemez.` : undefined}
-              className={`px-4 py-2 text-white text-sm font-semibold rounded-xl shadow-md flex items-center gap-2 transition-all ${
-                isPreviousDayUnclosed
-                  ? 'bg-slate-400 cursor-not-allowed opacity-60 shadow-none'
-                  : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20 active:scale-[0.98]'
-              }`}
-            >
-              <MinusCircle size={18} /> Günlük Gider Ekle
-            </button>
+            {(user?.role === 'yonetici' ||
+              (user?.permissions || []).includes('kasa.expense.create') ||
+              (user?.permissions || []).includes('kasa.expense.bank') ||
+              (user?.permissions || []).includes('kasa.expense.salary.create')) && (
+              <button
+                onClick={openExpenseModal}
+                disabled={isPreviousDayUnclosed}
+                title={isPreviousDayUnclosed ? `${unclosedDayDate || 'Önceki'} kasa günü kapatılmadan yeni gün işlemi girilemez.` : undefined}
+                className={`px-4 py-2 text-white text-sm font-semibold rounded-xl shadow-md flex items-center gap-2 transition-all ${
+                  isPreviousDayUnclosed
+                    ? 'bg-slate-400 cursor-not-allowed opacity-60 shadow-none'
+                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20 active:scale-[0.98]'
+                }`}
+              >
+                <MinusCircle size={18} /> Günlük Gider Ekle
+              </button>
+            )}
 
             <button
               onClick={openExpenseListModal}

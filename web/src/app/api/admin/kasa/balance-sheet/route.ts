@@ -5,8 +5,13 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 export async function GET() {
   try {
     const auth = await requireKasaAuth();
-    if (auth.user.role !== 'yonetici') {
-      return NextResponse.json({ error: 'Bilanço ve kâr-zarar raporu yalnızca yöneticilere açıktır.' }, { status: 403 });
+    const canView =
+      auth.user.role === 'yonetici' ||
+      (auth.user.permissions || []).includes('kasa.balance_sheet.view') ||
+      (auth.user.permissions || []).includes('kasa.reports.view');
+
+    if (!canView) {
+      return NextResponse.json({ error: 'Bilanço ve kâr-zarar raporunu görüntüleme yetkiniz bulunmamaktadır.' }, { status: 403 });
     }
 
     const supabase = getSupabaseAdmin();

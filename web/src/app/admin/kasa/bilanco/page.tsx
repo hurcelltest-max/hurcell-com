@@ -49,7 +49,7 @@ export default function AdminBilancoPage() {
     <div className="max-w-6xl mx-auto space-y-6 pb-12">
       <div className="flex items-center gap-3">
         <button
-          onClick={() => router.push('/admin/kasa')}
+          onClick={() => (window.history.length > 1 ? router.back() : router.push('/kasa'))}
           className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
         >
           <ArrowLeft size={20} />

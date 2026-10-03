@@ -39,8 +39,13 @@ export async function POST(
     if (payment_method !== 'cash' && payment_method !== 'bank') {
       return NextResponse.json({ error: 'Ödeme yöntemi zorunludur.' }, { status: 400 });
     }
-    if (payment_method === 'bank' && auth.user.role !== 'yonetici') {
-      return NextResponse.json({ error: 'Banka gideri yalnız yöneticiler tarafından düzenlenebilir.' }, { status: 403 });
+    if (
+      payment_method === 'bank' &&
+      auth.user.role !== 'yonetici' &&
+      !(auth.user.permissions || []).includes('kasa.expense.bank') &&
+      !(auth.user.permissions || []).includes('kasa.expense.update')
+    ) {
+      return NextResponse.json({ error: 'Banka gideri düzenleme yetkiniz bulunmamaktadır.' }, { status: 403 });
     }
 
     const updatedExpense = await updateExpenseTransaction(

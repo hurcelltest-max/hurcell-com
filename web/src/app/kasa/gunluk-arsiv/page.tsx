@@ -158,7 +158,8 @@ export default function StaffDailyArchivePage() {
   }, [selectedDay]);
 
   const handleExpenseCategoryCorrection = async (expense: any) => {
-    if (!selectedDay || user?.role !== 'yonetici') return;
+    const canCorrect = user?.role === 'yonetici' || user?.permissions?.includes('kasa.expense.update');
+    if (!selectedDay || !canCorrect) return;
     const newCategoryId = expenseCategoryDrafts[expense.entity_id];
     if (!newCategoryId || newCategoryId === expense.expense_category_id) return;
     const justification = window.prompt('Kategori düzeltme gerekçesini yazın:');
@@ -415,13 +416,13 @@ export default function StaffDailyArchivePage() {
                             <td className="p-3 font-semibold">{expense.payment_method === 'bank' ? (expense.bank_account_name || 'Banka Hesabı') : 'Nakit Kasa'}</td>
                             <td className="p-3 text-right font-bold">{formatTL(expense.amount_kurus)}</td>
                             <td className="p-3"><div className="flex gap-2 justify-center">
-                              <select disabled={user?.role !== 'yonetici' || selectedDay.status !== 'open' || expense.status !== 'active'}
+                              <select disabled={!(user?.role === 'yonetici' || user?.permissions?.includes('kasa.expense.update')) || selectedDay.status !== 'open' || expense.status !== 'active'}
                                 value={expenseCategoryDrafts[expense.entity_id] || expense.expense_category_id}
                                 onChange={(e) => setExpenseCategoryDrafts((old) => ({...old,[expense.entity_id]:e.target.value}))}
                                 className="p-2 border border-slate-200 rounded-lg bg-white">
                                 {expenseCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                               </select>
-                              <button type="button" disabled={user?.role !== 'yonetici' || selectedDay.status !== 'open' || expense.status !== 'active' || expenseCorrectionBusy === expense.entity_id || (expenseCategoryDrafts[expense.entity_id] || expense.expense_category_id) === expense.expense_category_id}
+                              <button type="button" disabled={!(user?.role === 'yonetici' || user?.permissions?.includes('kasa.expense.update')) || selectedDay.status !== 'open' || expense.status !== 'active' || expenseCorrectionBusy === expense.entity_id || (expenseCategoryDrafts[expense.entity_id] || expense.expense_category_id) === expense.expense_category_id}
                                 onClick={() => handleExpenseCategoryCorrection(expense)} className="px-3 py-2 bg-blue-600 text-white rounded-lg font-bold disabled:opacity-40">
                                 {expenseCorrectionBusy === expense.entity_id ? 'Kaydediliyor…' : 'Düzelt'}
                               </button>

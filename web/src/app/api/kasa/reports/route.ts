@@ -109,6 +109,7 @@ export async function GET(req: Request) {
       period,
       displayRange: rangeInfo.displayRange,
       metrics,
+      report: metrics,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Yetkisiz erişim.' }, { status: 401 });

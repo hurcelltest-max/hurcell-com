@@ -47,7 +47,7 @@ export default function AdminKasaRaporlarPage() {
       const res = await fetch(url);
       if (!res.ok) throw new Error('Rapor verileri alınamadı.');
       const data = await res.json();
-      setReport(data.report);
+      setReport(data.report || data.metrics || null);
     } catch (err: any) {
       setError(err.message || 'Rapor oluşturulurken hata oluştu.');
     } finally {
@@ -72,7 +72,7 @@ export default function AdminKasaRaporlarPage() {
       <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push('/admin/kasa')}
+            onClick={() => (window.history.length > 1 ? router.back() : router.push('/kasa'))}
             className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
           >
             <ArrowLeft size={20} />

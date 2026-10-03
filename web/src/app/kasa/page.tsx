@@ -27,6 +27,8 @@ import {
   RefreshCw,
   Info,
   Landmark,
+  Scale,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { DashboardCarryoverInfo, KasaMonthlyReport, KasaMonthToDateCollections, KasaBankDailyBalanceItem } from '@/lib/kasa/types';
 import { formatDateTR } from '@/lib/kasa/pure_utils';
@@ -714,6 +716,24 @@ export default function KasaMainDashboardPage() {
               <Calendar size={16} /> Günlük Arşiv
             </Link>
 
+            {(user?.role === 'yonetici' || user?.permissions?.includes('kasa.balance_sheet.view')) && (
+              <Link
+                href="/admin/kasa/bilanco"
+                className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
+              >
+                <Scale size={16} /> Bilanço
+              </Link>
+            )}
+
+            {(user?.role === 'yonetici' || user?.permissions?.includes('kasa.reports.view')) && (
+              <Link
+                href="/admin/kasa/raporlar"
+                className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
+              >
+                <FileSpreadsheet size={16} /> Kâr-Zarar & Raporlar
+              </Link>
+            )}
+
             {user?.role === 'yonetici' && (
               <Link
                 href="/admin/kasa"
@@ -1084,8 +1104,8 @@ export default function KasaMainDashboardPage() {
         </div>
 
 
-        {/* YÖNETİCİ SERMAYE / SAHİP ÇEKİMİ BİLGİSİ */}
-        {user?.role === 'yonetici' && (
+        {/* YÖNETİCİ & YETKİLİ SERMAYE / SAHİP ÇEKİMİ / KÂR-ZARAR BİLGİSİ */}
+        {(user?.role === 'yonetici' || user?.permissions?.includes('kasa.reports.view') || user?.permissions?.includes('kasa.balance_sheet.view')) && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-2xl text-indigo-950">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">Sermaye Girişleri</span>

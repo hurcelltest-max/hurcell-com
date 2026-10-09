@@ -1,25 +1,119 @@
 -- ============================================================================
--- HurCELL Kasa V28 - Satış Düzeltme POS Banka Entegrasyonu, Kasa Günü Doğrulaması ve İptal Şema Düzeltmesi
+-- HurCELL Kasa V28 - Satış Düzeltme POS Banka Entegrasyonu, Yetki Sıkılaştırma,
+-- İdempotency Uyumluluğu ve Yönetici Geçmiş Gün Satış Düzeltmesi
 -- 
--- 1. fn_kasa_assert_active_day_for_mutation:
---    - 'day_date' yerine gerçek şema kolonu olan 'date_val' kullanılarak en son açık gün tespit edilir.
---    - Fonksiyon public.kasa_days döndürür; hem 'v_day :=' hem de 'PERFORM' çağrılarıyla tam uyumludur.
+-- 1. Idempotency Fonksiyonları (fn_kasa_save_idempotency & fn_kasa_store_idempotency):
+--    - fn_kasa_save_idempotency 5 parametreli kanonik imza ve kasa_idempotency_keys tablosuna kayıt
+--    - fn_kasa_store_idempotency geriye uyumlu 4 ve 5 parametreli overload'lar
+--    - fn_kasa_check_idempotency doğrulaması
 -- 
--- 2. fn_kasa_update_sale (34 Parametreli Kanonik ve 33 Parametreli Geriye Uyumlu İmza):
---    - Kredi kartı tahsilatında (card_paid_kurus > 0) POS Banka seçimi zorunludur ve TRY hesabı olmalıdır.
---    - Eski POS banka hareketleri iptal edilerek eski banka bakiyesi yeniden hesaplanır.
---    - Yeni POS banka hareketi eklenerek yeni banka bakiyesi güncellenir.
---    - Muhasebe hareketleri append-only olarak satis_duzeltme_iptal ve satis_duzeltme_yeni hareketleriyle deftere işlenir.
---    - Şemada bulunmayan kolonlara (updated_at vb.) yapılan hatalı referanslar temizlenmiştir.
---    - kasa_audit_logs şemasıyla tam uyumlu denetim izi bırakılır.
+-- 2. Yetki Sıkılaştırması:
+--    - Personel kendi oluşturduğu satışı da ANCAK aktif, iptal edilmemiş 'kasa.sale.update' izni varsa değiştirebilir.
+--    - Satışın sahibi olmak tek başına izin SAĞLAMAZ.
 -- 
--- 3. fn_kasa_cancel_sale:
+-- 3. Yönetici Geçmiş Gün Satış Düzeltmesi (Closed Day Manager Correction):
+--    - Açık günlerde aktif gün kontrolü yapılır.
+--    - Kapalı günlerde personel işlem yapamaz (KASA_GUNU_KAPALI).
+--    - Kapalı günlerde yönetici (yonetici), zorunlu gerekçe ve audit iziyle güvenli düzeltme yapabilir.
+--    - Gün kilidi bozulmaz, günün status'ü 'closed' kalır. POS banka toplamları ve defter kayıtları tutarlı güncellenir.
+-- 
+-- 4. fn_kasa_cancel_sale:
 --    - kasa_sales tablosunda bulunmayan updated_at referansı temizlenmiştir.
 -- ============================================================================
 
 BEGIN;
 
--- 1. AKTİF GÜN DOĞRULAMA FONKSİYONU
+-- 1. İDEMPOTENCY FONKSİYONLARI VE UYUMLULUK KÖPRÜLERİ
+CREATE OR REPLACE FUNCTION public.fn_kasa_check_idempotency(
+    p_actor_user_id UUID,
+    p_idempotency_key TEXT,
+    p_request_payload JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_rec RECORD;
+    v_hash TEXT;
+BEGIN
+    IF p_idempotency_key IS NULL OR TRIM(p_idempotency_key) = '' THEN
+        RAISE EXCEPTION 'EKSİK_İDEMPOTENCY_KEY: Finansal işlem için idempotency key zorunludur.';
+    END IF;
+
+    v_hash := md5(p_request_payload::text);
+
+    SELECT * INTO v_rec FROM public.kasa_idempotency_keys WHERE idempotency_key = TRIM(p_idempotency_key);
+
+    IF FOUND THEN
+        IF v_rec.request_hash != v_hash THEN
+            RAISE EXCEPTION 'ÇAKIŞAN_İDEMPOTENCY_KEY: Aynı idempotency key farklı bir işlem isteği ile kullanılamaz.';
+        END IF;
+        RETURN v_rec.response_body;
+    END IF;
+
+    RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.fn_kasa_check_idempotency(UUID, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_kasa_check_idempotency(UUID, TEXT, JSONB) TO service_role;
+
+
+CREATE OR REPLACE FUNCTION public.fn_kasa_save_idempotency(
+    p_actor_user_id UUID,
+    p_idempotency_key TEXT,
+    p_action_name TEXT,
+    p_request_payload JSONB,
+    p_response_body JSONB
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_hash TEXT := md5(p_request_payload::text);
+BEGIN
+    INSERT INTO public.kasa_idempotency_keys (
+        idempotency_key, request_hash, action_name, response_body, created_by_user_id
+    ) VALUES (
+        TRIM(p_idempotency_key), v_hash, p_action_name, p_response_body, p_actor_user_id
+    )
+    ON CONFLICT (idempotency_key) DO UPDATE
+    SET response_body = EXCLUDED.response_body,
+        action_name = EXCLUDED.action_name;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.fn_kasa_save_idempotency(UUID, TEXT, TEXT, JSONB, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_kasa_save_idempotency(UUID, TEXT, TEXT, JSONB, JSONB) TO service_role;
+
+
+CREATE OR REPLACE FUNCTION public.fn_kasa_store_idempotency(
+    p_actor_user_id UUID,
+    p_idempotency_key TEXT,
+    p_request_payload JSONB,
+    p_response_body JSONB
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    PERFORM public.fn_kasa_save_idempotency(p_actor_user_id, p_idempotency_key, 'kasa_action', p_request_payload, p_response_body);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.fn_kasa_store_idempotency(UUID, TEXT, JSONB, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_kasa_store_idempotency(UUID, TEXT, JSONB, JSONB) TO service_role;
+
+
+-- 2. AKTİF GÜN DOĞRULAMA FONKSİYONU
 CREATE OR REPLACE FUNCTION public.fn_kasa_assert_active_day_for_mutation(p_kasa_day_id UUID)
 RETURNS public.kasa_days
 LANGUAGE plpgsql
@@ -56,7 +150,7 @@ REVOKE ALL ON FUNCTION public.fn_kasa_assert_active_day_for_mutation(UUID) FROM 
 GRANT EXECUTE ON FUNCTION public.fn_kasa_assert_active_day_for_mutation(UUID) TO service_role;
 
 
--- 2. SATIŞ DÜZELTME KANONİK FONKSİYONU (34 PARAMETRE)
+-- 3. SATIŞ DÜZELTME KANONİK FONKSİYONU (34 PARAMETRE)
 CREATE OR REPLACE FUNCTION public.fn_kasa_update_sale(
     p_actor_user_id UUID,
     p_sale_id UUID,
@@ -103,6 +197,8 @@ DECLARE
     v_actor_active BOOLEAN;
     v_has_custom_update_permission BOOLEAN;
     v_sale_rec RECORD;
+    v_day_rec public.kasa_days%ROWTYPE;
+    v_is_historical_day BOOLEAN := false;
     v_bank_tx RECORD;
     v_bank_rec RECORD;
     v_pos_bank_rec RECORD;
@@ -125,10 +221,7 @@ BEGIN
         RAISE EXCEPTION 'GEÇERSİZ_SATIŞ: Güncellenecek tamamlanmış satış bulunamadı veya satış iptal edilmiş.';
     END IF;
 
-    -- 2. Aktif Gün Kilidi Denetimi
-    PERFORM public.fn_kasa_assert_active_day_for_mutation(v_sale_rec.kasa_day_id);
-
-    -- 3. Aktör Kullanıcı ve Yetki Denetimi
+    -- 2. Aktör Kullanıcı Doğrulaması
     SELECT role, is_active INTO v_actor_role, v_actor_active
     FROM public.kasa_users
     WHERE id = p_actor_user_id;
@@ -137,7 +230,11 @@ BEGIN
         RAISE EXCEPTION 'GEÇERSİZ_KULLANICI: İşlemi yapan kullanıcı bulunamadı veya pasif durumda.';
     END IF;
 
-    IF v_actor_role <> 'yonetici' AND v_sale_rec.created_by_user_id <> p_actor_user_id THEN
+    -- Yetki Kontrolü:
+    -- Yönetici (yonetici) her satışı düzeltebilir.
+    -- Personel KENDİ satışı olsa dahi yalnızca aktif, iptal edilmemiş 'kasa.sale.update' izni varsa düzeltebilir.
+    -- Satışın sahibi olmak tek başına izin sağlamaz.
+    IF v_actor_role <> 'yonetici' THEN
         SELECT EXISTS (
             SELECT 1 FROM public.kasa_user_permissions
             WHERE user_id = p_actor_user_id
@@ -147,8 +244,29 @@ BEGIN
         ) INTO v_has_custom_update_permission;
 
         IF NOT COALESCE(v_has_custom_update_permission, false) THEN
-            RAISE EXCEPTION 'YETKİSİZ: Başka personele ait satışları düzeltme yetkiniz bulunmamaktadır.';
+            RAISE EXCEPTION 'YETKİSİZ: Satış düzeltme yetkiniz bulunmamaktadır.';
         END IF;
+    END IF;
+
+    -- 3. Kasa Günü Durumu ve Geçmiş Gün Yönetici İstisnası
+    SELECT * INTO v_day_rec FROM public.kasa_days WHERE id = v_sale_rec.kasa_day_id;
+    IF v_day_rec.id IS NULL THEN
+        RAISE EXCEPTION 'GEÇERSİZ_GÜN: Satışın bağlı olduğu kasa günü bulunamadı.';
+    END IF;
+
+    IF v_day_rec.status <> 'open' THEN
+        -- Kapalı gün: Personel kesinlikle işlem yapamaz.
+        IF v_actor_role <> 'yonetici' THEN
+            RAISE EXCEPTION 'KASA_GUNU_KAPALI: Kapalı kasa gününe ait satışlar personel tarafından düzeltilemez. Yalnızca yönetici gerekçe belirterek geçmiş gün düzeltmesi yapabilir.';
+        END IF;
+        v_is_historical_day := true;
+    ELSE
+        -- Açık gün: Aktif açık gün olup olmadığı kontrol edilir
+        PERFORM public.fn_kasa_assert_active_day_for_mutation(v_sale_rec.kasa_day_id);
+    END IF;
+
+    IF p_justification IS NULL OR TRIM(p_justification) = '' THEN
+        RAISE EXCEPTION 'GEREKÇE_ZORUNLU: Satış düzeltmesi için gerekçe belirtilmesi zorunludur.';
     END IF;
 
     -- 4. Bankadan Servis Maliyeti Ödemesi Yönetici Kontrolü
@@ -207,7 +325,7 @@ BEGIN
         END IF;
     END IF;
 
-    v_effective_justification := COALESCE(NULLIF(TRIM(p_justification), ''), NULLIF(TRIM(p_description), ''), 'Satış Düzeltme');
+    v_effective_justification := TRIM(p_justification);
 
     -- 7. İdempotency Denetimi
     v_payload := jsonb_build_object(
@@ -215,13 +333,18 @@ BEGIN
         'category_id', p_category_id,
         'product_name', p_product_name,
         'quantity', p_quantity,
+        'unit_price_kurus', p_unit_price_kurus,
         'total_price_kurus', p_total_price_kurus,
+        'cost_price_kurus', p_cost_price_kurus,
+        'service_cost_kurus', p_service_cost_kurus,
         'cash_paid_kurus', p_cash_paid_kurus,
         'card_paid_kurus', p_card_paid_kurus,
         'pos_bank_account_id', p_pos_bank_account_id,
         'bank_transfer_paid_kurus', p_bank_transfer_paid_kurus,
+        'bank_transfer_reference', p_bank_transfer_reference,
         'justification', v_effective_justification,
         'service_cost_payment_status', p_service_cost_payment_status,
+        'service_cost_payment_source', p_service_cost_payment_source,
         'service_cost_bank_account_id', p_service_cost_bank_account_id
     );
 
@@ -447,9 +570,13 @@ BEGIN
         p_sale_id,
         jsonb_build_object(
             'kasa_day_id', v_sale_rec.kasa_day_id,
+            'kasa_day_date', v_day_rec.date_val,
+            'is_historical_day_correction', v_is_historical_day,
             'receipt_no', v_sale_rec.receipt_no,
             'old_total_kurus', v_sale_rec.total_price_kurus,
             'new_total_kurus', p_total_price_kurus,
+            'old_cash_paid_kurus', v_sale_rec.cash_paid_kurus,
+            'new_cash_paid_kurus', p_cash_paid_kurus,
             'old_card_paid_kurus', v_sale_rec.card_paid_kurus,
             'new_card_paid_kurus', p_card_paid_kurus,
             'old_pos_bank_account_id', v_sale_rec.pos_bank_account_id,
@@ -488,7 +615,7 @@ GRANT EXECUTE ON FUNCTION public.fn_kasa_update_sale(
 ) TO service_role;
 
 
--- 3. GERİYE UYUMLU 33 PARAMETRELİ OVERLOAD
+-- 4. GERİYE UYUMLU 33 PARAMETRELİ OVERLOAD
 CREATE OR REPLACE FUNCTION public.fn_kasa_update_sale(
     p_actor_user_id UUID,
     p_sale_id UUID,
@@ -561,7 +688,7 @@ GRANT EXECUTE ON FUNCTION public.fn_kasa_update_sale(
 ) TO service_role;
 
 
--- 4. SATIŞ İPTAL FONKSİYONU ŞEMA DÜZELTMESİ (fn_kasa_cancel_sale)
+-- 5. SATIŞ İPTAL FONKSİYONU ŞEMA DÜZELTMESİ (fn_kasa_cancel_sale)
 CREATE OR REPLACE FUNCTION public.fn_kasa_cancel_sale(
     p_actor_user_id UUID,
     p_sale_id UUID,

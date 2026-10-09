@@ -37,6 +37,7 @@ export default function KasaHareketlerPage() {
   const [editUnitPriceTL, setEditUnitPriceTL] = useState('');
   const [editCashPaidTL, setEditCashPaidTL] = useState('');
   const [editCardPaidTL, setEditCardPaidTL] = useState('');
+  const [editPosBankAccountId, setEditPosBankAccountId] = useState('');
   const [editBankPaidTL, setEditBankPaidTL] = useState('');
   const [editBankRef, setEditBankRef] = useState('');
   const [editCreditPaidTL, setEditCreditPaidTL] = useState('');
@@ -68,7 +69,7 @@ export default function KasaHareketlerPage() {
         fetch('/api/kasa/auth/me'),
         fetch('/api/kasa/movements?page_size=200'),
         fetch('/api/kasa/categories'),
-        fetch('/api/admin/kasa/bank-accounts'),
+        fetch('/api/kasa/bank-account-options'),
       ]);
 
       if (meRes.ok) {
@@ -83,7 +84,7 @@ export default function KasaHareketlerPage() {
 
       if (bankRes?.ok) {
         const bData = await bankRes.json();
-        const activeBanks = (bData.accounts || []).filter((a: any) => a.is_active || a.status === 'active');
+        const activeBanks = (bData.items || bData.accounts || []).filter((a: any) => a.is_active !== false);
         setBankAccounts(activeBanks);
         if (activeBanks.length > 0) setEditServiceCostBankAccountId(activeBanks[0].id);
       }
@@ -157,12 +158,14 @@ export default function KasaHareketlerPage() {
       setEditUnitPriceTL((data.unit_price_kurus / 100).toFixed(2));
       setEditCashPaidTL((data.cash_paid_kurus / 100).toFixed(2));
       setEditCardPaidTL((data.card_paid_kurus / 100).toFixed(2));
+      setEditPosBankAccountId(data.pos_bank_account_id || '');
       setEditBankPaidTL((data.bank_transfer_paid_kurus / 100).toFixed(2));
       setEditBankRef(data.bank_transfer_reference || '');
       setEditCreditPaidTL((data.credit_paid_kurus / 100).toFixed(2));
       setEditCostPriceTL(data.unit_cost_kurus > 0 ? (data.unit_cost_kurus / 100).toFixed(2) : '');
       setEditServiceCostTL(data.service_cost_kurus > 0 ? (data.service_cost_kurus / 100).toFixed(2) : '');
       setEditServiceCostStatus(data.service_cost_payment_status || '');
+      setEditServiceCostBankAccountId(data.service_cost_bank_account_id || '');
       setEditCustomerName(data.customer_name || '');
       setEditSerialImei(data.serial_imei || '');
       setEditDescription(data.notes || '');
@@ -214,6 +217,11 @@ export default function KasaHareketlerPage() {
       return;
     }
 
+    if (cardNum > 0 && !editPosBankAccountId) {
+      setEditError('POS_BANKASI_ZORUNLU: Kredi kartı tahsilatlarında POS Bankası seçilmesi zorunludur.');
+      return;
+    }
+
     try {
       setEditSubmitting(true);
       setEditError(null);
@@ -227,6 +235,7 @@ export default function KasaHareketlerPage() {
           unit_price_tl: unitPriceNum,
           cash_paid_tl: cashNum,
           card_paid_tl: cardNum,
+          pos_bank_account_id: cardNum > 0 ? editPosBankAccountId : undefined,
           bank_transfer_paid_tl: bankNum,
           bank_transfer_reference: editBankRef.trim() || undefined,
           credit_paid_tl: creditNum > 0 ? creditNum : undefined,
@@ -632,7 +641,13 @@ export default function KasaHareketlerPage() {
                           type="number"
                           step="0.01"
                           value={editCardPaidTL}
-                          onChange={(e) => setEditCardPaidTL(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditCardPaidTL(val);
+                            if (Number(val) > 0 && !editPosBankAccountId && bankAccounts.length > 0) {
+                              setEditPosBankAccountId(bankAccounts[0].id);
+                            }
+                          }}
                           className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                         />
                       </div>
@@ -649,6 +664,42 @@ export default function KasaHareketlerPage() {
                     </div>
                   </div>
 
+                  {Number(editCardPaidTL) > 0 && (
+                    <div className="p-3 bg-blue-50/70 border-2 border-blue-300 rounded-xl space-y-1">
+                      <label className="block text-xs font-bold uppercase text-blue-900 flex items-center justify-between">
+                        <span>POS Bankası *</span>
+                        <span className="text-[10px] text-blue-600 font-normal">Kredi kartı tahsilatının aktarılacağı banka</span>
+                      </label>
+                      <select
+                        required
+                        value={editPosBankAccountId}
+                        onChange={(e) => setEditPosBankAccountId(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-blue-400 rounded-lg text-xs font-bold text-blue-950 focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">-- POS Bankası Seçiniz --</option>
+                        {bankAccounts.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.bank_name || b.account_name} ({b.currency_code || 'TRY'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {Number(editBankPaidTL) > 0 && (
+                    <div className="p-3 bg-purple-50/50 border border-purple-200 rounded-xl space-y-1">
+                      <label className="block text-xs font-bold uppercase text-purple-900">Havale / EFT Referansı (Opsiyonel)</label>
+                      <input
+                        type="text"
+                        maxLength={200}
+                        placeholder="Örn: Garanti Bankası - Dekont No: 12345 / Ahmet Yılmaz"
+                        value={editBankRef}
+                        onChange={(e) => setEditBankRef(e.target.value)}
+                        className="w-full p-2 bg-white border border-purple-200 rounded-lg text-xs"
+                      />
+                    </div>
+                  )}
+
                   {editingMovement.category_name === 'Teknik Servis' && (
                     <div className="border-t border-slate-100 pt-3 space-y-2">
                       <label className="block text-slate-700 font-bold flex items-center gap-1">
@@ -663,10 +714,14 @@ export default function KasaHareketlerPage() {
                               const val = e.target.value;
                               setEditServiceCostStatus(val);
                               if (val === 'no_cost') setEditServiceCostTL('0');
+                              if (val === 'paid_from_bank' && !editServiceCostBankAccountId && bankAccounts.length > 0) {
+                                setEditServiceCostBankAccountId(bankAccounts[0].id);
+                              }
                             }}
                             className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
                           >
                             <option value="paid_from_cash">Kasadan Ödendi (Nakit Düşer)</option>
+                            <option value="paid_from_bank">Bankadan Ödendi (Banka Hesabından Düşer)</option>
                             <option value="used_from_stock">Stoktan Kullanıldı (Kasayı Etkilemez)</option>
                             <option value="previously_paid">Önceden Ödendi (Kasayı Etkilemez)</option>
                             <option value="previously_paid_or_stock">Önceden Ödendi / Stoktan (Eski Kayıt)</option>
@@ -686,6 +741,24 @@ export default function KasaHareketlerPage() {
                             className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold disabled:opacity-50"
                           />
                         </div>
+                        {editServiceCostStatus === 'paid_from_bank' && (
+                          <div className="col-span-2 space-y-1">
+                            <span className="text-[10px] text-blue-900 font-bold">Maliyetin Ödendiği Banka Hesabı *</span>
+                            <select
+                              required
+                              value={editServiceCostBankAccountId}
+                              onChange={(e) => setEditServiceCostBankAccountId(e.target.value)}
+                              className="w-full p-2 bg-white border border-blue-300 rounded-lg text-xs font-semibold"
+                            >
+                              <option value="">-- Banka Hesabı Seçiniz --</option>
+                              {bankAccounts.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                  {b.bank_name || b.account_name} ({b.currency_code || 'TRY'})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

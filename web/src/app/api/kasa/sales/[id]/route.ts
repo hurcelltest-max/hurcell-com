@@ -25,10 +25,16 @@ export async function GET(
       return NextResponse.json({ error: 'Satış kaydı bulunamadı.' }, { status: 404 });
     }
 
-    // Role check: Manager can view any sale; Staff can view ONLY their own sale
-    if (auth.user.role === 'personel' && sale.created_by_user_id !== auth.user.id) {
+    // Role check: Manager or authorized staff (or creator) can view sale details
+    const hasPermission =
+      auth.user.role === 'yonetici' ||
+      sale.created_by_user_id === auth.user.id ||
+      (auth.user.permissions || []).includes('kasa.sale.update') ||
+      (auth.user.permissions || []).includes('kasa.sale.cancel');
+
+    if (!hasPermission) {
       return NextResponse.json(
-        { error: 'Yalnızca kendi oluşturduğunuz satışların ayrıntılarını görüntüleyebilirsiniz.' },
+        { error: 'Satış ayrıntılarını görüntüleme yetkiniz bulunmamaktadır.' },
         { status: 403 }
       );
     }
@@ -49,8 +55,11 @@ export async function GET(
       total_price_kurus: sale.total_price_kurus,
       service_cost_kurus: sale.service_cost_kurus || 0,
       service_cost_payment_status: sale.service_cost_payment_status || null,
+      service_cost_payment_source: sale.service_cost_payment_source || null,
+      service_cost_bank_account_id: sale.service_cost_bank_account_id || null,
       cash_paid_kurus: sale.cash_paid_kurus || 0,
       card_paid_kurus: sale.card_paid_kurus || 0,
+      pos_bank_account_id: sale.pos_bank_account_id || null,
       bank_transfer_paid_kurus: sale.bank_transfer_paid_kurus || 0,
       bank_transfer_reference: sale.bank_transfer_reference || '',
       credit_paid_kurus: sale.credit_paid_kurus || 0,

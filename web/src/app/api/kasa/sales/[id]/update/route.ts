@@ -213,13 +213,37 @@ export async function POST(
   } catch (error: any) {
     console.error('[Kasa Update Sale Error]:', error);
     const msg = String(error?.message || '');
-    if (msg.includes('YETKİSİZ') || msg.includes('FORBIDDEN')) {
+    if (msg.includes('YETKİSİZ') || msg.includes('YETKISIZ') || msg.includes('FORBIDDEN')) {
       return NextResponse.json({ error: 'Satış düzeltme yetkisi bulunmamaktadır.' }, { status: 403 });
     }
-    if (msg.includes('KASA_GÜNÜ_KAPALI') || msg.includes('PREVIOUS_DAY_UNCLOSED') || msg.includes('GÜN_KİLİTLİ')) {
+    if (
+      msg.includes('KASA_GÜNÜ_KAPALI') ||
+      msg.includes('KASA_GUNU_KAPALI') ||
+      msg.includes('PREVIOUS_DAY_UNCLOSED') ||
+      msg.includes('GÜN_KİLİTLİ') ||
+      msg.includes('GUN_KILITLI') ||
+      msg.includes('GEÇMİŞ_GÜN_İŞLEM_YAPILAMAZ')
+    ) {
       return NextResponse.json({ error: 'Kasa günü kapalı veya kilitli olduğundan satış düzeltilemez.' }, { status: 400 });
     }
-    if (msg.includes('EKSİK_İDEMPOTENCY_KEY') || msg.includes('MÜŞTERİ_ADI_ZORUNLU') || msg.includes('TUTAR_UYUŞMAZLIĞI') || msg.includes('ÖDEME_UYUŞMAZLIĞI')) {
+    if (
+      msg.includes('EKSİK_İDEMPOTENCY_KEY') ||
+      msg.includes('MÜŞTERİ_ADI_ZORUNLU') ||
+      msg.includes('TUTAR_UYUŞMAZLIĞI') ||
+      msg.includes('ÖDEME_UYUŞMAZLIĞI') ||
+      msg.includes('POS_BANKASI_ZORUNLU') ||
+      msg.includes('GEÇERSİZ_POS_BANKASI') ||
+      msg.includes('GEÇERSİZ_KATEGORİ') ||
+      msg.includes('GEÇERSİZ_SATIŞ') ||
+      msg.includes('GEREKÇE_ZORUNLU') ||
+      msg.includes('CARİ_MÜŞTERİ_ZORUNLU') ||
+      msg.includes('BANKA_ÖDEMESİ_YETKİSİZ') ||
+      msg.includes('EKSİK_BANKA_HESABI') ||
+      msg.includes('YETERSİZ_BAKİYE')
+    ) {
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+    if (msg) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
     return NextResponse.json(

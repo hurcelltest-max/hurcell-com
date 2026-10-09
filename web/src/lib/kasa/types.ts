@@ -548,6 +548,37 @@ export interface KasaBalanceSheetReport {
   }>;
 }
 
+export interface KasaBankMovementDetailItem {
+  id: string;
+  source_type:
+    | 'sale_transfer'
+    | 'credit_transfer'
+    | 'bank_expense'
+    | 'pos_collection'
+    | 'balance_adjustment'
+    | 'interbank_transfer'
+    | 'bank_deposit'
+    | 'owner_withdrawal'
+    | 'capital_injection'
+    | 'ts_cost_payment';
+  type_label: string;
+  date: string;
+  time?: string;
+  direction: 'in' | 'out';
+  amount_kurus: number;
+  bank_name: string;
+  account_name?: string;
+  description: string;
+  reference_no?: string | null;
+  receipt_no?: string | null;
+  created_by_name: string;
+  is_operating_revenue: boolean;
+  is_operating_expense: boolean;
+  is_adjustment: boolean;
+  is_transfer: boolean;
+  created_at: string;
+}
+
 export interface KasaMonthToDateCollections {
   month_label?: string;
   period_label?: string;
@@ -577,4 +608,10 @@ export interface KasaMonthToDateCollections {
   net_cash_expenses_minor?: number;
   net_bank_expenses_minor?: number;
   net_total_expenses_minor?: number;
+  total_bank_inflow_minor?: number;
+  total_bank_outflow_minor?: number;
+  total_balance_adjustments_minor?: number;
+  total_interbank_transfers_minor?: number;
+  items?: KasaBankMovementDetailItem[];
 }
+

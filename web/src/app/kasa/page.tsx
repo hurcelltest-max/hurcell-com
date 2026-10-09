@@ -203,7 +203,59 @@ export default function KasaMainDashboardPage() {
   });
   const [monthlyReport, setMonthlyReport] = useState<KasaMonthlyReport | null>(null);
   const [monthlyLoading, setMonthlyLoading] = useState<boolean>(false);
+
+  // Aybaşından Bugüne / Tarih Aralıklı Tahsilatlar ve Banka Hareketleri State'leri
   const [mtdData, setMtdData] = useState<KasaMonthToDateCollections | null>(null);
+  const [mtdLoading, setMtdLoading] = useState<boolean>(false);
+  const [mtdTypeFilter, setMtdTypeFilter] = useState<'all' | 'transfer' | 'expense' | 'adjustment' | 'deposit' | 'pos'>('all');
+  const [mtdPeriod, setMtdPeriod] = useState<'month' | 'today' | 'yesterday' | 'custom'>('month');
+  const [mtdCustomStartDate, setMtdCustomStartDate] = useState<string>('');
+  const [mtdCustomEndDate, setMtdCustomEndDate] = useState<string>('');
+  const [mtdSearch, setMtdSearch] = useState<string>('');
+
+  const loadMtdData = async (
+    period = mtdPeriod,
+    customStart = mtdCustomStartDate,
+    customEnd = mtdCustomEndDate
+  ) => {
+    try {
+      setMtdLoading(true);
+      let url = '/api/kasa/month-to-date-collections';
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Istanbul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+
+      if (period === 'today') {
+        url += `?start_date=${today}&end_date=${today}`;
+      } else if (period === 'yesterday') {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        const yStr = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Istanbul',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(d);
+        url += `?start_date=${yStr}&end_date=${yStr}`;
+      } else if (period === 'custom' && customStart && customEnd) {
+        url += `?start_date=${customStart}&end_date=${customEnd}`;
+      }
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const d = await res.json();
+        setMtdData(d.collections || null);
+      }
+    } catch (err) {
+      console.error('MTD verileri yüklenemedi:', err);
+    } finally {
+      setMtdLoading(false);
+    }
+  };
+
 
   // Günü Yeniden Açma State'leri
   const [showReopenModal, setShowReopenModal] = useState(false);
@@ -340,11 +392,7 @@ export default function KasaMainDashboardPage() {
       setFirstDayToClose(dashData.first_day_requiring_close || null);
       setTargetDayId(dashData.day_id || null);
 
-      fetch('/api/kasa/month-to-date-collections')
-        .then((r) => r.json())
-        .then((d) => setMtdData(d.collections || null))
-        .catch(console.error);
-
+      await loadMtdData();
       await loadBankBalances();
 
       if (dashData.day) {
@@ -931,21 +979,125 @@ export default function KasaMainDashboardPage() {
           </div>
         </div>
 
-        {/* AYBAŞINDAN BUGÜNE TAHSİLATLAR VE BANKA HAREKETLERİ KARTI */}
+        {/* AYBAŞINDAN BUGÜNE TAHSİLATLAR, GİDERLER VE BANKA HAREKETLERİ KARTI */}
         {mtdData && (
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                <CalendarCheck size={18} className="text-indigo-600" /> AYBAŞINDAN BUGÜNE TAHSİLATLAR, GİDERLER VE BANKA HAREKETLERİ
-              </h3>
-              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-200">
-                {mtdData.period_label}
-              </span>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            {/* Kart Başlığı ve Tarih Seçici */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-3 gap-3">
+              <div className="flex items-center gap-2">
+                <CalendarCheck size={20} className="text-indigo-600 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                    TAHSİLATLAR, GİDERLER VE BANKA / HAVALE HAREKETLERİ
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Havale/EFT girişleri, banka giderleri, bakiye düzeltmeleri ve transferlerin dökümü
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMtdPeriod('month');
+                      loadMtdData('month');
+                    }}
+                    className={`px-3 py-1 font-bold rounded-lg transition-all ${
+                      mtdPeriod === 'month'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Bu Ay
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMtdPeriod('today');
+                      loadMtdData('today');
+                    }}
+                    className={`px-3 py-1 font-bold rounded-lg transition-all ${
+                      mtdPeriod === 'today'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Bugün
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMtdPeriod('yesterday');
+                      loadMtdData('yesterday');
+                    }}
+                    className={`px-3 py-1 font-bold rounded-lg transition-all ${
+                      mtdPeriod === 'yesterday'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Dün
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMtdPeriod('custom')}
+                    className={`px-3 py-1 font-bold rounded-lg transition-all ${
+                      mtdPeriod === 'custom'
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Özel Tarih
+                  </button>
+                </div>
+
+                {mtdPeriod === 'custom' && (
+                  <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
+                    <input
+                      type="date"
+                      value={mtdCustomStartDate}
+                      onChange={(e) => setMtdCustomStartDate(e.target.value)}
+                      className="text-xs p-1 bg-white border border-slate-200 rounded-lg"
+                    />
+                    <span className="text-xs text-slate-400">–</span>
+                    <input
+                      type="date"
+                      value={mtdCustomEndDate}
+                      onChange={(e) => setMtdCustomEndDate(e.target.value)}
+                      className="text-xs p-1 bg-white border border-slate-200 rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => loadMtdData('custom', mtdCustomStartDate, mtdCustomEndDate)}
+                      disabled={!mtdCustomStartDate || !mtdCustomEndDate || mtdLoading}
+                      className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      Filtrele
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => loadMtdData()}
+                  disabled={mtdLoading}
+                  title="Yenile"
+                  className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 transition-colors"
+                >
+                  <RefreshCw size={15} className={mtdLoading ? 'animate-spin text-indigo-600' : ''} />
+                </button>
+
+                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
+                  {mtdData.period_label}
+                </span>
+              </div>
             </div>
 
-            {/* Tahsilatlar Satırı */}
+            {/* 1. Satır: Tahsilatlar Özeti */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Tahsilatlar (Aybaşından Bugüne)</span>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Tahsilatlar (Dönem Toplamı)</span>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Nakit Tahsilat</span>
@@ -979,9 +1131,9 @@ export default function KasaMainDashboardPage() {
               </div>
             </div>
 
-            {/* Giderler Satırı (3 Yeni Kutu) */}
+            {/* 2. Satır: Giderler Özeti */}
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Giderler (Aybaşından Bugüne)</span>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Faaliyet Giderleri (Dönem Toplamı)</span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3 bg-rose-50/60 rounded-xl border border-rose-200">
                   <span className="text-[10px] font-bold text-rose-700 uppercase">Nakit Gider</span>
@@ -1001,6 +1153,302 @@ export default function KasaMainDashboardPage() {
                   <p className="text-[9px] text-rose-800">Nakit + Banka/Kart Toplamı</p>
                 </div>
               </div>
+            </div>
+
+            {/* 3. Satır: Banka ve Düzeltmeler Özeti */}
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Banka ve Bakiye Düzeltme Özetleri</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-2.5 bg-purple-50/70 rounded-xl border border-purple-200">
+                  <span className="text-[10px] font-bold text-purple-800 uppercase">Toplam Banka Girişi</span>
+                  <div className="text-sm font-extrabold text-purple-900">+{formatTL(mtdData.total_bank_inflow_minor || 0)}</div>
+                  <p className="text-[9px] text-purple-600">Havale + POS + Yatırılanlar</p>
+                </div>
+
+                <div className="p-2.5 bg-rose-50/70 rounded-xl border border-rose-200">
+                  <span className="text-[10px] font-bold text-rose-800 uppercase">Toplam Banka Çıkışı</span>
+                  <div className="text-sm font-extrabold text-rose-900">-{formatTL(mtdData.total_bank_outflow_minor || 0)}</div>
+                  <p className="text-[9px] text-rose-600">Giderler + Transferler</p>
+                </div>
+
+                <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200">
+                  <span className="text-[10px] font-bold text-amber-800 uppercase">Net Bakiye Düzeltmeleri</span>
+                  <div className={`text-sm font-extrabold ${(mtdData.total_balance_adjustments_minor || 0) >= 0 ? 'text-amber-900' : 'text-rose-900'}`}>
+                    {(mtdData.total_balance_adjustments_minor || 0) >= 0 ? '+' : ''}
+                    {formatTL(mtdData.total_balance_adjustments_minor || 0)}
+                  </div>
+                  <p className="text-[9px] text-amber-600">Mutabakat Düzeltmeleri</p>
+                </div>
+
+                <div className="p-2.5 bg-blue-50/70 rounded-xl border border-blue-200">
+                  <span className="text-[10px] font-bold text-blue-800 uppercase">Bankalar Arası Transferler</span>
+                  <div className="text-sm font-extrabold text-blue-900">{formatTL(mtdData.total_interbank_transfers_minor || 0)}</div>
+                  <p className="text-[9px] text-blue-600">Hesaplar Arası Akış</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Bölüm: Havale / EFT ve Banka Hareketleri Detay Dökümü */}
+            <div className="pt-3 border-t border-slate-100 space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                {/* Sekmeler / Filtreler */}
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setMtdTypeFilter('all')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      mtdTypeFilter === 'all'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Tümü ({(mtdData.items || []).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMtdTypeFilter('transfer')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      mtdTypeFilter === 'transfer'
+                        ? 'bg-purple-700 text-white shadow-sm'
+                        : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
+                    }`}
+                  >
+                    Havale / EFT ({(mtdData.items || []).filter((i) => i.source_type === 'sale_transfer' || i.source_type === 'credit_transfer').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMtdTypeFilter('expense')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      mtdTypeFilter === 'expense'
+                        ? 'bg-rose-700 text-white shadow-sm'
+                        : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                    }`}
+                  >
+                    Banka Giderleri ({(mtdData.items || []).filter((i) => i.source_type === 'bank_expense' || i.source_type === 'ts_cost_payment').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMtdTypeFilter('adjustment')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      mtdTypeFilter === 'adjustment'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                    }`}
+                  >
+                    Bakiye Düzeltmeleri ({(mtdData.items || []).filter((i) => i.source_type === 'balance_adjustment').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMtdTypeFilter('deposit')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      mtdTypeFilter === 'deposit'
+                        ? 'bg-blue-700 text-white shadow-sm'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                    }`}
+                  >
+                    Transfer & Yatırma ({(mtdData.items || []).filter((i) => ['bank_deposit', 'interbank_transfer', 'owner_withdrawal', 'capital_injection'].includes(i.source_type)).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMtdTypeFilter('pos')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      mtdTypeFilter === 'pos'
+                        ? 'bg-sky-700 text-white shadow-sm'
+                        : 'bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200'
+                    }`}
+                  >
+                    POS / Kart ({(mtdData.items || []).filter((i) => i.source_type === 'pos_collection').length})
+                  </button>
+                </div>
+
+                {/* Arama Kutusu */}
+                <div className="w-full md:w-64">
+                  <input
+                    type="text"
+                    value={mtdSearch}
+                    onChange={(e) => setMtdSearch(e.target.value)}
+                    placeholder="Banka, açıklama, kullanıcı veya tutar ara..."
+                    className="w-full text-xs px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Detay Tablosu */}
+              {(() => {
+                const filteredItems = (mtdData.items || []).filter((item) => {
+                  if (mtdTypeFilter === 'transfer') {
+                    if (item.source_type !== 'sale_transfer' && item.source_type !== 'credit_transfer') return false;
+                  } else if (mtdTypeFilter === 'expense') {
+                    if (item.source_type !== 'bank_expense' && item.source_type !== 'ts_cost_payment') return false;
+                  } else if (mtdTypeFilter === 'adjustment') {
+                    if (item.source_type !== 'balance_adjustment') return false;
+                  } else if (mtdTypeFilter === 'deposit') {
+                    if (!['bank_deposit', 'interbank_transfer', 'owner_withdrawal', 'capital_injection'].includes(item.source_type)) return false;
+                  } else if (mtdTypeFilter === 'pos') {
+                    if (item.source_type !== 'pos_collection') return false;
+                  }
+
+                  if (mtdSearch.trim()) {
+                    const q = mtdSearch.toLowerCase();
+                    const matchBank = item.bank_name?.toLowerCase().includes(q) || item.account_name?.toLowerCase().includes(q);
+                    const matchDesc = item.description?.toLowerCase().includes(q);
+                    const matchUser = item.created_by_name?.toLowerCase().includes(q);
+                    const matchType = item.type_label?.toLowerCase().includes(q);
+                    const matchRef = item.reference_no?.toLowerCase().includes(q) || item.receipt_no?.toLowerCase().includes(q);
+                    const matchAmount = (item.amount_kurus / 100).toString().includes(q);
+                    return matchBank || matchDesc || matchUser || matchType || matchRef || matchAmount;
+                  }
+
+                  return true;
+                });
+
+                if (filteredItems.length === 0) {
+                  return (
+                    <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      <Info size={24} className="mx-auto text-slate-400 mb-1.5" />
+                      <p className="text-xs font-bold text-slate-600">Seçili filtrelere uygun banka veya havale/EFT hareketi bulunamadı.</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Farklı bir filtre seçebilir veya arama teriminizi değiştirebilirsiniz.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                          <th className="py-2.5 px-3">Tarih & Saat</th>
+                          <th className="py-2.5 px-3">Banka / Hesap</th>
+                          <th className="py-2.5 px-3">İşlem Türü</th>
+                          <th className="py-2.5 px-3">Açıklama / Referans</th>
+                          <th className="py-2.5 px-3 text-right">Tutar (Giriş / Çıkış)</th>
+                          <th className="py-2.5 px-3">İşlemi Yapan</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                        {filteredItems.map((item) => {
+                          const isIn = item.direction === 'in';
+                          return (
+                            <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <div className="font-bold text-slate-800">{item.date ? formatDateTR(item.date) : ''}</div>
+                                {item.time && <div className="text-[10px] text-slate-400">{item.time}</div>}
+                              </td>
+
+                              <td className="py-2.5 px-3">
+                                <div className="font-extrabold text-slate-900">{item.bank_name}</div>
+                                {item.account_name && item.account_name !== item.bank_name && (
+                                  <div className="text-[10px] text-slate-400">{item.account_name}</div>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                {item.source_type === 'sale_transfer' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                    Havale / EFT Satış
+                                  </span>
+                                )}
+                                {item.source_type === 'credit_transfer' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                    Havale / EFT Cari
+                                  </span>
+                                )}
+                                {item.source_type === 'bank_expense' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                    Banka Gideri
+                                  </span>
+                                )}
+                                {item.source_type === 'ts_cost_payment' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-100 text-orange-800 border border-orange-200">
+                                    Servis Maliyeti
+                                  </span>
+                                )}
+                                {item.source_type === 'balance_adjustment' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                    Bakiye Düzeltmesi
+                                  </span>
+                                )}
+                                {item.source_type === 'interbank_transfer' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                    Banka Transferi
+                                  </span>
+                                )}
+                                {item.source_type === 'bank_deposit' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    Kasadan Yatırma
+                                  </span>
+                                )}
+                                {item.source_type === 'owner_withdrawal' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                                    Şahsi Çekim
+                                  </span>
+                                )}
+                                {item.source_type === 'capital_injection' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
+                                    Sermaye Girişi
+                                  </span>
+                                )}
+                                {item.source_type === 'pos_collection' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-200">
+                                    POS / Kart
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3">
+                                <div className="text-slate-800 line-clamp-2">{item.description}</div>
+                                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                  {item.receipt_no && (
+                                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                                      Fiş: {item.receipt_no}
+                                    </span>
+                                  )}
+                                  {item.reference_no && item.reference_no !== item.bank_name && (
+                                    <span className="text-[10px] text-slate-400">Ref: {item.reference_no}</span>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                <span className={`font-extrabold text-sm ${isIn ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                  {isIn ? '+' : '-'}{formatTL(item.amount_kurus)}
+                                </span>
+                              </td>
+
+                              <td className="py-2.5 px-3 whitespace-nowrap text-slate-600">
+                                <span className="font-semibold">{item.created_by_name}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-50/80 font-extrabold text-xs text-slate-700 border-t border-slate-200">
+                          <td colSpan={4} className="py-2.5 px-3">
+                            Listelenen Toplam: <span className="text-indigo-600">{filteredItems.length}</span> kayıt
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <span className="text-emerald-700">
+                              +
+                              {formatTL(
+                                filteredItems.filter((i) => i.direction === 'in').reduce((acc, i) => acc + i.amount_kurus, 0)
+                              )}
+                            </span>
+                            <span className="text-slate-300 mx-1">/</span>
+                            <span className="text-rose-700">
+                              -
+                              {formatTL(
+                                filteredItems.filter((i) => i.direction === 'out').reduce((acc, i) => acc + i.amount_kurus, 0)
+                              )}
+                            </span>
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
